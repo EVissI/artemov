@@ -1,0 +1,17 @@
+<!-- @dsCard group="Навигация" height=170 -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Header - превью</title>
+<style>html,body{margin:0}body{background:var(--surface);color:var(--ink);font-family:var(--font-sans)}#root{padding:24px}#root{padding:0}</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+var A = window.AA, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', { style: { display: 'grid', gap: 12 } },
+  h(A.Header, { fixed: false, theme: 'other', nav: [{"id": "about", "label": "Обо мне"}, {"id": "services", "label": "Услуги"}, {"id": "works", "label": "Работы"}, {"id": "cases", "label": "Кейсы"}, {"id": "contact", "label": "Связь"}], active: 'works' }),
+  h('div', { className: 'aa-wallpaper' }, h(A.Header, { fixed: false, theme: 'fog', nav: [{"id": "about", "label": "Обо мне"}, {"id": "services", "label": "Услуги"}, {"id": "works", "label": "Работы"}, {"id": "cases", "label": "Кейсы"}, {"id": "contact", "label": "Связь"}], active: 'about' }))
+));
+</script>
+</body>
+</html>

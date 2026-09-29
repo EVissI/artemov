@@ -1,0 +1,56 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>AA - Два мира</title>
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--surface); color:var(--ink); font-family:var(--font-sans); overflow:hidden; }
+  .cover { position:relative; width:960px; height:288px; overflow:hidden; }
+  .art { position:absolute; top:0; left:480px; width:480px; height:288px; overflow:hidden; }
+  .art svg { display:block; width:480px; height:288px; }
+  .paper { fill:var(--paper); }
+  .slab { fill:var(--ink); }
+  .raised { fill:var(--surface-raised); }
+  .bloom { fill:var(--bloom); }
+  .siren { fill:var(--siren); }
+  .tile { fill:var(--tile); rx:var(--radius-none); }
+  .words { position:absolute; left:var(--space-6); bottom:var(--space-6); max-width:440px; }
+  .name { margin:0; font-family:var(--font-display); font-weight:700; font-size:64px; line-height:.95; letter-spacing:-.01em; color:var(--ink); }
+  .tag { margin:var(--space-3) 0 0 2px; font-size:14px; line-height:20px; color:var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 288" width="480" height="288">
+<!--
+  blocks      paper 176×224 (wallpaper, Мир 1) · ink slab 256 wide bleeding top, bottom and right (void/ash - the ink of each world) · surface-raised 96×64 cut into the slab (a note / a poster plate) · bloom 48×24 once · siren disc r=8 once (it only ever means REC)
+  arrangement two worlds side by side: the paper block on the left, the slab on the right with a torn left edge - the rift between them
+  pattern     tiles, from "кафель госпиталя" and the square system: space-5 (24px) squares at a 24px pitch with a 2px seam, cut into the paper block, thinning toward the tear; three strays fall into the slab as surface-raised
+  scales      sides in space-2/space-5 multiples; gutters space-4; tile pitch space-5; corners radius-none everywhere, the siren disc radius-round
+-->
+<rect class="paper" x="16" y="40" width="176" height="224"/>
+<polygon class="slab" points="224,-8 488,-8 488,296 224,296 232,272 218,248 230,222 216,196 228,170 214,144 226,118 212,92 224,66 210,40 222,14"/>
+<rect class="raised" x="304" y="176" width="96" height="64"/>
+<rect class="bloom" x="16" y="16" width="48" height="16"/>
+<circle class="siren" cx="440" cy="32" r="8"/>
+<g>
+  <rect class="tile" x="26" y="50" width="22" height="22"/><rect class="tile" x="50" y="50" width="22" height="22"/><rect class="tile" x="74" y="50" width="22" height="22"/><rect class="tile" x="98" y="50" width="22" height="22"/><rect class="tile" x="122" y="50" width="22" height="22"/>
+  <rect class="tile" x="26" y="74" width="22" height="22"/><rect class="tile" x="50" y="74" width="22" height="22"/><rect class="tile" x="74" y="74" width="22" height="22"/><rect class="tile" x="98" y="74" width="22" height="22"/>
+  <rect class="tile" x="26" y="98" width="22" height="22"/><rect class="tile" x="50" y="98" width="22" height="22"/><rect class="tile" x="74" y="98" width="22" height="22"/><rect class="tile" x="122" y="98" width="22" height="22"/>
+  <rect class="tile" x="26" y="122" width="22" height="22"/><rect class="tile" x="50" y="122" width="22" height="22"/><rect class="tile" x="98" y="122" width="22" height="22"/>
+  <rect class="tile" x="26" y="146" width="22" height="22"/><rect class="tile" x="74" y="146" width="22" height="22"/>
+  <rect class="tile" x="26" y="170" width="22" height="22"/><rect class="tile" x="50" y="194" width="22" height="22"/>
+  <rect class="raised" x="246" y="120" width="22" height="22"/><rect class="raised" x="258" y="160" width="14" height="14"/><rect class="raised" x="276" y="210" width="10" height="10"/>
+</g>
+</svg>
+</div>
+<div class="words">
+  <p class="name">AA -<br>Два мира</p>
+  <p class="tag">Туман и потусторонний: система сайта видеомонтажёра.</p>
+</div>
+</div>
+</body>
+</html>

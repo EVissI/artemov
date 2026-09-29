@@ -1,0 +1,17 @@
+<!-- @dsCard group="Действия" height=200 -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Button - превью</title>
+<style>html,body{margin:0}body{background:var(--surface);color:var(--ink);font-family:var(--font-sans)}#root{padding:24px}</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+var A = window.AA, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', { style: { display: 'grid', gap: 16 } },
+  h('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } }, h(A.Button, { variant: 'siren' }, 'Написать'), h(A.Button, { variant: 'outline', arrow: '↓' }, 'Смотреть работы'), h(A.Button, { variant: 'siren', disabled: true }, 'Передача…')),
+  h('div', { 'data-theme': 'other', style: { display: 'flex', gap: 12, flexWrap: 'wrap', background: 'var(--surface)', padding: 16 } }, h(A.Button, { variant: 'siren', arrow: '→' }, 'Отправить'), h(A.Button, { variant: 'outline' }, 'Передать ещё'))
+));
+</script>
+</body>
+</html>

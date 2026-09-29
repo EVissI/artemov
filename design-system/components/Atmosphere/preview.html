@@ -1,0 +1,17 @@
+<!-- @dsCard group="Эффекты" height=220 subtitle="Зерно, сканлайны, виньетка поверх фактур обоев и металла" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Atmosphere - превью</title>
+<style>html,body{margin:0}body{background:var(--surface);color:var(--ink);font-family:var(--font-sans)}#root{padding:24px}</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+var A = window.AA, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 } },
+  h('div', { className: 'aa-wallpaper', style: { position: 'relative', height: 170 } }, h(A.Atmosphere, { fixed: false })),
+  h('div', { className: 'aa-metal', style: { position: 'relative', height: 170 } }, h(A.Atmosphere, { fixed: false }))
+));
+</script>
+</body>
+</html>

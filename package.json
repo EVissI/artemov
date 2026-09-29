@@ -1,0 +1,21 @@
+{
+  "name": "artemov",
+  "private": true,
+  "type": "module",
+  "description": "Сайт-портфолио Артема Артемова: лендинг, бэкенд и админка-лендинг",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node server/server.mjs",
+    "dev": "node scripts/build.mjs && node server/server.mjs",
+    "admin:info": "node server/cli.mjs info",
+    "admin:password": "node server/cli.mjs password",
+    "admin:path": "node server/cli.mjs path",
+    "build:pages": "node scripts/build.mjs && node scripts/pages.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

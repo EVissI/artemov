@@ -1,0 +1,20 @@
+<!-- @dsCard group="Формы" height=720 subtitle="Отправьте пустую форму - увидите ошибки; имя «ошибка» - отказ" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Transmitter - превью</title>
+<style>html,body{margin:0}body{background:var(--void);color:var(--ink);font-family:var(--font-sans)}#root{padding:24px}</style>
+</head>
+<body data-theme="other">
+<div id="root"></div>
+<script>
+var A = window.AA, h = React.createElement;
+var CT = {"kicker": "Эфир открыт", "title": "Передать сигнал", "lead": "Опиши, что нужно смонтировать. Отвечу в Telegram или на почту.", "frequency": "Частота 104.7 · Канал AA", "fields": {"name": {"label": "Имя", "placeholder": "Как к тебе обращаться"}, "contact": {"label": "Telegram или email", "placeholder": "@username или mail@example.com"}, "message": {"label": "Что нужно смонтировать", "placeholder": "Формат, объём, сроки, ссылки на исходники"}}, "submitLabel": "Отправить", "sendingLabel": "Передача…", "successTitle": "Сигнал принят", "successText": "Сообщение дошло. Отвечу в течение суток.", "successAgain": "Передать ещё", "errorText": "Помехи на линии: сигнал не прошёл. Попробуй ещё раз или напиши в Telegram.", "telegram": "@username", "channels": [{"id": "tg", "label": "Telegram", "value": "@username", "url": "https://t.me/username"}, {"id": "yt", "label": "YouTube", "value": "[канал]", "url": ""}, {"id": "ig", "label": "Instagram", "value": "[профиль]", "url": ""}, {"id": "mail", "label": "Почта", "value": "[mail@example.com]", "url": ""}], "asideNote": "Ответ обычно в течение суток"};
+function Demo() {
+  return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24, alignItems: 'start' } },
+    h(A.Transmitter, { contact: CT, onSubmit: function () { return new Promise(function (r) { setTimeout(r, 1200); }); } }),
+    h(A.Transmitter, { contact: CT, initialState: 'success' }));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<!-- @dsCard group="Данные" height=680 subtitle="Наведите на строку - статика и глитч" -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Tracklist - превью</title>
+<style>html,body{margin:0}body{background:var(--surface);color:var(--ink);font-family:var(--font-sans)}#root{padding:24px}#root{padding:0}</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+var A = window.AA, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'aa-tiles', style: { padding: 24 } }, h(A.Tracklist, { items: [{"id": "youtube", "title": "YouTube-ролики", "text": "Сюжет, темп, удержание: длинные видео, которые смотрят до конца.", "timecode": "12:40"}, {"id": "shorts", "title": "Reels / Shorts", "text": "Вертикальные ролики с крючком в первые две секунды.", "timecode": "00:59"}, {"id": "promo", "title": "Промо и реклама", "text": "Рекламные ролики и тизеры под бренд и площадку.", "timecode": "00:30"}, {"id": "color-sound", "title": "Цветокоррекция и звук", "text": "Единый цвет, чистый голос, сведение музыки и эффектов.", "timecode": "03:33"}, {"id": "branding", "title": "Превью и оформление канала", "text": "Обложки, заставки, плашки и шапка - канал в одном стиле.", "timecode": "01:13"}] })));
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# зависимости
+node_modules/
+
+# живые данные сервера: пароль, контент, заявки, загрузки (никогда не в гит - там персональные данные)
+data/
+
+# сборки (собираются npm run build / npm run build:pages и в GitHub Actions)
+site/
+site-admin/
+dist/
+
+# локальные бэкапы дизайна
+backup/
+
+# окружение и секреты
+.env
+.env.*
+
+# локальные настройки Claude Code (launch.json оставляем)
+.claude/settings.local.json
+
+# системный мусор и логи
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+npm-debug.log*

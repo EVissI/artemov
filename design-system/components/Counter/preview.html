@@ -1,0 +1,17 @@
+<!-- @dsCard group="Данные" height=360 -->
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Counter - превью</title>
+<style>html,body{margin:0}body{background:var(--surface);color:var(--ink);font-family:var(--font-sans)}#root{padding:24px}#root{padding:0}</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+var A = window.AA, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'aa-wallpaper', style: { padding: 24 } }, h('div', { className: 'aa-counters', style: { maxWidth: 520 } },
+  h(A.Counter, { value: 5, label: 'лет в монтаже' }), h(A.Counter, { value: 400, suffix: '+', label: 'роликов' }),
+  h(A.Counter, { value: 30, suffix: 'млн', label: 'просмотров' }), h(A.Counter, { value: null, display: '∞', label: 'правок до идеала' })
+)));
+</script>
+</body>
+</html>
