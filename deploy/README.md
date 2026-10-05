@@ -4,6 +4,12 @@
 
 ## Первый запуск
 
+`deploy/nginx/conf.d/site.conf` - боевой HTTPS-конфиг для `temak1n-portfolio.xyz`, без сертификата nginx с ним не стартует. На новом сервере сначала подложить HTTP-версию (не коммитить):
+
+```bash
+cp deploy/nginx/site-http.conf.example deploy/nginx/conf.d/site.conf
+```
+
 ```bash
 docker compose up -d --build
 ```
@@ -33,10 +39,10 @@ docker compose exec app node server/cli.mjs password НОВЫЙ_ПАРОЛЬ
 1. Получить сертификат (подставить домен и почту):
 
 ```bash
-docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d example.ru -d www.example.ru --email you@example.ru --agree-tos --no-eff-email
+docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d temak1n-portfolio.xyz -d www.temak1n-portfolio.xyz --register-unsafely-without-email --agree-tos
 ```
 
-2. Скопировать `deploy/nginx/site-https.conf.example` в `deploy/nginx/conf.d/site.conf` (вместо старого). Он настроен на `temak1n-portfolio.xyz`: http и www редиректятся (301) на `https://temak1n-portfolio.xyz`. Для другого домена - заменить его в файле и `SITE_URL` в `docker-compose.yml`.
+2. Вернуть HTTPS-конфиг из гита: `git checkout deploy/nginx/conf.d/site.conf`. Он настроен на `temak1n-portfolio.xyz`: http, www и заход по IP редиректятся (301) на `https://temak1n-portfolio.xyz`. Для другого домена - заменить его в файле и `SITE_URL` в `docker-compose.yml`.
 
 3. Перечитать конфиг:
 
@@ -44,7 +50,7 @@ docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d exampl
 docker compose exec nginx nginx -s reload
 ```
 
-Сертификат живёт 90 дней. Продление (поставить в cron раз в неделю):
+Сертификат живёт 90 дней. Продление (на проде уже стоит в `/etc/cron.d/artemov-certbot`, раз в неделю):
 
 ```bash
 docker compose run --rm certbot renew && docker compose exec nginx nginx -s reload

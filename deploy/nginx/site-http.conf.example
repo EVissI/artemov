@@ -1,0 +1,11 @@
+# Только HTTP - для первого запуска на новом сервере, пока нет сертификата: положить вместо conf.d/site.conf (см. deploy/README.md).
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+
+    # проверка домена для Let's Encrypt
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+
+    include /etc/nginx/conf.d/proxy.inc;
+}
