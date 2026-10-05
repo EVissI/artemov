@@ -14,17 +14,19 @@ cp deploy/nginx/site-http.conf.example deploy/nginx/conf.d/site.conf
 docker compose up -d --build
 ```
 
-Сайт откроется по `http://<адрес сервера>/`. Путь админки и пароль печатаются при первом запуске:
-
-```bash
-docker compose logs app
-```
-
-Позже путь можно посмотреть так, а пароль сменить следующей командой:
+Сайт откроется по `http://<адрес сервера>/`. Путь админки - в логах (`docker compose logs app`) или так:
 
 ```bash
 docker compose exec app node server/cli.mjs info
 ```
+
+Пароль в логи не пишется. Сразу задать новый случайный (печатается один раз, сохранить; файл первого пароля `/data/admin-password.txt` удаляется) и перезапустить:
+
+```bash
+docker compose exec app node server/cli.mjs password && docker compose restart app
+```
+
+Свой пароль (останется в истории shell - лучше случайный):
 
 ```bash
 docker compose exec app node server/cli.mjs password НОВЫЙ_ПАРОЛЬ

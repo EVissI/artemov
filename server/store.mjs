@@ -53,7 +53,10 @@ export function normalizeAdminPath(p) {
   return p;
 }
 
-/** Загружает конфиг; при первом запуске создаёт путь, пароль и ключ. Возвращает { config, firstRun: { password } | null } */
+// пароль первого запуска: в лог не пишется, лежит в этом файле (только для владельца) до первой смены пароля
+export const PASSWORD_FILE = () => file('admin-password.txt');
+
+/** Загружает конфиг; при первом запуске создаёт путь, пароль (в PASSWORD_FILE) и ключ. Возвращает { config, firstRun: { passwordFile } | null } */
 export function loadConfig() {
   ensureDirs();
   const p = file('config.json');
@@ -61,7 +64,9 @@ export function loadConfig() {
   if (!cfg) {
     const password = crypto.randomBytes(12).toString('base64url');
     cfg = { adminPath: '/' + randomSlug(), passwordHash: hashPassword(password), secret: crypto.randomBytes(32).toString('hex'), createdAt: new Date().toISOString() };
-    writeJson(p, cfg); firstRun = { password };
+    writeJson(p, cfg);
+    fs.writeFileSync(PASSWORD_FILE(), password + '\n', { mode: 0o600 });
+    firstRun = { passwordFile: PASSWORD_FILE() };
   }
   // переменные окружения сильнее файла
   if (process.env.ADMIN_PATH) cfg.adminPath = normalizeAdminPath(process.env.ADMIN_PATH);

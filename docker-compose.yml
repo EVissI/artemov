@@ -1,6 +1,6 @@
 # Запуск: docker compose up -d --build
 # Сайт - http://<сервер>/ (nginx на 80 и 443 -> app:3000). Данные - в томе aa-data (бэкап - см. deploy/README.md).
-# Путь админки и пароль: docker compose logs app (печатаются при первом запуске) или docker compose exec app node server/cli.mjs info
+# Путь админки: docker compose exec app node server/cli.mjs info. Пароль в логи не пишется: новый - docker compose exec app node server/cli.mjs password
 services:
   app:
     build: .
@@ -8,7 +8,7 @@ services:
     environment:
       TRUST_PROXY: "1"            # IP посетителя и https берутся из заголовков nginx
       SITE_URL: "https://temak1n-portfolio.xyz"   # каноничный домен (<link rel="canonical">), www и http nginx редиректит сюда
-      # ADMIN_PASSWORD: ""        # задать свой пароль админки (иначе случайный, в логах первого запуска)
+      # ADMIN_PASSWORD: ""        # задать свой пароль админки (иначе случайный, в /data/admin-password.txt до первой смены)
       # ADMIN_PATH: ""            # свой секретный путь админки
       # SESSION_SECRET: ""
     volumes:

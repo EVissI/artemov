@@ -23,7 +23,7 @@
 
 ## Запуск
 - `npm install` (один раз, ставит esbuild), `npm run build`, `npm start` → сайт на `http://127.0.0.1:3000/`.
-- Первый запуск печатает путь админки и случайный пароль. `npm run admin:info` - путь, `npm run admin:password -- <пароль>` - сменить пароль (сессии сбрасываются), `npm run admin:path` - новый случайный путь.
+- Первый запуск печатает путь админки; случайный пароль в лог НЕ пишется (не возвращать) - лежит в `data/admin-password.txt` (0600), файл удаляется при смене пароля. `npm run admin:info` - путь, `npm run admin:password` - новый случайный пароль (печатается один раз в терминал), `npm run admin:password -- <пароль>` - свой (сессии сбрасываются, нужен перезапуск сервера), `npm run admin:path` - новый случайный путь.
 - Окружение: `PORT`, `HOST` (по умолчанию 127.0.0.1), `DATA_DIR`, `ADMIN_PATH`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `TRUST_PROXY=1` (за nginx: IP и https из X-Forwarded-*), `COOKIE_SECURE=1`, `SITE_URL` (каноничный адрес без слэша в конце - `<link rel="canonical">` на `/`, `/privacy`, `/consent`), `MAX_UPLOAD_MB` (видео, 1024), `MAX_IMAGE_MB` (25), `FFMPEG_PATH` / `FFPROBE_PATH` (по умолчанию из PATH), `IMAGE_MAX_PX` (2560), `VIDEO_MAX_PX` (1080).
 
 ## GitHub Pages (статичная версия)

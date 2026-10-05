@@ -317,8 +317,8 @@ function pruneOldLeads() {
 pruneOldLeads();
 setInterval(pruneOldLeads, 24 * 3600e3).unref();
 
-// пароль первого запуска печатаем сразу: даже если порт занят, он уже записан в data/config.json
-if (firstRun) console.log(`\nПервый запуск. Пароль админки: ${firstRun.password}\nСохрани его - больше он не покажется. Сменить: npm run admin:password -- <новый>\n`);
+// сам пароль в лог не пишем (логи видят докер, хостинг, мониторинг) - только где он лежит
+if (firstRun) console.log(`\nПервый запуск. Пароль админки - в файле ${firstRun.passwordFile} (удалится при смене пароля).\nСменить: npm run admin:password\n`);
 
 const server = http.createServer((req, res) => {
   handle(req, res).catch((err) => {
