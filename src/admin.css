@@ -290,3 +290,179 @@ select.aa-ed-input { appearance: auto; }
 .aa-ed-note--tight { margin: 0; font-size: 12px; }
 .aa-ed-bulk { display: grid; gap: 8px; margin-bottom: 14px; padding: 10px; border: 1px dashed var(--line); }
 .aa-ed-bulk .aa-ed-note { margin: 0; }
+
+
+/* =====================================================================================================
+   ПУЛЬТ на языке UI SH2 - как сам сайт (бэкап до - backup/design-2026-10-05-admin/).
+   Times капсом, серые оттенки, тёмные полупрозрачные панели с тонким кантом, красный - точечно:
+   рваный мазок brush.webp под «Сохранить» и «Войти», рваная линия line.webp под заголовками, метки ошибок.
+   Персиковых рамок и заливок больше нет. Анимации - только opacity/transform.
+   ===================================================================================================== */
+.aa-ed-app, .aa-ed-login, .aa-ed-panel, .aa-ed-dockwrap {
+  --ui-text: #b3b3b3; --ui-hi: #f2f2f2; --ui-dim: #7d7d7d; --ui-rim: rgba(227,227,227,.16); --ui-rim2: rgba(227,227,227,.32);
+  --ui-panel: rgba(14,13,12,.94); --ui-red: #b3261e;
+  --ui-brush: url("/assets/tex/brush.webp"); --ui-line: url("/assets/tex/line.webp");
+}
+
+/* ---------- общие кнопки пульта: текст Times капсом, без заливок; наведение - белый текст и светлый кант ---------- */
+.aa-ed-btn, .aa-ed-tool, .aa-ed-seg button, .aa-ed-slot__btn, .aa-ed-add button, .aa-ed-section {
+  font-family: var(--font-serif); font-weight: 400; text-transform: uppercase; border-radius: 2px;
+}
+.aa-ed-btn { font-size: 13px; letter-spacing: .16em; color: var(--ui-hi); background: rgba(255,255,255,.06); border: 1px solid var(--ui-rim2); padding: 9px 14px; transition: color .2s, border-color .2s, background-color .2s; }
+.aa-ed-btn:hover { background: rgba(255,255,255,.12); border-color: rgba(227,227,227,.55); }
+.aa-ed-btn--sm { font-size: 12px; padding: 7px 10px; }
+.aa-ed-btn--ghost { background: transparent; color: var(--ui-text); border-color: var(--ui-rim); }
+.aa-ed-btn--ghost:hover { background: rgba(255,255,255,.05); color: var(--ui-hi); border-color: var(--ui-rim2); }
+.aa-ed-btn--danger { background: rgba(179,38,30,.18); border-color: var(--ui-red); color: var(--ui-hi); }
+.aa-ed-btn--danger:hover { background: rgba(179,38,30,.35); border-color: #d23a30; }
+.aa-ed-tool { font-size: 13px; letter-spacing: .06em; color: var(--ui-text); background: rgba(14,13,12,.92); border: 1px solid var(--ui-rim2); }
+.aa-ed-tool:hover:not(:disabled) { background: rgba(14,13,12,.92); color: var(--ui-hi); border-color: rgba(227,227,227,.6); }
+.aa-ed-tool--wide { font-size: 11px; }
+.aa-ed-tool--wide.is-off { background: rgba(179,38,30,.25); color: var(--ui-hi); border-color: var(--ui-red); }
+.aa-ed-badge { background: var(--ui-red); color: #fff; font-family: var(--font-serif); border-radius: 9px; }
+.aa-ed-btn:focus-visible, .aa-ed-tool:focus-visible, .aa-ed-section:focus-visible, .aa-ed-seg button:focus-visible, .aa-ed-slot__btn:focus-visible, .aa-ed-add button:focus-visible {
+  outline: 2px solid var(--ui-hi); outline-offset: 2px;
+}
+
+/* «Сохранить» - главная кнопка, как «Отправить» на сайте: Times на рваном мазке тёмно-красной краски */
+.aa-ed-dock .aa-btn--siren.aa-ed-save { isolation: isolate; min-height: 0; padding: 10px 26px 10px 18px; border: 0; background: none; box-shadow: none;
+  font-family: var(--font-serif); font-size: 15px; font-weight: 400; letter-spacing: .16em; color: var(--ui-hi); }
+.aa-ed-dock .aa-btn--siren.aa-ed-save::before { content: ""; position: absolute; z-index: -1; inset: -3px -8px -3px -6px; pointer-events: none;
+  background: var(--ui-brush) left center / 100% 100% no-repeat; opacity: .95; transition: opacity .2s, transform .3s; transform-origin: left center; }
+.aa-ed-dock .aa-btn--siren.aa-ed-save:hover { transform: none; box-shadow: none; }
+.aa-ed-dock .aa-btn--siren.aa-ed-save:hover::before { transform: scaleX(1.05); }
+.aa-ed-dock .aa-btn--siren.aa-ed-save[disabled] { color: var(--ui-dim); opacity: 1; cursor: default; }
+.aa-ed-dock .aa-btn--siren.aa-ed-save[disabled]::before { opacity: .22; transform: none; }
+
+/* ---------- пульт внизу: тёмная панель с тонким кантом, как корпус радио ---------- */
+.aa-ed-dock, .aa-ed-more__menu { background: var(--ui-panel); color: var(--ui-text); border: 1px solid var(--ui-rim); border-radius: 6px;
+  box-shadow: inset 0 0 0 4px var(--ui-panel), inset 0 0 0 5px rgba(255,255,255,.04), 0 18px 40px rgba(0,0,0,.7);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.aa-ed-dock { padding: 8px 12px 8px 16px; }
+.aa-ed-dock .aa-mono { color: #d9d4cf; }
+.aa-ed-seg { border: 1px solid var(--ui-rim); border-radius: 2px; }
+.aa-ed-seg button { font-size: 12px; letter-spacing: .16em; color: var(--ui-dim); position: relative; }
+.aa-ed-seg button:hover { color: var(--ui-hi); }
+.aa-ed-seg button[aria-pressed="true"] { background: rgba(255,255,255,.08); color: var(--ui-hi); }
+.aa-ed-seg button[aria-pressed="true"]::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 1px; height: 5px; background: var(--ui-line) left center / 100% 5px no-repeat; }
+.aa-ed-dock > .aa-ed-status { font-family: var(--font-serif); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--ui-dim); }
+.aa-ed-status.is-ok { color: var(--ui-text); }
+.aa-ed-status.is-err { color: var(--ui-hi); }
+
+/* ---------- кнопка секции «✎ Секция» ---------- */
+.aa-ed-section { font-size: 12px; letter-spacing: .18em; color: var(--ui-text); background: var(--ui-panel); border: 1px solid var(--ui-rim2); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+.aa-ed-section:hover, .aa-ed-section:focus-visible { background: var(--ui-panel); color: var(--ui-hi); border-color: rgba(227,227,227,.6); }
+
+/* ---------- редактируемый текст: светлый пунктир вместо персикового ---------- */
+.aa-ed-text { outline-color: rgba(227,227,227,.22); }
+[data-theme="fog"] .aa-ed-text { outline-color: rgba(227,227,227,.22); }
+.aa-ed-text:hover { outline-color: rgba(227,227,227,.6); }
+.aa-ed-text:focus, [data-theme="fog"] .aa-ed-text:focus { outline: 1px solid rgba(227,227,227,.85); background: rgba(255,255,255,.06); }
+.aa-ed-text--ph, [data-theme="fog"] .aa-ed-text--ph { text-decoration-color: rgba(201,48,42,.75); }
+/* текст на светлой бумаге журнала */
+.aa-jr__page .aa-ed-text { outline-color: rgba(30,24,20,.3); }
+.aa-jr__page .aa-ed-text:hover { outline-color: rgba(30,24,20,.6); }
+.aa-jr__page .aa-ed-text:focus { outline-color: rgba(30,24,20,.8); background: rgba(30,24,20,.06); }
+.aa-jr__page .aa-ed-text--ph { text-decoration-color: rgba(179,38,30,.7); }
+
+/* ---------- слоты медиа: серые штрихи и кант, метка - тёмная плашка ---------- */
+.aa-ed-slot { color: var(--ui-text); font-family: var(--font-serif); }
+.aa-ed-slot:not(.is-filled) { background: repeating-linear-gradient(-45deg, rgba(227,227,227,.07) 0 10px, rgba(12,10,9,.6) 10px 20px); outline: 1px dashed var(--ui-rim2); outline-offset: -7px; }
+.aa-ed-slot__glow { box-shadow: inset 0 0 0 1px rgba(227,227,227,.5), inset 0 0 38px rgba(227,227,227,.18); }
+.aa-ed-slot.is-filled { outline: 1px dashed var(--ui-rim2); }
+.aa-ed-slot.is-drag { outline: 1px solid var(--ui-hi); }
+.aa-ed-slot.is-drag::before { background: rgba(255,255,255,.1); }
+.aa-ed-slot:focus-visible { outline: 2px solid var(--ui-hi); }
+.aa-ed-slot__tag { background: rgba(14,13,12,.92); color: var(--ui-text); border: 1px solid var(--ui-rim); font-family: var(--font-serif); font-size: 11px; letter-spacing: .18em; }
+.aa-ed-slot__lbl { font-size: 13px; letter-spacing: .16em; }
+.aa-ed-slot__hint { font-size: 12px; letter-spacing: .08em; text-transform: none; color: var(--ui-dim); opacity: 1; }
+.aa-ed-slot__btn { font-size: 11px; letter-spacing: .14em; background: rgba(14,13,12,.92); color: var(--ui-text); border: 1px solid var(--ui-rim2); }
+.aa-ed-slot__btn:hover { background: rgba(14,13,12,.92); color: var(--ui-hi); border-color: rgba(227,227,227,.6); }
+.aa-ed-slot__err { background: rgba(14,13,12,.92); font-family: var(--font-serif); font-size: 12px; }
+.aa-ed-slot__track { background: rgba(227,227,227,.15); }
+.aa-ed-slot__bar { background: var(--ui-hi); }
+.aa-ed-slot--compact, .aa-ed-slot--compact:not(.is-filled) { background: rgba(14,13,12,.92); outline: 1px dashed var(--ui-rim2); }
+.aa-ed-slot--compact.is-filled { outline: 1px solid var(--ui-rim); }
+.aa-ed-slot--compact .aa-ed-slot__lbl { font-size: 11px; }
+.aa-ed-slot--compact .aa-ed-slot__btn { font-size: 10px; }
+
+/* ---------- «добавить»: пунктирный слот как пустая ячейка инвентаря ---------- */
+.aa-ed-add button { font-size: 13px; letter-spacing: .18em; color: var(--ui-dim); border: 1px dashed var(--ui-rim2); opacity: 1; background: rgba(14,13,12,.5); }
+.aa-ed-add button:hover, .aa-ed-add button:focus-visible { color: var(--ui-hi); border-color: rgba(227,227,227,.6); background: rgba(14,13,12,.7); }
+.aa-ed-add--work button, .aa-ed-add--case button, .aa-ed-add--service button, .aa-ed-add--paragraph button { color: var(--ui-dim); }
+.aa-inv__slot--add .aa-ed-add, .aa-inv__slot--add .aa-ed-add button { width: 100%; height: 100%; }
+.aa-inv__slot--add .aa-ed-add button { padding: 0; font-size: 22px; letter-spacing: 0; border: 0; background: transparent; }
+
+/* ---------- боковая панель: тёмный документ, заголовок с рваной красной линией ---------- */
+.aa-ed-panel { background: #0e0d0c; color: var(--ui-text); border-left: 1px solid var(--ui-rim); box-shadow: -24px 0 50px rgba(0,0,0,.6); font-family: var(--font-serif); }
+.aa-ed-panel__h { position: relative; background: #0a0908; border-bottom: 1px solid var(--ui-rim); padding: 16px 16px 18px; }
+.aa-ed-panel__h::after { content: ""; position: absolute; left: 16px; width: min(220px, 50%); bottom: 4px; height: 7px; background: var(--ui-line) left center / 100% 7px no-repeat; }
+.aa-ed-panel__h h2 { font-family: var(--font-serif); font-size: 17px; font-weight: 400; letter-spacing: .18em; text-transform: uppercase; color: var(--ui-hi); }
+.aa-ed-panel .aa-label, .aa-ed-panel .aa-micro { font-family: var(--font-serif); }
+.aa-ed-field__l { font-family: var(--font-serif); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--ui-dim); }
+.aa-ed-field__ph { font-family: var(--font-serif); font-size: 11px; color: #c9302a; }
+.aa-ed-field__err { font-family: var(--font-serif); font-size: 13px; color: var(--ui-hi); }
+.aa-ed-input { font-family: var(--font-serif); font-size: 16px; color: var(--ui-hi); background: #0a0908; border: 1px solid var(--ui-rim); border-radius: 2px; }
+.aa-ed-input:focus { border-color: rgba(227,227,227,.6); box-shadow: 0 0 0 1px rgba(227,227,227,.25); }
+.aa-ed-input--sm { font-family: var(--font-serif); font-size: 14px; }
+.aa-ed-input::placeholder { color: #5f5f5f; }
+.aa-ed-check { font-size: 15px; color: var(--ui-text); }
+.aa-ed-check input { accent-color: #b3b3b3; }
+.aa-ed-check small, .aa-ed-note { color: var(--ui-dim); }
+.aa-ed-note { font-size: 14px; }
+.aa-ed-group { position: relative; font-family: var(--font-serif); font-size: 14px; font-weight: 400; letter-spacing: .2em; text-transform: uppercase; color: var(--ui-hi);
+  border-top: 1px solid var(--ui-rim); padding-top: 16px; padding-bottom: 10px; }
+.aa-ed-group::after { content: ""; position: absolute; left: 0; width: 140px; bottom: 0; height: 6px; background: var(--ui-line) left center / 100% 6px no-repeat; opacity: .8; }
+.aa-ed-list__row--obj { border: 1px solid var(--ui-rim); background: rgba(255,255,255,.02); border-radius: 2px; }
+.aa-ed-list--nested .aa-ed-list__row--obj { background: rgba(255,255,255,.03); }
+.aa-ed-media { border: 1px dashed var(--ui-rim2); background: rgba(10,9,8,.6); border-radius: 2px; }
+.aa-ed-media.is-drag { background: rgba(255,255,255,.06); }
+.aa-ed-media__pv { background: #0a0908; border: 1px solid var(--ui-rim); }
+.aa-ed-media__empty { font-family: var(--font-serif); font-size: 11px; color: var(--ui-dim); }
+
+/* заявки - как записи в журнале */
+.aa-ed-lead { border: 1px solid var(--ui-rim); background: rgba(255,255,255,.02); border-radius: 2px; }
+.aa-ed-lead.is-new { border-color: var(--ui-rim2); box-shadow: inset 3px 0 0 var(--ui-red); }
+.aa-ed-lead__h { color: var(--ui-dim); }
+.aa-ed-lead__n { font-family: var(--font-serif); font-weight: 400; font-size: 20px; letter-spacing: .08em; color: var(--ui-hi); }
+.aa-ed-lead__c { font-family: var(--font-serif); font-size: 15px; }
+.aa-ed-lead__c a { color: var(--ui-text); }
+.aa-ed-lead__c a:hover { color: var(--ui-hi); }
+.aa-ed-lead__m { font-size: 16px; color: var(--ui-text); }
+.aa-ed-lead__consent { border-left-color: var(--ui-rim2); color: var(--ui-dim); }
+.aa-ed-lead__consent.is-missing { border-left-color: var(--ui-red); }
+.aa-ed-confirm { border: 1px solid var(--ui-red); background: rgba(179,38,30,.08); border-radius: 2px; }
+.aa-ed-export, .aa-ed-hist li { border-bottom-color: var(--ui-rim); }
+.aa-ed-found, .aa-ed-bulk { border: 1px dashed var(--ui-rim2); border-radius: 2px; }
+.aa-ed-found__text, .aa-ed-info, .aa-ed-hist li { font-family: var(--font-serif); }
+.aa-ed-info { color: var(--ui-text); }
+
+/* файлы - как ячейки инвентаря */
+.aa-ed-lib__pv { background: #0a0908; border: 1px solid var(--ui-rim); box-shadow: inset 0 0 18px rgba(0,0,0,.8); }
+.aa-ed-lib__pv:hover { border-color: var(--ui-red); }
+.aa-ed-lib__it figcaption { color: var(--ui-dim); font-family: var(--font-serif); }
+
+/* ---------- вход: тёмная записка с рваной линией, «Войти» на мазке краски ---------- */
+.aa-ed-login { background: #0a0908 radial-gradient(ellipse 60% 55% at 50% 45%, rgba(255,236,218,.05), transparent 70%); color: var(--ui-text); }
+.aa-ed-login__box { position: relative; background: rgba(14,13,12,.92); border: 1px solid var(--ui-rim); border-radius: 6px; padding: 32px 30px 30px;
+  box-shadow: inset 0 0 0 6px rgba(14,13,12,.92), inset 0 0 0 7px rgba(255,255,255,.04), 0 30px 70px rgba(0,0,0,.8); }
+.aa-ed-login__box .aa-mono { color: #d9d4cf; filter: drop-shadow(0 0 8px rgba(255,255,255,.3)); }
+.aa-ed-login__k .aa-rec { font-family: var(--font-serif); letter-spacing: .2em; color: var(--ui-dim); }
+.aa-ed-login__t.aa-display { position: relative; font-family: var(--font-serif); font-weight: 400; text-transform: uppercase; letter-spacing: .06em; font-size: 46px; color: var(--ui-hi); padding-bottom: 14px;
+  background: var(--ui-line) left bottom / 100% 8px no-repeat; }
+.aa-ed-login__box .aa-btn--siren { isolation: isolate; min-height: 0; padding: 12px 34px 12px 20px; border: 0; background: none; box-shadow: none;
+  font-family: var(--font-serif); font-size: 17px; font-weight: 400; letter-spacing: .16em; color: var(--ui-hi); }
+.aa-ed-login__box .aa-btn--siren::before { content: ""; position: absolute; z-index: -1; inset: -3px -10px -3px -6px; pointer-events: none;
+  background: var(--ui-brush) left center / 100% 100% no-repeat; opacity: .95; transition: transform .3s; transform-origin: left center; }
+.aa-ed-login__box .aa-btn--siren:hover { transform: none; box-shadow: none; }
+.aa-ed-login__box .aa-btn--siren:hover::before { transform: scaleX(1.05); }
+.aa-ed-login__box .aa-btn--siren[disabled] { color: var(--ui-dim); }
+.aa-ed-login__box .aa-btn--siren[disabled]::before { opacity: .25; }
+.aa-ed-login__box .aa-btn__arrow { font-family: var(--font-serif); }
+.aa-ed-login > .aa-label { font-family: var(--font-serif); letter-spacing: .2em; color: var(--ui-text); }
+/* вкладки в панели (заявки): как вкладки «Работ» - Times, выбранная белая на тёмной плашке с красной линией */
+.aa-ed-panel .aa-chip { font-family: var(--font-serif); font-size: 12px; font-weight: 400; letter-spacing: .16em; color: var(--ui-dim); background: transparent; border: 1px solid var(--ui-rim); border-radius: 2px; position: relative; }
+.aa-ed-panel .aa-chip:hover:not([aria-pressed="true"]) { background: rgba(255,255,255,.05); color: var(--ui-hi); }
+.aa-ed-panel .aa-chip[aria-pressed="true"] { background: rgba(255,255,255,.08); color: var(--ui-hi); border-color: var(--ui-rim2); }
+.aa-ed-panel .aa-chip[aria-pressed="true"]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 2px; height: 5px; background: var(--ui-line) left center / 100% 5px no-repeat; }
+.aa-inv__slot--add .aa-ed-add button > span { display: none; } /* у ячейки свой «+» в подписи, иконка дублировала */
