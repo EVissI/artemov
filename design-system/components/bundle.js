@@ -90,6 +90,217 @@ function E({ p, v, ph }) {
   return ed ? ed.text({ p, v, ph }) : v == null ? null : v;
 }
 const edEl = (ed, k, props) => ed ? ed[k](props) : null;
+const LANGS = ["ru", "en"];
+const LangContext = React.createContext("ru");
+const useLang = () => React.useContext(LangContext);
+const UI = {
+  ru: {
+    skip: "К содержимому",
+    home: "Артем Артемов - на главную",
+    sections: "Разделы",
+    menu: "Меню",
+    close: "Закрыть",
+    lang: "Язык сайта",
+    intro: "Вступление",
+    watch: "Смотреть",
+    worksCats: "Категории работ",
+    worksShown: "Показано работ: ",
+    worksList: "Работы",
+    all: "Все",
+    catEmpty: "В этой категории пока пусто",
+    still: "Кадр из работы",
+    closeX: "Закрыть ✕",
+    noSignal: "Сигнал отсутствует",
+    openYt: "Открыть на YouTube ↗",
+    protocol: "Протокол №",
+    task: "Задача",
+    done: "Сделано",
+    result: "Результат",
+    before: "было",
+    after: "стало",
+    watchWork: "смотреть работу →",
+    journal: "журнал",
+    casesAt: "Кейсы: запись {n} из {m}",
+    record: "запись {n} из {m}",
+    prevPage: "Предыдущая страница",
+    nextPage: "Следующая страница",
+    errName: "Назови себя - хотя бы две буквы",
+    errContactEmpty: "Оставь @username или email",
+    errContact: "Нужен @username в Telegram или email",
+    errMessage: "Опиши задачу хотя бы парой предложений",
+    errConsent: "Нужно согласие на обработку данных",
+    consentText: "Согласен на обработку персональных данных согласно {consent:согласию} и ознакомлен с {privacy:политикой}",
+    freq: "Частота 104.7 · Канал AA",
+    sending: "Отправка…",
+    successTitle: "Сигнал принят",
+    errorText: "Ошибка отправки",
+    again: "Передать ещё",
+    submit: "Отправить",
+    sendingBtn: "Передача…",
+    channels: "Каналы связи",
+    channelsTitle: "Прямые частоты",
+    toTop: "Наверх",
+    docs: "Документы",
+    privacyLabel: "Политика обработки данных",
+    consentLabel: "Согласие на обработку данных",
+    policyTitle: "Политика обработки персональных данных",
+    consentTitle: "Согласие на обработку персональных данных",
+    toSite: "← На сайт",
+    homeShort: "На главную",
+    doc: "Документ",
+    version: "Версия",
+    since: "действует с",
+    dev: "Разработка сайта - vissegor.ru",
+    cookieText: "Сайт может сохранить одну техническую cookie - чтобы запомнить выбранный язык. Аналитики, рекламы и слежки нет. Подробнее - в {privacy:политике}.",
+    cookieAccept: "Принять",
+    cookieDecline: "Отклонить",
+    cookieLabel: "Cookie",
+    cookieSettings: "Cookie"
+  },
+  en: {
+    skip: "Skip to content",
+    home: "Artem Artemov - home",
+    sections: "Sections",
+    menu: "Menu",
+    close: "Close",
+    lang: "Site language",
+    intro: "Intro",
+    watch: "Watch",
+    worksCats: "Work categories",
+    worksShown: "Works shown: ",
+    worksList: "Works",
+    all: "All",
+    catEmpty: "Nothing in this category yet",
+    still: "Still from",
+    closeX: "Close ✕",
+    noSignal: "No signal",
+    openYt: "Open on YouTube ↗",
+    protocol: "Record No.",
+    task: "Task",
+    done: "Done",
+    result: "Result",
+    before: "before",
+    after: "after",
+    watchWork: "watch the work →",
+    journal: "journal",
+    casesAt: "Cases: record {n} of {m}",
+    record: "record {n} of {m}",
+    prevPage: "Previous page",
+    nextPage: "Next page",
+    errName: "Your name - at least two letters",
+    errContactEmpty: "Leave a @username or an email",
+    errContact: "Need a Telegram @username or an email",
+    errMessage: "Describe the task in a couple of sentences",
+    errConsent: "Consent to data processing is required",
+    consentText: "I consent to the processing of personal data under the {consent:consent form} and have read the {privacy:policy}",
+    freq: "Frequency 104.7 · Channel AA",
+    sending: "Sending…",
+    successTitle: "Signal received",
+    errorText: "Sending failed",
+    again: "Send another",
+    submit: "Send",
+    sendingBtn: "Transmitting…",
+    channels: "Contact channels",
+    channelsTitle: "Direct frequencies",
+    toTop: "Back to top",
+    docs: "Documents",
+    privacyLabel: "Privacy policy",
+    consentLabel: "Consent to data processing",
+    policyTitle: "Personal data processing policy",
+    consentTitle: "Consent to personal data processing",
+    toSite: "← Back to site",
+    homeShort: "Home",
+    doc: "Document",
+    version: "Version",
+    since: "effective from",
+    dev: "Website by vissegor.ru",
+    cookieText: "This site can store one technical cookie - to remember the language you chose. No analytics, ads or tracking. More in the {privacy:policy}.",
+    cookieAccept: "Accept",
+    cookieDecline: "Decline",
+    cookieLabel: "Cookies",
+    cookieSettings: "Cookies"
+  }
+};
+const tr = (lang, k, vars) => {
+  let t = UI[lang] && UI[lang][k] || UI.ru[k] || k;
+  if (vars) for (const [a, b] of Object.entries(vars)) t = t.replace("{" + a + "}", b);
+  return t;
+};
+const useT = () => {
+  const l = useLang();
+  return (k, vars) => tr(l, k, vars);
+};
+const hasText = (v) => !(v == null || typeof v === "string" && v.trim() === "");
+function overlay(base, t) {
+  if (t == null) return base;
+  if (Array.isArray(base)) {
+    if (!Array.isArray(t)) return base;
+    const byId = base.some((x) => x && typeof x === "object" && x.id != null);
+    return base.map((b, i) => overlay(b, byId ? t.find((x) => x && b && x.id === b.id) : t[i]));
+  }
+  if (base && typeof base === "object") {
+    if (typeof t !== "object" || Array.isArray(t)) return base;
+    const o = { ...base };
+    for (const k of Object.keys(t)) if (k !== "id") o[k] = k in base ? overlay(base[k], t[k]) : hasText(t[k]) ? t[k] : base[k];
+    return o;
+  }
+  return typeof t === "string" && (base == null || typeof base === "string") ? hasText(t) ? t : base : base;
+}
+function localize(content, lang) {
+  if (!content || lang !== "en") return content;
+  const { en, ...base } = content;
+  return { ...overlay(base, en || {}), en };
+}
+const langOn = (content, lang) => lang === "ru" || !!(content && content.i18n && content.i18n[lang] && content.i18n[lang].enabled);
+const DEF_URLS = { home: { ru: "/", en: "/en" }, privacy: { ru: "/privacy", en: "/en/privacy" }, consent: { ru: "/consent", en: "/en/consent" } };
+const COOKIE_KEY = "aa-cookie";
+const cookieChoice = () => {
+  try {
+    return localStorage.getItem(COOKIE_KEY) || "";
+  } catch (_) {
+    return "";
+  }
+};
+const setLangCookie = (l, maxAge) => {
+  try {
+    document.cookie = "aa_lang=" + l + "; Path=/; Max-Age=" + maxAge + "; SameSite=Lax" + (location.protocol === "https:" ? "; Secure" : "");
+  } catch (_) {
+  }
+};
+const goLang = (e, l, cur) => {
+  e.preventDefault();
+  if (l === cur) return;
+  const accepted = cookieChoice() === "accepted";
+  if (accepted) setLangCookie(l, 31536e3);
+  fogTo(siteUrl("home", l) + (l === "ru" && !accepted ? "?lang=ru" : ""));
+};
+function fogTo(url) {
+  const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) {
+    location.href = url;
+    return;
+  }
+  try {
+    sessionStorage.setItem("aa-fog", "1");
+  } catch (_) {
+  }
+  const el = document.createElement("div");
+  el.className = "aa-pre aa-pre--fog is-enter";
+  el.setAttribute("aria-hidden", "true");
+  el.innerHTML = '<div class="aa-pre__fog"></div><div class="aa-pre__fog"></div><div class="aa-pre__fog"></div>';
+  document.body.appendChild(el);
+  el.getBoundingClientRect();
+  el.classList.add("is-on");
+  window.addEventListener("pageshow", (ev) => {
+    if (ev.persisted) el.remove();
+  }, { once: true });
+  setTimeout(() => {
+    location.href = url;
+  }, 950);
+}
+function siteUrl(kind, lang = "ru") {
+  return DEF_URLS[kind][lang] || DEF_URLS[kind].ru;
+}
 function Monogram({ variant = "mark", text = "AA", className, label, ...rest }) {
   const deco = variant !== "mark";
   return /* @__PURE__ */ h("span", { ...rest, className: cx("aa-mono", "aa-mono--" + variant, className), "aria-hidden": deco || void 0, "aria-label": !deco ? label || "Артем Артемов" : void 0, role: !deco ? "img" : void 0 }, text);
@@ -119,8 +330,10 @@ function Barcode({ seed = "AA", className, bars = 34 }) {
 function Atmosphere({ fixed = true, grain = true, scanlines = true, vignette = true }) {
   return /* @__PURE__ */ h("div", { className: cx("aa-atmos", fixed && "aa-atmos--fixed"), "aria-hidden": "true" }, grain && /* @__PURE__ */ h("div", { className: "aa-atmos__grain" }), scanlines && /* @__PURE__ */ h("div", { className: "aa-atmos__scan" }), vignette && /* @__PURE__ */ h("div", { className: "aa-atmos__vignette" }));
 }
-function Header({ nav = [], monogram = "AA", recLabel = "REC", theme = "other", active, onNavigate, fixed = true, solid = false }) {
+function Header({ nav = [], monogram = "AA", recLabel = "REC", theme = "other", active, onNavigate, fixed = true, solid = false, langs = [] }) {
   const [open, setOpen] = useState(false);
+  const lang = useLang();
+  const t = useT();
   const go = (e, id) => {
     if (onNavigate) {
       e.preventDefault();
@@ -128,22 +341,23 @@ function Header({ nav = [], monogram = "AA", recLabel = "REC", theme = "other", 
     }
     setOpen(false);
   };
-  return /* @__PURE__ */ h("header", { className: cx("aa-header", !fixed && "aa-header--static", open && "aa-header--open", solid && "aa-header--solid"), "data-theme": theme }, /* @__PURE__ */ h("a", { className: "aa-header__logo", href: "#top", onClick: (e) => go(e, "top") }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram, label: "Артем Артемов - на главную" })), /* @__PURE__ */ h("nav", { "aria-label": "Разделы" }, /* @__PURE__ */ h("ul", { className: "aa-header__nav aa-label", id: "aa-nav" }, nav.map((n) => /* @__PURE__ */ h("li", { key: n.id }, /* @__PURE__ */ h("a", { href: "#" + n.id, "aria-current": active === n.id ? "true" : void 0, onClick: (e) => go(e, n.id) }, n.label))))), /* @__PURE__ */ h("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, /* @__PURE__ */ h(Rec, { label: recLabel }), /* @__PURE__ */ h("button", { type: "button", className: "aa-header__menu aa-label", "aria-expanded": open, "aria-controls": "aa-nav", onClick: () => setOpen(!open) }, open ? "Закрыть" : "Меню")));
+  return /* @__PURE__ */ h("header", { className: cx("aa-header", !fixed && "aa-header--static", open && "aa-header--open", solid && "aa-header--solid"), "data-theme": theme }, /* @__PURE__ */ h("a", { className: "aa-header__logo", href: "#top", onClick: (e) => go(e, "top") }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram, label: t("home") })), /* @__PURE__ */ h("nav", { "aria-label": t("sections") }, /* @__PURE__ */ h("ul", { className: "aa-header__nav aa-label", id: "aa-nav" }, nav.map((n) => /* @__PURE__ */ h("li", { key: n.id }, /* @__PURE__ */ h("a", { href: "#" + n.id, "aria-current": active === n.id ? "true" : void 0, onClick: (e) => go(e, n.id) }, n.label))))), /* @__PURE__ */ h("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, langs.length > 1 && /* @__PURE__ */ h("nav", { className: "aa-langs", "aria-label": t("lang") }, langs.map((l) => /* @__PURE__ */ h("a", { key: l, href: siteUrl("home", l), hrefLang: l, lang: l, "aria-current": l === lang ? "true" : void 0, onClick: (e) => goLang(e, l, lang) }, l.toUpperCase()))), /* @__PURE__ */ h(Rec, { label: recLabel }), /* @__PURE__ */ h("button", { type: "button", className: "aa-header__menu aa-label", "aria-expanded": open, "aria-controls": "aa-nav", onClick: () => setOpen(!open) }, open ? t("close") : t("menu"))));
 }
 function Hero({ hero = {}, onNavigate, id = "top" }) {
   const ed = useEd();
   const media = hero.media || {};
-  const go = (t) => (e) => {
+  const go = (t2) => (e) => {
     if (onNavigate) {
       e.preventDefault();
-      onNavigate(t);
+      onNavigate(t2);
     }
   };
   let scene = null;
   if (media.type === "video" && media.src) scene = /* @__PURE__ */ h("video", { key: media.src, poster: media.poster || void 0, autoPlay: true, muted: true, loop: true, playsInline: true, preload: "metadata", "aria-hidden": "true" }, videoSources(media.src));
   else if (media.src) scene = /* @__PURE__ */ h("img", { src: media.src, alt: media.alt || "", decoding: "async", fetchpriority: "high" });
   const lines = hero.titleLines || ["Артем", "Артемов"];
-  return /* @__PURE__ */ h("section", { className: "aa-hero", id, "data-theme": "other", "data-header": "other", "aria-label": "Вступление" }, /* @__PURE__ */ h("div", { className: "aa-hero__scene" }, scene), edEl(ed, "section", { p: "hero", kind: "hero", label: "Hero и фон" }), /* @__PURE__ */ h("div", { className: "aa-hero__content" }, hero.logo ? /* @__PURE__ */ h("h1", { className: "aa-hero__logo" }, /* @__PURE__ */ h("img", { src: hero.logo, alt: "", decoding: "async", fetchpriority: "high" }), /* @__PURE__ */ h("span", { className: "aa-sr" }, lines.join(" ")), edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип (PNG/WebP без фона)" })) : /* @__PURE__ */ h("h1", { className: "aa-hero__title" }, edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип", compact: true }), /* @__PURE__ */ h("span", { className: "aa-hero__ink" }, lines.map((l, i) => /* @__PURE__ */ h("span", { key: i, className: "aa-hero__line" }, ed || !l ? /* @__PURE__ */ h(E, { p: "hero.titleLines." + i, v: l }) : /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h("span", { className: "aa-hero__cap" }, l[0]), l.slice(1)))))), /* @__PURE__ */ h("div", { className: "aa-hero__cta" }, hero.primaryCta && /* @__PURE__ */ h(Button, { variant: "siren", href: "#" + hero.primaryCta.target, onClick: go(hero.primaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.primaryCta.label", v: hero.primaryCta.label })), hero.secondaryCta && /* @__PURE__ */ h(Button, { variant: "outline", href: "#" + hero.secondaryCta.target, onClick: go(hero.secondaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.secondaryCta.label", v: hero.secondaryCta.label })))));
+  const t = useT();
+  return /* @__PURE__ */ h("section", { className: "aa-hero", id, "data-theme": "other", "data-header": "other", "aria-label": t("intro") }, /* @__PURE__ */ h("div", { className: "aa-hero__scene" }, scene), edEl(ed, "section", { p: "hero", kind: "hero", label: "Hero и фон" }), /* @__PURE__ */ h("div", { className: "aa-hero__content" }, hero.logo ? /* @__PURE__ */ h("h1", { className: "aa-hero__logo" }, /* @__PURE__ */ h("img", { src: hero.logo, alt: "", decoding: "async", fetchpriority: "high" }), /* @__PURE__ */ h("span", { className: "aa-sr" }, lines.join(" ")), edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип (PNG/WebP без фона)" })) : /* @__PURE__ */ h("h1", { className: "aa-hero__title" }, edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип", compact: true }), /* @__PURE__ */ h("span", { className: "aa-hero__ink" }, lines.map((l, i) => /* @__PURE__ */ h("span", { key: i, className: "aa-hero__line" }, ed || !l ? /* @__PURE__ */ h(E, { p: "hero.titleLines." + i, v: l }) : /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h("span", { className: "aa-hero__cap" }, l[0]), l.slice(1)))))), /* @__PURE__ */ h("div", { className: "aa-hero__cta" }, hero.primaryCta && /* @__PURE__ */ h(Button, { variant: "siren", href: "#" + hero.primaryCta.target, onClick: go(hero.primaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.primaryCta.label", v: hero.primaryCta.label })), hero.secondaryCta && /* @__PURE__ */ h(Button, { variant: "outline", href: "#" + hero.secondaryCta.target, onClick: go(hero.secondaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.secondaryCta.label", v: hero.secondaryCta.label })))));
 }
 function Counter({ value, display, suffix = "", label, duration = 1400 }) {
   const ref = useRef(null);
@@ -640,6 +854,7 @@ function youtubeId(url) {
   return m ? m[1] : null;
 }
 function VideoModal({ work, onClose, categoryLabel }) {
+  const T = useT();
   const closeRef = useRef(null);
   const prev = useRef(null);
   useEffect(() => {
@@ -672,12 +887,13 @@ function VideoModal({ work, onClose, categoryLabel }) {
   };
   return /* @__PURE__ */ h("div", { className: "aa-modal", "data-theme": "other", role: "dialog", "aria-modal": "true", "aria-labelledby": "aa-modal-t", onMouseDown: (e) => {
     if (e.target === e.currentTarget) onClose && onClose();
-  }, onKeyDown: trap }, /* @__PURE__ */ h("div", { className: cx("aa-modal__box", vertical && "aa-modal__box--v") }, /* @__PURE__ */ h("div", { className: "aa-modal__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted" }, categoryLabel || work.category, " · ", work.year, " · ", work.format), /* @__PURE__ */ h("h2", { className: "aa-h3", id: "aa-modal-t", style: { marginTop: 6 } }, work.title)), /* @__PURE__ */ h("button", { type: "button", ref: closeRef, className: "aa-modal__close aa-label", onClick: onClose }, "Закрыть ✕")), /* @__PURE__ */ h("div", { className: "aa-modal__player", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, yt ? /* @__PURE__ */ h("iframe", { src: `https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&rel=0`, title: work.title, allow: "autoplay; encrypted-media; picture-in-picture; fullscreen", allowFullScreen: true, loading: "lazy" }) : work.videoUrl ? /* @__PURE__ */ h("video", { key: work.videoUrl, controls: true, autoPlay: true, playsInline: true, poster: work.previewImage || void 0 }, videoSources(work.videoUrl)) : /* @__PURE__ */ h("div", { className: "aa-modal__nosignal" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h(Monogram, { variant: "mark" }), /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, "Сигнал отсутствует"), /* @__PURE__ */ h("p", { className: "aa-micro aa-muted", style: { marginTop: 8 } }, "Слот под видео: videoUrl (YouTube или файл)")))), yt && /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, /* @__PURE__ */ h("a", { href: `https://www.youtube.com/watch?v=${yt}`, target: "_blank", rel: "noopener" }, "Открыть на YouTube ↗")), work.description && /* @__PURE__ */ h("p", { className: "aa-modal__desc" }, work.description)));
+  }, onKeyDown: trap }, /* @__PURE__ */ h("div", { className: cx("aa-modal__box", vertical && "aa-modal__box--v") }, /* @__PURE__ */ h("div", { className: "aa-modal__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted" }, categoryLabel || work.category, " · ", work.year, " · ", work.format), /* @__PURE__ */ h("h2", { className: "aa-h3", id: "aa-modal-t", style: { marginTop: 6 } }, work.title)), /* @__PURE__ */ h("button", { type: "button", ref: closeRef, className: "aa-modal__close aa-label", onClick: onClose }, T("closeX"))), /* @__PURE__ */ h("div", { className: "aa-modal__player", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, yt ? /* @__PURE__ */ h("iframe", { src: `https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&rel=0`, title: work.title, allow: "autoplay; encrypted-media; picture-in-picture; fullscreen", allowFullScreen: true, loading: "lazy" }) : work.videoUrl ? /* @__PURE__ */ h("video", { key: work.videoUrl, controls: true, autoPlay: true, playsInline: true, poster: work.previewImage || void 0 }, videoSources(work.videoUrl)) : /* @__PURE__ */ h("div", { className: "aa-modal__nosignal" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h(Monogram, { variant: "mark" }), /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, T("noSignal")), /* @__PURE__ */ h("p", { className: "aa-micro aa-muted", style: { marginTop: 8 } }, "Слот под видео: videoUrl (YouTube или файл)")))), yt && /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, /* @__PURE__ */ h("a", { href: `https://www.youtube.com/watch?v=${yt}`, target: "_blank", rel: "noopener" }, T("openYt"))), work.description && /* @__PURE__ */ h("p", { className: "aa-modal__desc" }, work.description)));
 }
 const INV_COLS = 4, INV_MIN = 12;
 function Works({ works = {}, id = "works" }) {
   const ed = useEd();
   const reduced = useReducedMotion();
+  const T = useT();
   const [filter, setFilter] = useState("all");
   const [open, setOpen] = useState(null);
   const [sel, setSel] = useState(null);
@@ -744,7 +960,7 @@ function Works({ works = {}, id = "works" }) {
     label,
     /* @__PURE__ */ h("span", { className: "aa-inv__tabn" }, pad(n))
   );
-  return /* @__PURE__ */ h("section", { ref: secRef, className: "aa-section aa-works", id, "data-theme": "other", "data-header": "other", "aria-labelledby": id + "-h" }, edEl(ed, "section", { p: "works", kind: "works", label: "Работы и категории" }), /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-section__head aa-inv__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("h2", { className: "aa-h2", id: id + "-h" }, /* @__PURE__ */ h(E, { p: "works.title", v: works.title })))), /* @__PURE__ */ h("div", { className: "aa-inv__tabs", role: "tablist", "aria-label": "Категории работ" }, tab("all", works.allLabel || "Все", items.length), cats.filter((c) => count(c.id) > 0).map((c) => tab(c.id, c.label, count(c.id)))), /* @__PURE__ */ h("div", { className: "aa-sr", "aria-live": "polite" }, "Показано работ: ", shown.length), /* @__PURE__ */ h("div", { className: "aa-inv__body" }, /* @__PURE__ */ h("div", { className: "aa-inv__grid", ref: gridRef, role: "listbox", "aria-label": "Работы", "aria-activedescendant": cur ? "inv-" + cur.id : void 0, onKeyDown: onKey }, Array.from({ length: slots }, (_, k) => {
+  return /* @__PURE__ */ h("section", { ref: secRef, className: "aa-section aa-works", id, "data-theme": "other", "data-header": "other", "aria-labelledby": id + "-h" }, edEl(ed, "section", { p: "works", kind: "works", label: "Работы и категории" }), /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-section__head aa-inv__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("h2", { className: "aa-h2", id: id + "-h" }, /* @__PURE__ */ h(E, { p: "works.title", v: works.title })))), /* @__PURE__ */ h("div", { className: "aa-inv__tabs", role: "tablist", "aria-label": T("worksCats") }, tab("all", works.allLabel || T("all"), items.length), cats.filter((c) => count(c.id) > 0).map((c) => tab(c.id, c.label, count(c.id)))), /* @__PURE__ */ h("div", { className: "aa-sr", "aria-live": "polite" }, T("worksShown"), shown.length), /* @__PURE__ */ h("div", { className: "aa-inv__body" }, /* @__PURE__ */ h("div", { className: "aa-inv__grid", ref: gridRef, role: "listbox", "aria-label": T("worksList"), "aria-activedescendant": cur ? "inv-" + cur.id : void 0, onKeyDown: onKey }, Array.from({ length: slots }, (_, k) => {
     const w = shown[k];
     if (!w) return k === shown.length && ed ? /* @__PURE__ */ h("div", { key: "add", className: "aa-inv__slot aa-inv__slot--add" }, edEl(ed, "add", { list: "works.items", kind: "work", label: "+", extra: { category: filter === "all" ? void 0 : filter } })) : /* @__PURE__ */ h("div", { key: "e" + k, className: "aa-inv__slot aa-inv__slot--empty", "aria-hidden": "true" });
     const on = cur && cur.id === w.id;
@@ -771,13 +987,14 @@ function Works({ works = {}, id = "works" }) {
       /* @__PURE__ */ h("span", { className: "aa-inv__badge", "aria-hidden": "true" }, items.indexOf(w) + 1),
       w.format === "9:16" && /* @__PURE__ */ h("span", { className: "aa-inv__fmt", "aria-hidden": "true" }, "9:16")
     );
-  })), cur ? /* @__PURE__ */ h(InvDetail, { key: cur.id, work: cur, index: items.indexOf(cur), categoryLabel: catLabel(cur.category), reduced, onOpen: setOpen }) : /* @__PURE__ */ h("div", { className: "aa-inv__detail aa-inv__detail--empty" }, /* @__PURE__ */ h("p", { className: "aa-label" }, ed ? "Добавьте работу" : "В этой категории пока пусто")))), open && (() => {
+  })), cur ? /* @__PURE__ */ h(InvDetail, { key: cur.id, work: cur, index: items.indexOf(cur), categoryLabel: catLabel(cur.category), reduced, onOpen: setOpen }) : /* @__PURE__ */ h("div", { className: "aa-inv__detail aa-inv__detail--empty" }, /* @__PURE__ */ h("p", { className: "aa-label" }, ed ? "Добавьте работу" : T("catEmpty"))))), open && (() => {
     const m = /* @__PURE__ */ h(VideoModal, { work: open, categoryLabel: catLabel(open.category), onClose: () => setOpen(null) });
     return host && window.ReactDOM && window.ReactDOM.createPortal ? window.ReactDOM.createPortal(m, host) : m;
   })());
 }
 function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
   const ed = useEd();
+  const T = useT();
   const p = "works.items.@" + work.id;
   const vertical = work.format === "9:16";
   const [vid, setVid] = useState(false);
@@ -786,7 +1003,7 @@ function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
     const t = setTimeout(() => setVid(true), 220);
     return () => clearTimeout(t);
   }, [work.previewVideo, reduced, ed]);
-  return /* @__PURE__ */ h("div", { className: "aa-inv__detail" }, edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }), /* @__PURE__ */ h("div", { className: cx("aa-inv__view", vertical && "aa-inv__view--v") }, /* @__PURE__ */ h("div", { className: "aa-inv__frame", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: `Кадр из работы «${work.title}»`, decoding: "async" }), vid && /* @__PURE__ */ h("video", { key: work.previewVideo, muted: true, loop: true, playsInline: true, autoPlay: true, preload: "none", "aria-hidden": "true" }, videoSources(work.previewVideo)), !work.previewImage && !vid && /* @__PURE__ */ h("span", { className: "aa-inv__ph", "aria-hidden": "true" }, /* @__PURE__ */ h(Monogram, { variant: "watermark" })), edEl(ed, "slot", { p: p + ".previewImage", v: work.previewImage, accept: "image", label: "Превью " + work.format }))), edEl(ed, "slot", { p: p + ".previewVideo", v: work.previewVideo, accept: "video", label: "Видео-превью (у выбранной)", compact: true }), edEl(ed, "slot", { p: p + ".videoUrl", v: work.videoUrl, accept: "video", label: "Ролик в плеере", compact: true, link: true }), /* @__PURE__ */ h("p", { className: "aa-inv__meta aa-micro" }, "№ ", pad(index + 1), " · ", categoryLabel, " · ", work.format, " · ", work.year), /* @__PURE__ */ h("h3", { className: "aa-inv__title" }, /* @__PURE__ */ h(E, { p: p + ".title", v: work.title, ph: "Название" })), (work.description || ed) && /* @__PURE__ */ h("p", { className: "aa-inv__desc" }, /* @__PURE__ */ h(E, { p: p + ".description", v: work.description, ph: "Описание" })), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-inv__play", onClick: () => onOpen && onOpen(work) }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "▶"), " Смотреть"));
+  return /* @__PURE__ */ h("div", { className: "aa-inv__detail" }, edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }), /* @__PURE__ */ h("div", { className: cx("aa-inv__view", vertical && "aa-inv__view--v") }, /* @__PURE__ */ h("div", { className: "aa-inv__frame", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: `${T("still")} «${work.title}»`, decoding: "async" }), vid && /* @__PURE__ */ h("video", { key: work.previewVideo, muted: true, loop: true, playsInline: true, autoPlay: true, preload: "none", "aria-hidden": "true" }, videoSources(work.previewVideo)), !work.previewImage && !vid && /* @__PURE__ */ h("span", { className: "aa-inv__ph", "aria-hidden": "true" }, /* @__PURE__ */ h(Monogram, { variant: "watermark" })), edEl(ed, "slot", { p: p + ".previewImage", v: work.previewImage, accept: "image", label: "Превью " + work.format }))), edEl(ed, "slot", { p: p + ".previewVideo", v: work.previewVideo, accept: "video", label: "Видео-превью (у выбранной)", compact: true }), edEl(ed, "slot", { p: p + ".videoUrl", v: work.videoUrl, accept: "video", label: "Ролик в плеере", compact: true, link: true }), /* @__PURE__ */ h("p", { className: "aa-inv__meta aa-micro" }, "№ ", pad(index + 1), " · ", categoryLabel, " · ", work.format, " · ", work.year), /* @__PURE__ */ h("h3", { className: "aa-inv__title" }, /* @__PURE__ */ h(E, { p: p + ".title", v: work.title, ph: "Название" })), (work.description || ed) && /* @__PURE__ */ h("p", { className: "aa-inv__desc" }, /* @__PURE__ */ h(E, { p: p + ".description", v: work.description, ph: "Описание" })), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-inv__play", onClick: () => onOpen && onOpen(work) }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "▶"), " ", T("watch")));
 }
 function CaseTag({ item, index = 0, p }) {
   const ed = useEd();
@@ -803,18 +1020,20 @@ const paperPos = (i, side) => {
 };
 function CasePage({ item, index, side }) {
   const ed = useEd();
+  const T = useT();
   const p = "cases.items.@" + item.id;
   const metrics = item.metrics || [];
   const pp = paperPos(index, side);
-  if (side === "L") return /* @__PURE__ */ h("div", { className: "aa-jr__page aa-jr__page--l", style: { "--pp": pp } }, edEl(ed, "tools", { list: "cases.items", id: item.id, kind: "case" }), /* @__PURE__ */ h("div", { className: "aa-jr__meta" }, "Протокол № ", pad(index + 1, 3), item.year ? " · " + item.year : ""), /* @__PURE__ */ h("h3", { className: "aa-jr__client" }, /* @__PURE__ */ h(E, { p: p + ".client", v: item.client, ph: "Клиент" })), /* @__PURE__ */ h("div", { className: "aa-jr__label" }, "Задача"), /* @__PURE__ */ h("p", { className: "aa-jr__text" }, /* @__PURE__ */ h(E, { p: p + ".task", v: item.task, ph: "Задача" })), /* @__PURE__ */ h("span", { className: "aa-jr__num", "aria-hidden": "true" }, index * 2 + 1));
-  return /* @__PURE__ */ h("div", { className: "aa-jr__page aa-jr__page--r", style: { "--pp": pp } }, /* @__PURE__ */ h("div", { className: "aa-jr__label" }, "Сделано"), /* @__PURE__ */ h("p", { className: "aa-jr__text" }, /* @__PURE__ */ h(E, { p: p + ".done", v: item.done, ph: "Что сделано" })), (metrics.length > 0 || ed) && /* @__PURE__ */ h("div", { className: "aa-jr__res" }, /* @__PURE__ */ h("div", { className: "aa-jr__label" }, "Результат"), metrics.map((m, i) => {
+  if (side === "L") return /* @__PURE__ */ h("div", { className: "aa-jr__page aa-jr__page--l", style: { "--pp": pp } }, edEl(ed, "tools", { list: "cases.items", id: item.id, kind: "case" }), /* @__PURE__ */ h("div", { className: "aa-jr__meta" }, T("protocol"), " ", pad(index + 1, 3), item.year ? " · " + item.year : ""), /* @__PURE__ */ h("h3", { className: "aa-jr__client" }, /* @__PURE__ */ h(E, { p: p + ".client", v: item.client, ph: "Клиент" })), /* @__PURE__ */ h("div", { className: "aa-jr__label" }, T("task")), /* @__PURE__ */ h("p", { className: "aa-jr__text" }, /* @__PURE__ */ h(E, { p: p + ".task", v: item.task, ph: "Задача" })), /* @__PURE__ */ h("span", { className: "aa-jr__num", "aria-hidden": "true" }, index * 2 + 1));
+  return /* @__PURE__ */ h("div", { className: "aa-jr__page aa-jr__page--r", style: { "--pp": pp } }, /* @__PURE__ */ h("div", { className: "aa-jr__label" }, T("done")), /* @__PURE__ */ h("p", { className: "aa-jr__text" }, /* @__PURE__ */ h(E, { p: p + ".done", v: item.done, ph: "Что сделано" })), (metrics.length > 0 || ed) && /* @__PURE__ */ h("div", { className: "aa-jr__res" }, /* @__PURE__ */ h("div", { className: "aa-jr__label" }, T("result")), metrics.map((m, i) => {
     const mp = p + ".metrics." + i;
-    return /* @__PURE__ */ h("div", { className: "aa-jr__metric aa-ed-host", key: i }, /* @__PURE__ */ h("span", { className: "aa-jr__mlabel" }, /* @__PURE__ */ h(E, { p: mp + ".label", v: m.label, ph: "Метрика" })), /* @__PURE__ */ h("s", { className: "aa-jr__before", "aria-label": "было " + m.before }, /* @__PURE__ */ h(E, { p: mp + ".before", v: m.before, ph: "0" })), /* @__PURE__ */ h("span", { className: "aa-jr__after", "aria-label": "стало " + m.after }, /* @__PURE__ */ h(E, { p: mp + ".after", v: m.after, ph: "0" }), /* @__PURE__ */ h("svg", { viewBox: "0 0 100 50", preserveAspectRatio: "none", "aria-hidden": "true" }, /* @__PURE__ */ h("path", { d: "M8 28 C 6 8, 70 2, 92 18 C 104 30, 70 48, 34 46 C 10 44, 2 34, 14 20" }))), edEl(ed, "tools", { list: p + ".metrics", index: i, kind: "metric" }));
-  }), edEl(ed, "add", { list: p + ".metrics", kind: "metric", label: "Метрика" })), item.link ? /* @__PURE__ */ h("a", { className: "aa-jr__link", href: item.link, target: "_blank", rel: "noopener" }, "смотреть работу →") : null, /* @__PURE__ */ h("span", { className: "aa-jr__num", "aria-hidden": "true" }, index * 2 + 2));
+    return /* @__PURE__ */ h("div", { className: "aa-jr__metric aa-ed-host", key: i }, /* @__PURE__ */ h("span", { className: "aa-jr__mlabel" }, /* @__PURE__ */ h(E, { p: mp + ".label", v: m.label, ph: "Метрика" })), /* @__PURE__ */ h("s", { className: "aa-jr__before", "aria-label": T("before") + " " + m.before }, /* @__PURE__ */ h(E, { p: mp + ".before", v: m.before, ph: "0" })), /* @__PURE__ */ h("span", { className: "aa-jr__after", "aria-label": T("after") + " " + m.after }, /* @__PURE__ */ h(E, { p: mp + ".after", v: m.after, ph: "0" }), /* @__PURE__ */ h("svg", { viewBox: "0 0 100 50", preserveAspectRatio: "none", "aria-hidden": "true" }, /* @__PURE__ */ h("path", { d: "M8 28 C 6 8, 70 2, 92 18 C 104 30, 70 48, 34 46 C 10 44, 2 34, 14 20" }))), edEl(ed, "tools", { list: p + ".metrics", index: i, kind: "metric" }));
+  }), edEl(ed, "add", { list: p + ".metrics", kind: "metric", label: "Метрика" })), item.link ? /* @__PURE__ */ h("a", { className: "aa-jr__link", href: item.link, target: "_blank", rel: "noopener" }, T("watchWork")) : null, /* @__PURE__ */ h("span", { className: "aa-jr__num", "aria-hidden": "true" }, index * 2 + 2));
 }
 function Cases({ cases = {}, id = "cases" }) {
   const ed = useEd();
   const reduced = useReducedMotion();
+  const T = useT();
   const items = cases.items || [];
   const pages = useMemo(() => items.flatMap((it, i) => [{ it, i, side: "L" }, { it, i, side: "R" }]), [items]);
   const bookRef = useRef(null);
@@ -889,27 +1108,27 @@ function Cases({ cases = {}, id = "cases" }) {
       className: "aa-jr__book",
       tabIndex: 0,
       role: "group",
-      "aria-roledescription": "журнал",
-      "aria-label": `Кейсы: запись ${caseNo} из ${items.length}`,
+      "aria-roledescription": T("journal"),
+      "aria-label": T("casesAt", { n: caseNo, m: items.length }),
       onKeyDown: onKey,
       onPointerDown: ed ? void 0 : onDown,
       onPointerUp: ed ? void 0 : onUp
     },
     base,
     leaf,
-    !ed && !flip && /* @__PURE__ */ h(Fragment, null, cur > 0 && /* @__PURE__ */ h("button", { type: "button", className: "aa-jr__hit aa-jr__hit--prev", onClick: () => go(-1), "aria-label": "Предыдущая страница" }), cur + step < pages.length && /* @__PURE__ */ h("button", { type: "button", className: "aa-jr__hit aa-jr__hit--next", onClick: () => go(1), "aria-label": "Следующая страница" }))
-  )), /* @__PURE__ */ h("div", { className: "aa-jr__nav" }, /* @__PURE__ */ h("span", { className: "aa-jr__count", "aria-live": "polite" }, "запись ", caseNo, " из ", items.length)), edEl(ed, "add", { list: "cases.items", kind: "case", label: "Кейс" }))));
+    !ed && !flip && /* @__PURE__ */ h(Fragment, null, cur > 0 && /* @__PURE__ */ h("button", { type: "button", className: "aa-jr__hit aa-jr__hit--prev", onClick: () => go(-1), "aria-label": T("prevPage") }), cur + step < pages.length && /* @__PURE__ */ h("button", { type: "button", className: "aa-jr__hit aa-jr__hit--next", onClick: () => go(1), "aria-label": T("nextPage") }))
+  )), /* @__PURE__ */ h("div", { className: "aa-jr__nav" }, /* @__PURE__ */ h("span", { className: "aa-jr__count", "aria-live": "polite" }, T("record", { n: caseNo, m: items.length }))), edEl(ed, "add", { list: "cases.items", kind: "case", label: "Кейс" }))));
 }
 const RE_TG = /^@[A-Za-z0-9_]{4,32}$/;
 const RE_TGURL = /^(https?:\/\/)?t\.me\/[A-Za-z0-9_]{4,32}\/?$/i;
 const RE_MAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-function validateLead(v) {
+function validateLead(v, lang = "ru") {
   const e = {};
-  if (!v.name || v.name.trim().length < 2) e.name = "Назови себя - хотя бы две буквы";
+  if (!v.name || v.name.trim().length < 2) e.name = tr(lang, "errName");
   const c = (v.contact || "").trim();
-  if (!c) e.contact = "Оставь @username или email";
-  else if (!(RE_TG.test(c) || RE_TGURL.test(c) || RE_MAIL.test(c))) e.contact = "Нужен @username в Telegram или email";
-  if (!v.message || v.message.trim().length < 10) e.message = "Опиши задачу хотя бы парой предложений";
+  if (!c) e.contact = tr(lang, "errContactEmpty");
+  else if (!(RE_TG.test(c) || RE_TGURL.test(c) || RE_MAIL.test(c))) e.contact = tr(lang, "errContact");
+  if (!v.message || v.message.trim().length < 10) e.message = tr(lang, "errMessage");
   return e;
 }
 function StaticBurst() {
@@ -948,18 +1167,17 @@ function StaticBurst() {
   }, [reduced]);
   return /* @__PURE__ */ h("canvas", { ref, "aria-hidden": "true" });
 }
-const LEGAL_URL = { consent: "/consent", privacy: "/privacy" };
-const cfgUrl = (k) => typeof window !== "undefined" && window.AA_CONFIG && window.AA_CONFIG.legalUrls && window.AA_CONFIG.legalUrls[k] || LEGAL_URL[k];
-const homeUrl = () => typeof window !== "undefined" && window.AA_CONFIG && window.AA_CONFIG.homeUrl || "/";
-function consentLabel(text) {
-  const t = text || "Согласен на обработку персональных данных согласно {consent:согласию} и ознакомлен с {privacy:политикой}";
+function consentLabel(text, lang = "ru") {
+  const t = text || tr(lang, "consentText");
   return t.split(/(\{(?:consent|privacy):[^}]+\})/).map((part, i) => {
     const m = /^\{(consent|privacy):([^}]+)\}$/.exec(part);
-    return m ? /* @__PURE__ */ h("a", { key: i, href: cfgUrl(m[1]), target: "_blank", rel: "noopener" }, m[2]) : part;
+    return m ? /* @__PURE__ */ h("a", { key: i, href: siteUrl(m[1], lang), target: "_blank", rel: "noopener" }, m[2]) : part;
   });
 }
 function Transmitter({ contact = {}, onSubmit, initialState = "idle" }) {
   const ed = useEd();
+  const lang = useLang();
+  const T = useT();
   const f = contact.fields || {};
   const [vals, setVals] = useState({ name: "", contact: "", message: "" });
   const [errs, setErrs] = useState({});
@@ -967,9 +1185,9 @@ function Transmitter({ contact = {}, onSubmit, initialState = "idle" }) {
   const [state, setState] = useState(initialState);
   const [consent, setConsent] = useState(false);
   const refs = { name: useRef(null), contact: useRef(null), message: useRef(null), consent: useRef(null) };
-  const consentErr = contact.consentError || "Нужно согласие на обработку данных";
+  const consentErr = contact.consentError || T("errConsent");
   const check = (v, c) => {
-    const e = validateLead(v);
+    const e = validateLead(v, lang);
     if (!c) e.consent = consentErr;
     return e;
   };
@@ -1014,19 +1232,20 @@ function Transmitter({ contact = {}, onSubmit, initialState = "idle" }) {
     const common = { id: "aa-f-" + k, name: k, value: vals[k], onChange: set(k), onBlur: blur(k), placeholder: (f[k] || {}).placeholder, ref: refs[k], "aria-invalid": invalid ? "true" : "false", "aria-describedby": invalid ? "aa-f-" + k + "-e" : void 0, disabled: state === "sending" };
     return /* @__PURE__ */ h("div", { className: "aa-field", "data-invalid": invalid ? "true" : "false" }, /* @__PURE__ */ h("label", { className: "aa-field__l aa-label", htmlFor: "aa-f-" + k }, /* @__PURE__ */ h("span", null, /* @__PURE__ */ h(E, { p: "contact.fields." + k + ".label", v: (f[k] || {}).label })), /* @__PURE__ */ h("span", { "aria-hidden": "true" }, k === "name" ? "CH-1" : k === "contact" ? "CH-2" : "CH-3")), multi ? /* @__PURE__ */ h("textarea", { ...common, rows: 4 }) : /* @__PURE__ */ h("input", { ...common, type: "text", autoComplete: k === "name" ? "name" : "off", inputMode: k === "contact" ? "email" : void 0 }), invalid && /* @__PURE__ */ h("div", { className: "aa-field__err", id: "aa-f-" + k + "-e" }, errs[k]));
   };
-  const freqStr = contact.frequency || "Частота 104.7 · Канал AA";
+  const freqStr = contact.frequency || T("freq");
   const fm = /(\d{2,3}(?:[.,]\d)?)/.exec(freqStr);
   const fq = fm ? Math.min(108, Math.max(88, parseFloat(fm[1].replace(",", ".")))) : 104.7;
   const tuned = ["name", "contact", "message"].filter((k) => vals[k].trim()).length + (consent ? 1 : 0);
   const target = (fq - 88) / 20 * 100, needle = state === "success" ? target : 8 + (target - 8) * tuned / 4;
-  return /* @__PURE__ */ h("div", { className: cx("aa-tx", state === "sending" && "aa-tx--sending"), "data-theme": "other", "data-tuned": tuned === 4 ? "true" : "false" }, /* @__PURE__ */ h("span", { className: "aa-tx__antenna", "aria-hidden": "true" }, /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null)), /* @__PURE__ */ h("div", { className: "aa-tx__display aa-label" }, /* @__PURE__ */ h("span", { className: "aa-tx__freq" }, /* @__PURE__ */ h(E, { p: "contact.frequency", v: contact.frequency || (ed ? "" : "Частота 104.7 · Канал AA"), ph: "Частота" })), /* @__PURE__ */ h("span", { style: { display: "inline-flex", gap: 12, alignItems: "center" } }, /* @__PURE__ */ h("span", { className: "aa-tx__bars", "aria-hidden": "true" }, /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null)), /* @__PURE__ */ h(Rec, { label: state === "sending" ? "TX" : "ON AIR" }))), /* @__PURE__ */ h("div", { className: "aa-tx__dial", "aria-hidden": "true" }, /* @__PURE__ */ h("div", { className: "aa-tx__scale" }, [88, 92, 96, 100, 104, 108].map((n) => /* @__PURE__ */ h("span", { key: n, style: { left: (n - 88) / 20 * 100 + "%" } }, n))), /* @__PURE__ */ h("span", { className: "aa-tx__needle", style: { transform: `translateX(${needle.toFixed(2)}%)` } }, /* @__PURE__ */ h("i", null))), /* @__PURE__ */ h("div", { "aria-live": "polite", className: "aa-sr" }, state === "sending" ? "Отправка…" : state === "success" ? contact.successTitle || "Сигнал принят" : state === "error" ? contact.errorText || "Ошибка отправки" : ""), state === "success" ? /* @__PURE__ */ h("div", { className: "aa-tx__ok" }, /* @__PURE__ */ h(StaticBurst, null), /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("p", { className: "aa-display aa-tx__ok-t" }, contact.successTitle || "Сигнал принят"), /* @__PURE__ */ h("p", null, contact.successText), /* @__PURE__ */ h(Button, { variant: "outline", onClick: () => setState("idle") }, contact.successAgain || "Передать ещё"))) : /* @__PURE__ */ h("form", { className: "aa-tx__body", noValidate: true, onSubmit: submit }, /* @__PURE__ */ h("h2", { className: "aa-display aa-tx__title", id: "contact-h" }, /* @__PURE__ */ h(E, { p: "contact.title", v: contact.title })), /* @__PURE__ */ h("p", { className: "aa-tx__lead" }, /* @__PURE__ */ h(E, { p: "contact.lead", v: contact.lead })), state === "error" && /* @__PURE__ */ h("div", { className: "aa-tx__alert", role: "alert" }, contact.errorText), field("name"), field("contact"), field("message", true), (() => {
+  return /* @__PURE__ */ h("div", { className: cx("aa-tx", state === "sending" && "aa-tx--sending"), "data-theme": "other", "data-tuned": tuned === 4 ? "true" : "false" }, /* @__PURE__ */ h("span", { className: "aa-tx__antenna", "aria-hidden": "true" }, /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null)), /* @__PURE__ */ h("div", { className: "aa-tx__display aa-label" }, /* @__PURE__ */ h("span", { className: "aa-tx__freq" }, /* @__PURE__ */ h(E, { p: "contact.frequency", v: contact.frequency || (ed ? "" : T("freq")), ph: "Частота" })), /* @__PURE__ */ h("span", { style: { display: "inline-flex", gap: 12, alignItems: "center" } }, /* @__PURE__ */ h("span", { className: "aa-tx__bars", "aria-hidden": "true" }, /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null)), /* @__PURE__ */ h(Rec, { label: state === "sending" ? "TX" : "ON AIR" }))), /* @__PURE__ */ h("div", { className: "aa-tx__dial", "aria-hidden": "true" }, /* @__PURE__ */ h("div", { className: "aa-tx__scale" }, [88, 92, 96, 100, 104, 108].map((n) => /* @__PURE__ */ h("span", { key: n, style: { left: (n - 88) / 20 * 100 + "%" } }, n))), /* @__PURE__ */ h("span", { className: "aa-tx__needle", style: { transform: `translateX(${needle.toFixed(2)}%)` } }, /* @__PURE__ */ h("i", null))), /* @__PURE__ */ h("div", { "aria-live": "polite", className: "aa-sr" }, state === "sending" ? T("sending") : state === "success" ? contact.successTitle || T("successTitle") : state === "error" ? contact.errorText || T("errorText") : ""), state === "success" ? /* @__PURE__ */ h("div", { className: "aa-tx__ok" }, /* @__PURE__ */ h(StaticBurst, null), /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("p", { className: "aa-display aa-tx__ok-t" }, contact.successTitle || T("successTitle")), /* @__PURE__ */ h("p", null, contact.successText), /* @__PURE__ */ h(Button, { variant: "outline", onClick: () => setState("idle") }, contact.successAgain || T("again")))) : /* @__PURE__ */ h("form", { className: "aa-tx__body", noValidate: true, onSubmit: submit }, /* @__PURE__ */ h("h2", { className: "aa-display aa-tx__title", id: "contact-h" }, /* @__PURE__ */ h(E, { p: "contact.title", v: contact.title })), /* @__PURE__ */ h("p", { className: "aa-tx__lead" }, /* @__PURE__ */ h(E, { p: "contact.lead", v: contact.lead })), state === "error" && /* @__PURE__ */ h("div", { className: "aa-tx__alert", role: "alert" }, contact.errorText), field("name"), field("contact"), field("message", true), (() => {
     const invalid = touched.consent && errs.consent;
-    return /* @__PURE__ */ h("div", { className: "aa-field aa-consent", "data-invalid": invalid ? "true" : "false" }, /* @__PURE__ */ h("label", { className: "aa-consent__l aa-label", htmlFor: "aa-f-consent" }, /* @__PURE__ */ h("input", { id: "aa-f-consent", ref: refs.consent, className: "aa-consent__box", type: "checkbox", name: "consent", checked: consent, onChange: toggleConsent, disabled: state === "sending", "aria-invalid": invalid ? "true" : "false", "aria-describedby": invalid ? "aa-f-consent-e" : void 0 }), /* @__PURE__ */ h("span", { className: "aa-consent__t" }, consentLabel(contact.consentText)), /* @__PURE__ */ h("span", { className: "aa-consent__ch", "aria-hidden": "true" }, "CH-4")), invalid && /* @__PURE__ */ h("div", { className: "aa-field__err", id: "aa-f-consent-e" }, errs.consent));
-  })(), /* @__PURE__ */ h("div", { className: "aa-tx__foot" }, /* @__PURE__ */ h(Button, { variant: "siren", type: "submit", disabled: state === "sending", arrow: state === "sending" ? null : "→" }, state === "sending" ? contact.sendingLabel || "Передача…" : contact.submitLabel || "Отправить"), state === "sending" && /* @__PURE__ */ h("span", { className: "aa-tx__progress", "aria-hidden": "true" }, /* @__PURE__ */ h("i", null)), /* @__PURE__ */ h("span", { className: "aa-tx__grille", "aria-hidden": "true" }))));
+    return /* @__PURE__ */ h("div", { className: "aa-field aa-consent", "data-invalid": invalid ? "true" : "false" }, /* @__PURE__ */ h("label", { className: "aa-consent__l aa-label", htmlFor: "aa-f-consent" }, /* @__PURE__ */ h("input", { id: "aa-f-consent", ref: refs.consent, className: "aa-consent__box", type: "checkbox", name: "consent", checked: consent, onChange: toggleConsent, disabled: state === "sending", "aria-invalid": invalid ? "true" : "false", "aria-describedby": invalid ? "aa-f-consent-e" : void 0 }), /* @__PURE__ */ h("span", { className: "aa-consent__t" }, consentLabel(contact.consentText, lang)), /* @__PURE__ */ h("span", { className: "aa-consent__ch", "aria-hidden": "true" }, "CH-4")), invalid && /* @__PURE__ */ h("div", { className: "aa-field__err", id: "aa-f-consent-e" }, errs.consent));
+  })(), /* @__PURE__ */ h("div", { className: "aa-tx__foot" }, /* @__PURE__ */ h(Button, { variant: "siren", type: "submit", disabled: state === "sending", arrow: state === "sending" ? null : "→" }, state === "sending" ? contact.sendingLabel || T("sendingBtn") : contact.submitLabel || T("submit")), state === "sending" && /* @__PURE__ */ h("span", { className: "aa-tx__progress", "aria-hidden": "true" }, /* @__PURE__ */ h("i", null)), /* @__PURE__ */ h("span", { className: "aa-tx__grille", "aria-hidden": "true" }))));
 }
 function Contact({ contact = {}, onSubmit, id = "contact" }) {
   const ed = useEd();
-  return /* @__PURE__ */ h("section", { className: "aa-section aa-contact", id, "data-theme": "other", "data-header": "other", "aria-labelledby": "contact-h" }, edEl(ed, "section", { p: "contact", kind: "contact", label: "Связь и форма" }), /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-contact__grid" }, /* @__PURE__ */ h(Transmitter, { contact, onSubmit }), /* @__PURE__ */ h("aside", { className: "aa-contact__aside", "aria-label": "Каналы связи" }, /* @__PURE__ */ h("p", { className: "aa-label", style: { marginBottom: 12 } }, /* @__PURE__ */ h(E, { p: "contact.channelsTitle", v: contact.channelsTitle || (ed ? "" : "Прямые частоты"), ph: "Прямые частоты" })), /* @__PURE__ */ h("ul", { className: "aa-channels" }, (contact.channels || []).map((c, i) => /* @__PURE__ */ h("li", { key: c.id }, c.url ? /* @__PURE__ */ h("a", { href: c.url, target: "_blank", rel: "noopener" }, /* @__PURE__ */ h("span", { className: "aa-channels__n aa-micro" }, pad(i + 1)), /* @__PURE__ */ h("span", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted", style: { display: "block" } }, /* @__PURE__ */ h(E, { p: "contact.channels.@" + c.id + ".label", v: c.label })), /* @__PURE__ */ h("span", { className: "aa-channels__v" }, /* @__PURE__ */ h(E, { p: "contact.channels.@" + c.id + ".value", v: c.value }))), /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "↗")) : /* @__PURE__ */ h("a", { "aria-disabled": "true", role: "link" }, /* @__PURE__ */ h("span", { className: "aa-channels__n aa-micro" }, pad(i + 1)), /* @__PURE__ */ h("span", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted", style: { display: "block" } }, /* @__PURE__ */ h(E, { p: "contact.channels.@" + c.id + ".label", v: c.label })), /* @__PURE__ */ h("span", { className: "aa-channels__v" }, /* @__PURE__ */ h(E, { p: "contact.channels.@" + c.id + ".value", v: c.value }))), /* @__PURE__ */ h("span", null))))), (contact.asideNote || ed) && /* @__PURE__ */ h("span", { className: "aa-micro" }, /* @__PURE__ */ h(E, { p: "contact.asideNote", v: contact.asideNote, ph: "Подпись" }))))));
+  const T = useT();
+  return /* @__PURE__ */ h("section", { className: "aa-section aa-contact", id, "data-theme": "other", "data-header": "other", "aria-labelledby": "contact-h" }, edEl(ed, "section", { p: "contact", kind: "contact", label: "Связь и форма" }), /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-contact__grid" }, /* @__PURE__ */ h(Transmitter, { contact, onSubmit }), /* @__PURE__ */ h("aside", { className: "aa-contact__aside", "aria-label": T("channels") }, /* @__PURE__ */ h("p", { className: "aa-label", style: { marginBottom: 12 } }, /* @__PURE__ */ h(E, { p: "contact.channelsTitle", v: contact.channelsTitle || (ed ? "" : T("channelsTitle")), ph: "Прямые частоты" })), /* @__PURE__ */ h("ul", { className: "aa-channels" }, (contact.channels || []).map((c, i) => /* @__PURE__ */ h("li", { key: c.id }, c.url ? /* @__PURE__ */ h("a", { href: c.url, target: "_blank", rel: "noopener" }, /* @__PURE__ */ h("span", { className: "aa-channels__n aa-micro" }, pad(i + 1)), /* @__PURE__ */ h("span", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted", style: { display: "block" } }, /* @__PURE__ */ h(E, { p: "contact.channels.@" + c.id + ".label", v: c.label })), /* @__PURE__ */ h("span", { className: "aa-channels__v" }, /* @__PURE__ */ h(E, { p: "contact.channels.@" + c.id + ".value", v: c.value }))), /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "↗")) : /* @__PURE__ */ h("a", { "aria-disabled": "true", role: "link" }, /* @__PURE__ */ h("span", { className: "aa-channels__n aa-micro" }, pad(i + 1)), /* @__PURE__ */ h("span", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted", style: { display: "block" } }, /* @__PURE__ */ h(E, { p: "contact.channels.@" + c.id + ".label", v: c.label })), /* @__PURE__ */ h("span", { className: "aa-channels__v" }, /* @__PURE__ */ h(E, { p: "contact.channels.@" + c.id + ".value", v: c.value }))), /* @__PURE__ */ h("span", null))))), (contact.asideNote || ed) && /* @__PURE__ */ h("span", { className: "aa-micro" }, /* @__PURE__ */ h(E, { p: "contact.asideNote", v: contact.asideNote, ph: "Подпись" }))))));
 }
 const EDGE_ROWS = [[0.86, 0.15], [0.62, 0.3], [0.38, 0.4], [0.16, 0.5], [0.05, 0.6]], EDGE_ABOVE = 2, EDGE_COLS = 24;
 const EDGE_SKIP = "a, button, input, textarea, label, p, h1, h2, h3, li, .aa-poster, .aa-tag, .aa-tx, .aa-contact__aside, .aa-works__intro, .aa-walls__h, .aa-note, .aa-counters, .aa-tracklist, .aa-section__kicker, [contenteditable]";
@@ -1242,40 +1461,92 @@ function Otherworld({ children, seam = false }) {
   }, [seam, ed]);
   return /* @__PURE__ */ h("div", { ref, className: cx("aa-otherworld", seam && "aa-otherworld--seam") }, /* @__PURE__ */ h("div", { className: "aa-otherworld__wall", "aria-hidden": "true" }, seam && /* @__PURE__ */ h("div", { className: "aa-edge" }, /* @__PURE__ */ h("div", { className: "aa-edge__holes" }), EDGE, /* @__PURE__ */ h("div", { className: "aa-edge__fx" }))), /* @__PURE__ */ h("div", { className: "aa-otherworld__dark", "aria-hidden": "true" }, /* @__PURE__ */ h("div", { className: "aa-otherworld__view", ref: viewRef }, /* @__PURE__ */ h("div", { className: "aa-otherworld__light", ref: lightRef }), /* @__PURE__ */ h("div", { className: "aa-otherworld__dust", ref: dustRef }, DUST))), /* @__PURE__ */ h("div", { className: "aa-inv-bg", "aria-hidden": "true" }, /* @__PURE__ */ h("i", null), /* @__PURE__ */ h("i", null)), children);
 }
-const DEV_CREDIT = { label: "Разработка сайта - vissegor.ru", url: "https://vissegor.ru/" };
+const DEV_CREDIT = { url: "https://vissegor.ru/" };
 function Footer({ footer = {}, monogram = "AA", onNavigate }) {
   const ed = useEd();
+  const lang = useLang();
+  const T = useT();
   return /* @__PURE__ */ h("footer", { className: "aa-footer", "data-theme": "other", "data-header": "other" }, edEl(ed, "section", { p: "footer", kind: "footer", label: "Футер" }), /* @__PURE__ */ h("div", { className: "aa-wrap aa-footer__row" }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram }), /* @__PURE__ */ h("div", { className: "aa-label" }, /* @__PURE__ */ h(E, { p: "footer.copyright", v: footer.copyright })), /* @__PURE__ */ h("a", { className: "aa-label", href: "#top", onClick: (e) => {
     if (onNavigate) {
       e.preventDefault();
       onNavigate("top");
     }
-  } }, "↑ ", /* @__PURE__ */ h(E, { p: "footer.toTop", v: footer.toTop || (ed ? "" : "Наверх"), ph: "Наверх" }))), /* @__PURE__ */ h("nav", { className: "aa-wrap aa-footer__legal aa-micro", "aria-label": "Документы" }, /* @__PURE__ */ h("a", { href: cfgUrl("privacy"), target: ed ? "_blank" : void 0 }, /* @__PURE__ */ h(E, { p: "footer.privacyLabel", v: footer.privacyLabel || (ed ? "" : "Политика обработки данных"), ph: "Политика обработки данных" })), /* @__PURE__ */ h("a", { href: cfgUrl("consent"), target: ed ? "_blank" : void 0 }, /* @__PURE__ */ h(E, { p: "footer.consentLabel", v: footer.consentLabel || (ed ? "" : "Согласие на обработку данных"), ph: "Согласие на обработку данных" })), /* @__PURE__ */ h("a", { className: "aa-footer__credit", href: DEV_CREDIT.url, target: "_blank", rel: "noopener" }, DEV_CREDIT.label, " ↗")));
+  } }, "↑ ", /* @__PURE__ */ h(E, { p: "footer.toTop", v: footer.toTop || (ed ? "" : T("toTop")), ph: "Наверх" }))), /* @__PURE__ */ h("nav", { className: "aa-wrap aa-footer__legal aa-micro", "aria-label": T("docs") }, /* @__PURE__ */ h("a", { href: siteUrl("privacy", lang), target: ed ? "_blank" : void 0 }, /* @__PURE__ */ h(E, { p: "footer.privacyLabel", v: footer.privacyLabel || (ed ? "" : T("privacyLabel")), ph: "Политика обработки данных" })), /* @__PURE__ */ h("a", { href: siteUrl("consent", lang), target: ed ? "_blank" : void 0 }, /* @__PURE__ */ h(E, { p: "footer.consentLabel", v: footer.consentLabel || (ed ? "" : T("consentLabel")), ph: "Согласие на обработку данных" })), !ed && /* @__PURE__ */ h("a", { href: "#cookies", onClick: (e) => {
+    e.preventDefault();
+    window.dispatchEvent(new Event("aa-cookie-open"));
+  } }, T("cookieSettings")), /* @__PURE__ */ h("a", { className: "aa-footer__credit", href: DEV_CREDIT.url, target: "_blank", rel: "noopener" }, T("dev"), " ↗")));
+}
+function CookieNotice({ footer = {} }) {
+  const ed = useEd();
+  const lang = useLang();
+  const T = useT();
+  const [show, setShow] = useState(false);
+  const [out, setOut] = useState(false);
+  useEffect(() => {
+    if (ed) return;
+    const open = () => {
+      setOut(false);
+      setShow(true);
+    };
+    window.addEventListener("aa-cookie-open", open);
+    let t = 0;
+    if (!cookieChoice()) {
+      const wait = () => {
+        if (document.documentElement.classList.contains("aa-preloading")) {
+          t = setTimeout(wait, 300);
+          return;
+        }
+        t = setTimeout(open, 1200);
+      };
+      wait();
+    }
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("aa-cookie-open", open);
+    };
+  }, [ed]);
+  if (ed || !show) return null;
+  const decide = (v) => {
+    try {
+      localStorage.setItem(COOKIE_KEY, v);
+    } catch (_) {
+    }
+    if (v === "declined") setLangCookie("", 0);
+    else setLangCookie(lang, 31536e3);
+    setOut(true);
+    setTimeout(() => setShow(false), 400);
+  };
+  const text = footer.cookieText || T("cookieText");
+  return /* @__PURE__ */ h("div", { className: cx("aa-cookie", out && "is-out"), role: "dialog", "aria-modal": "false", "aria-label": T("cookieLabel"), "data-theme": "other" }, /* @__PURE__ */ h("p", { className: "aa-cookie__t" }, text.split(/(\{privacy:[^}]+\})/).map((part, i) => {
+    const m = /^\{privacy:([^}]+)\}$/.exec(part);
+    return m ? /* @__PURE__ */ h("a", { key: i, href: siteUrl("privacy", lang) }, m[1]) : part;
+  })), /* @__PURE__ */ h("div", { className: "aa-cookie__acts" }, /* @__PURE__ */ h("button", { type: "button", className: "aa-cookie__btn", onClick: () => decide("accepted") }, footer.cookieAccept || T("cookieAccept")), /* @__PURE__ */ h("button", { type: "button", className: "aa-cookie__btn", onClick: () => decide("declined") }, footer.cookieDecline || T("cookieDecline"))));
 }
 const ruDate = (iso) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
   return m ? `${m[3]}.${m[2]}.${m[1]}` : iso || "";
 };
-function legalText(text, legal = {}, site = "") {
+function legalText(text, legal = {}, site = "", lang = "ru") {
   const vals = { ...legal, effectiveDate: ruDate(legal.effectiveDate), site: site || (typeof location !== "undefined" ? location.host : "") };
   return String(text || "").split(/(\{\w+\})/).map((part, i) => {
     const m = /^\{(\w+)\}$/.exec(part);
     if (!m) return part;
-    if (m[1] === "policyLink") return /* @__PURE__ */ h("a", { key: i, href: cfgUrl("privacy") }, "«", legal.policyTitle || "Политика обработки персональных данных", "»");
-    if (m[1] === "consentLink") return /* @__PURE__ */ h("a", { key: i, href: cfgUrl("consent") }, "«", legal.consentTitle || "Согласие на обработку персональных данных", "»");
+    if (m[1] === "policyLink") return /* @__PURE__ */ h("a", { key: i, href: siteUrl("privacy", lang) }, "«", legal.policyTitle || tr(lang, "policyTitle"), "»");
+    if (m[1] === "consentLink") return /* @__PURE__ */ h("a", { key: i, href: siteUrl("consent", lang) }, "«", legal.consentTitle || tr(lang, "consentTitle"), "»");
     return vals[m[1]] != null ? String(vals[m[1]]) : part;
   });
 }
-function LegalPage({ content, kind = "privacy" }) {
+function LegalPage({ content, kind = "privacy", lang = "ru" }) {
+  const T = (k, v) => tr(lang, k, v);
   const c = content || {};
   const L = c.legal || {};
   const mono = c.site && c.site.monogram || "AA";
   const isPolicy = kind !== "consent";
-  const title = isPolicy ? L.policyTitle || "Политика обработки персональных данных" : L.consentTitle || "Согласие на обработку персональных данных";
+  const title = isPolicy ? L.policyTitle || T("policyTitle") : L.consentTitle || T("consentTitle");
   const version = isPolicy ? L.policyVersion : L.consentVersion;
-  return /* @__PURE__ */ h("div", { className: "aa-page aa-legal", "data-theme": "other", id: "top" }, /* @__PURE__ */ h("header", { className: "aa-legal__bar" }, /* @__PURE__ */ h("a", { className: "aa-legal__home", href: homeUrl() }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: mono, label: "На главную" }), /* @__PURE__ */ h("span", { className: "aa-label" }, "← На сайт")), /* @__PURE__ */ h("span", { className: "aa-micro aa-legal__doc" }, isPolicy ? "Документ 01" : "Документ 02")), /* @__PURE__ */ h("main", { className: "aa-legal__main", id: "main" }, /* @__PURE__ */ h("p", { className: "aa-legal__meta aa-micro" }, "Версия ", version || "1.0", " · действует с ", ruDate(L.effectiveDate)), /* @__PURE__ */ h("h1", { className: "aa-legal__title" }, title), isPolicy ? (L.policy || []).map((sec, i) => /* @__PURE__ */ h("section", { key: i, className: "aa-legal__sec" }, /* @__PURE__ */ h("h2", { className: "aa-legal__h aa-label" }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, pad(i + 1)), sec.title), (sec.paragraphs || []).map((p, k) => /* @__PURE__ */ h("p", { key: k }, legalText(p, L, c.site && c.site.domain))))) : /* @__PURE__ */ h("section", { className: "aa-legal__sec" }, (L.consent || []).map((p, k) => /* @__PURE__ */ h("p", { key: k }, legalText(p, L, c.site && c.site.domain)))), /* @__PURE__ */ h("p", { className: "aa-legal__see aa-micro" }, isPolicy ? /* @__PURE__ */ h("a", { href: cfgUrl("consent") }, L.consentTitle || "Согласие на обработку персональных данных", " →") : /* @__PURE__ */ h("a", { href: cfgUrl("privacy") }, L.policyTitle || "Политика обработки персональных данных", " →"))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono }));
+  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { className: "aa-page aa-legal", "data-theme": "other", id: "top" }, /* @__PURE__ */ h("header", { className: "aa-legal__bar" }, /* @__PURE__ */ h("a", { className: "aa-legal__home", href: siteUrl("home", lang) }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: mono, label: T("homeShort") }), /* @__PURE__ */ h("span", { className: "aa-label" }, T("toSite"))), /* @__PURE__ */ h("span", { className: "aa-micro aa-legal__doc" }, T("doc"), " ", isPolicy ? "01" : "02")), /* @__PURE__ */ h("main", { className: "aa-legal__main", id: "main" }, /* @__PURE__ */ h("p", { className: "aa-legal__meta aa-micro" }, T("version"), " ", version || "1.0", " · ", T("since"), " ", ruDate(L.effectiveDate)), /* @__PURE__ */ h("h1", { className: "aa-legal__title" }, title), isPolicy ? (L.policy || []).map((sec, i) => /* @__PURE__ */ h("section", { key: i, className: "aa-legal__sec" }, /* @__PURE__ */ h("h2", { className: "aa-legal__h aa-label" }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, pad(i + 1)), sec.title), (sec.paragraphs || []).map((p, k) => /* @__PURE__ */ h("p", { key: k }, legalText(p, L, c.site && c.site.domain, lang))))) : /* @__PURE__ */ h("section", { className: "aa-legal__sec" }, (L.consent || []).map((p, k) => /* @__PURE__ */ h("p", { key: k }, legalText(p, L, c.site && c.site.domain, lang)))), /* @__PURE__ */ h("p", { className: "aa-legal__see aa-micro" }, isPolicy ? /* @__PURE__ */ h("a", { href: siteUrl("consent", lang) }, L.consentTitle || T("consentTitle"), " →") : /* @__PURE__ */ h("a", { href: siteUrl("privacy", lang) }, L.policyTitle || T("policyTitle"), " →"))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono }), /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
 }
-function Landing({ content, contained = false, onSubmitLead, atmosphere = true }) {
+function Landing({ content, contained = false, onSubmitLead, atmosphere = true, lang = "ru" }) {
   const c = content || {};
   const reduced = useReducedMotion();
   const lite = useLite();
@@ -1346,7 +1617,8 @@ function Landing({ content, contained = false, onSubmitLead, atmosphere = true }
       root.removeAttribute("data-scrolling");
     };
   }, [c.nav]);
-  return /* @__PURE__ */ h("div", { ref: rootRef, className: cx("aa-page", contained && "aa-page--contained", lite && "aa-lite"), "data-theme": "other" }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, "К содержимому"), /* @__PURE__ */ h(Header, { nav: c.nav, monogram: mono, theme: hdr, active, onNavigate: nav, solid }), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h(Hero, { hero: c.hero, onNavigate: nav }), /* @__PURE__ */ h(About, { about: c.about }), /* @__PURE__ */ h(Services, { services: c.services }), c.rift && c.rift.enabled === true && /* @__PURE__ */ h(WorldRift, { rift: c.rift }), /* @__PURE__ */ h(Otherworld, { seam: !(c.rift && c.rift.enabled === true) }, /* @__PURE__ */ h(Works, { works: c.works }), /* @__PURE__ */ h(Cases, { cases: c.cases }), /* @__PURE__ */ h(Contact, { contact: c.contact, onSubmit: onSubmitLead || api.submitLead }))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono, onNavigate: nav }), atmosphere && /* @__PURE__ */ h(Atmosphere, { fixed: true, scanlines: false }));
+  const langs = LANGS.filter((l) => langOn(c, l));
+  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { ref: rootRef, className: cx("aa-page", contained && "aa-page--contained", lite && "aa-lite"), "data-theme": "other", lang }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, tr(lang, "skip")), /* @__PURE__ */ h(Header, { nav: c.nav, monogram: mono, theme: hdr, active, onNavigate: nav, solid, langs }), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h(Hero, { hero: c.hero, onNavigate: nav }), /* @__PURE__ */ h(About, { about: c.about }), /* @__PURE__ */ h(Services, { services: c.services }), c.rift && c.rift.enabled === true && /* @__PURE__ */ h(WorldRift, { rift: c.rift }), /* @__PURE__ */ h(Otherworld, { seam: !(c.rift && c.rift.enabled === true) }, /* @__PURE__ */ h(Works, { works: c.works }), /* @__PURE__ */ h(Cases, { cases: c.cases }), /* @__PURE__ */ h(Contact, { contact: c.contact, onSubmit: onSubmitLead || api.submitLead }))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono, onNavigate: nav }), atmosphere && /* @__PURE__ */ h(Atmosphere, { fixed: true, scanlines: false }), /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
 }
 const api = {
   /** Контент страницы. Сейчас - локальный объект, позже GET {endpoint}. */
@@ -1363,7 +1635,6 @@ const api = {
   /** Заявка из формы. Без endpoint - имитация: 1.2 с задержки; имя со словом «ошибка» - отказ (для проверки состояния). */
   async submitLead(payload, { endpoint } = {}) {
     const ep = endpoint || window.AA_CONFIG && window.AA_CONFIG.leadEndpoint;
-    if (!ep && window.AA_CONFIG && window.AA_CONFIG.staticSite) throw new Error("no lead endpoint");
     if (ep) {
       const r = await fetch(ep, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!r.ok) throw new Error("HTTP " + r.status);
@@ -1375,5 +1646,5 @@ const api = {
   }
 };
 
-window.AA = Object.assign(window.AA || {}, { videoSources, scrollToId, E, Monogram, Button, Rec, Chip, Barcode, Atmosphere, Header, Hero, Counter, About, Tracklist, Services, WorldRift, PosterCard, youtubeId, VideoModal, Works, CaseTag, Cases, validateLead, Transmitter, Contact, Otherworld, Footer, legalText, LegalPage, Landing, EditContext, api });
+window.AA = Object.assign(window.AA || {}, { videoSources, scrollToId, E, localize, siteUrl, Monogram, Button, Rec, Chip, Barcode, Atmosphere, Header, Hero, Counter, About, Tracklist, Services, WorldRift, PosterCard, youtubeId, VideoModal, Works, CaseTag, Cases, validateLead, Transmitter, Contact, Otherworld, Footer, CookieNotice, legalText, LegalPage, Landing, EditContext, LANGS, LangContext, langOn, api });
 })();

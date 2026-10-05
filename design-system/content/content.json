@@ -484,5 +484,130 @@
       "Порядок обработки данных описан в документе {policyLink}.",
       "Версия согласия {consentVersion}, действует с {effectiveDate}."
     ]
+  },
+  "i18n": {
+    "en": {
+      "enabled": false
+    }
+  },
+  "en": {
+    "site": {
+      "name": "Artem Artemov",
+      "title": "Artem Artemov - video editing for YouTube, Reels/Shorts and promo",
+      "description": "Editing people watch to the very end. YouTube videos, Reels/Shorts, promo, color grading, sound and channel design."
+    },
+    "nav": [
+      {
+        "id": "about",
+        "label": "About"
+      },
+      {
+        "id": "services",
+        "label": "Services"
+      },
+      {
+        "id": "works",
+        "label": "Works"
+      },
+      {
+        "id": "cases",
+        "label": "Cases"
+      },
+      {
+        "id": "contact",
+        "label": "Contact"
+      }
+    ],
+    "hero": {
+      "titleLines": [
+        "Artem",
+        "Artemov"
+      ],
+      "primaryCta": {
+        "label": "Get in touch"
+      },
+      "secondaryCta": {
+        "label": "See the works"
+      }
+    },
+    "about": {
+      "title": "About",
+      "noteTitle": "Who edits",
+      "signature": "- A. A."
+    },
+    "services": {
+      "title": "Services",
+      "intro": "What you can order. Deadlines and price - we will discuss in DM."
+    },
+    "works": {
+      "title": "Works",
+      "allLabel": "All",
+      "categories": [
+        {
+          "id": "promo",
+          "label": "Promo"
+        },
+        {
+          "id": "color",
+          "label": "Color and sound"
+        }
+      ]
+    },
+    "cases": {
+      "title": "Cases"
+    },
+    "contact": {
+      "title": "Send a signal",
+      "lead": "Describe what needs editing. I will reply on Telegram or by email.",
+      "frequency": "Frequency 104.7 · Channel AA",
+      "fields": {
+        "name": {
+          "label": "Name",
+          "placeholder": "What should I call you"
+        },
+        "contact": {
+          "label": "Telegram or email",
+          "placeholder": "@username or mail@example.com"
+        },
+        "message": {
+          "label": "What needs editing",
+          "placeholder": "Format, length, deadlines, links to the footage"
+        }
+      },
+      "submitLabel": "Send",
+      "sendingLabel": "Transmitting…",
+      "successTitle": "Signal received",
+      "successText": "Message delivered. I will reply within a day.",
+      "successAgain": "Send another",
+      "errorText": "Interference on the line: the signal did not get through. Try again or write on Telegram.",
+      "channels": [
+        {
+          "id": "yt",
+          "value": "[channel]"
+        },
+        {
+          "id": "ig",
+          "value": "[profile]"
+        },
+        {
+          "id": "mail",
+          "label": "Email"
+        }
+      ],
+      "consentText": "I consent to the processing of personal data under the {consent:consent form} and have read the {privacy:policy}",
+      "consentError": "Consent to data processing is required",
+      "channelsTitle": "Direct frequencies",
+      "asideNote": "Usually reply within a day"
+    },
+    "footer": {
+      "copyright": "© Artem Artemov",
+      "toTop": "Back to top",
+      "privacyLabel": "Privacy policy",
+      "consentLabel": "Consent to data processing"
+    },
+    "legal": {
+      "policyTitle": "Personal data processing policy",
+      "consentTitle": "Consent to personal data processing"
+    }
   }
 }

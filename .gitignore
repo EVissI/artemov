@@ -4,10 +4,9 @@ node_modules/
 # живые данные сервера: пароль, контент, заявки, загрузки (никогда не в гит - там персональные данные)
 data/
 
-# сборки (собираются npm run build / npm run build:pages и в GitHub Actions)
+# сборки (npm run build)
 site/
 site-admin/
-dist/
 
 # локальные бэкапы дизайна
 backup/

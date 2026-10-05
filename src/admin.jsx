@@ -59,6 +59,36 @@ function setIn(o, p, v) {
   }
   return { ...o, [s]: setIn(o[s], rest, v) };
 }
+/* Английский слой content.en: те же пути, что у основы. Элемент списка с id адресуется по id ("@w-01"),
+   даже если путь пришёл с номером, - так перевод не съезжает при перестановке. Нет элемента - создаётся { id }. */
+function trSeg(b, s) { if (/^\d+$/.test(s) && Array.isArray(b)) { const it = b[Number(s)]; if (it && typeof it === 'object' && it.id != null) return '@' + it.id; } return s; }
+function setTr(t, b, ss, v) {
+  if (!ss.length) return v;
+  const s = trSeg(b, ss[0]); const rest = ss.slice(1);
+  if (s[0] === '@') {
+    const id = s.slice(1); const arr = Array.isArray(t) ? t.slice() : [];
+    const bi = Array.isArray(b) ? b.find((x) => x && x.id === id) : undefined;
+    let i = arr.findIndex((x) => x && x.id === id); if (i < 0) { arr.push({ id }); i = arr.length - 1; }
+    arr[i] = { ...setTr(arr[i], bi, rest, v), id }; return arr;
+  }
+  if (/^\d+$/.test(s) && (Array.isArray(b) || Array.isArray(t))) {
+    const i = Number(s); const arr = Array.isArray(t) ? t.slice() : [];
+    while (arr.length < i) arr.push(rest.length ? {} : '');
+    arr[i] = setTr(arr[i], Array.isArray(b) ? b[i] : undefined, rest, v); return arr;
+  }
+  const o = t && typeof t === 'object' && !Array.isArray(t) ? { ...t } : {};
+  o[s] = setTr(o[s], b && b[s], rest, v); return o;
+}
+function getTr(t, b, ss) {
+  for (const s0 of ss) {
+    if (t == null) return undefined;
+    const s = trSeg(b, s0);
+    if (s[0] === '@') { const id = s.slice(1); t = Array.isArray(t) ? t.find((x) => x && x.id === id) : undefined; b = Array.isArray(b) ? b.find((x) => x && x.id === id) : undefined; }
+    else { t = Array.isArray(t) ? t[Number(s)] : t[s]; b = b == null ? undefined : Array.isArray(b) ? b[Number(s)] : b[s]; }
+  }
+  return t;
+}
+const hasText = (v) => typeof v === 'string' && v.trim() !== '';
 const noDash = (v) => (typeof v === 'string' ? v.replace(/[\u2014\u2013]/g, '-') : v); // правило: только дефис
 const uid = (pre) => pre + '-' + Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 4);
 const isPh = (v) => typeof v === 'string' && /\[[^\]]*\]/.test(v);
@@ -83,9 +113,9 @@ const KINDS = {
       { k: 'format', label: 'Формат', t: 'select', options: [['16:9', '16:9 - горизонтальное'], ['9:16', '9:16 - вертикальное']] },
       { k: 'year', label: 'Год', t: 'number' },
       { k: 'previewImage', label: 'Превью-картинка', t: 'media', accept: 'image' },
-      { k: 'previewVideo', label: 'Видео-превью на наведение (коротко, без звука)', t: 'media', accept: 'video' },
+      { k: 'previewVideo', label: 'Видео-превью: играет у выбранной работы (коротко, без звука)', t: 'media', accept: 'video' },
       { k: 'videoUrl', label: 'Ролик в плеере: ссылка YouTube или файл', t: 'media', accept: 'video', link: true },
-      { k: 'description', label: 'Описание под плеером', t: 'textarea' },
+      { k: 'description', label: 'Описание', t: 'textarea' },
     ],
   },
   case: {
@@ -116,16 +146,14 @@ const SECTIONS = {
       { k: 'site.name', label: 'Имя' },
       { k: 'site.title', label: 'Заголовок вкладки и поисковиков' },
       { k: 'site.description', label: 'Описание для поисковиков', t: 'textarea' },
-      { k: 'rift.enabled', label: 'Показывать переход между мирами', t: 'bool', hint: 'Пока выключен: секция «Дальше - работы» дорабатывается' },
+      { k: 'i18n.en.enabled', label: 'Английская версия сайта (/en)', t: 'bool', hint: 'Пока выключено, /en ведёт на русскую версию и в шапке нет переключателя RU / EN. Перевод правится в режиме EN на пульте: пустое поле - на сайте русский текст' },
       { k: 'nav', label: 'Пункты меню', t: 'list', fixed: true, of: [{ k: 'label', label: 'Название' }] },
     ],
   },
   hero: {
     title: 'Hero и фон',
     fields: [
-      { k: 'kicker', label: 'Надпись сверху' },
-      { k: 'titleLines', label: 'Заголовок, по строкам', t: 'strings', max: 3 },
-      { k: 'subtitle', label: 'Подзаголовок', t: 'textarea' },
+      { k: 'titleLines', label: 'Имя текстом, по строкам (для поиска; на экране - если нет картинки-логотипа)', t: 'strings', max: 3 },
       { k: 'primaryCta.label', label: 'Главная кнопка', half: true }, { k: 'primaryCta.target', label: 'ведёт в', t: 'select', options: TARGETS, half: true },
       { k: 'secondaryCta.label', label: 'Вторая кнопка', half: true }, { k: 'secondaryCta.target', label: 'ведёт в', t: 'select', options: TARGETS, half: true },
       { group: 'Фон' },
@@ -133,41 +161,35 @@ const SECTIONS = {
       { k: 'media.src', label: 'Файл фона', t: 'media', accept: (d) => (mediaType(d) === 'video' ? 'video' : 'image') },
       { k: 'media.poster', label: 'Кадр до загрузки видео', t: 'media', accept: 'image', when: (d) => mediaType(d) === 'video' },
       { k: 'media.alt', label: 'Описание картинки (для незрячих)', when: (d) => mediaType(d) === 'image' },
-      { k: 'meta', label: 'Служебные строки справа внизу', t: 'strings' },
     ],
   },
   about: {
     title: 'Обо мне и цифры',
     fields: [
-      { k: 'kicker', label: 'Надпись сверху' }, { k: 'title', label: 'Заголовок' }, { k: 'noteTitle', label: 'Заголовок записки' },
+      { k: 'title', label: 'Заголовок' }, { k: 'noteTitle', label: 'Заголовок записки' },
       { k: 'paragraphs', label: 'Абзацы', t: 'strings', area: true },
       { k: 'signature', label: 'Подпись' },
       { k: 'stats', label: 'Счётчики', t: 'list', make: () => ({ id: uid('st'), value: 0, suffix: '', label: '[подпись]', placeholder: true }), of: [
         { k: 'value', label: 'Число', t: 'number', nullable: true, half: true }, { k: 'suffix', label: 'После числа', half: true },
         { k: 'display', label: 'Знак вместо числа (если число пустое)', when: (s) => s.value == null }, { k: 'label', label: 'Подпись' },
         { k: 'placeholder', label: 'Цифра-плейсхолдер (не настоящая)', t: 'bool' }] },
-      { k: 'statsCaption', label: 'Подписи под счётчиками', t: 'strings' },
     ],
   },
   services: {
     title: 'Услуги',
-    fields: [{ k: 'kicker', label: 'Надпись сверху' }, { k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' },
+    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' },
       { k: 'items', label: 'Услуги', t: 'list', make: KINDS.service.make, of: KINDS.service.fields }],
-  },
-  rift: {
-    title: 'Переход между мирами',
-    fields: [{ k: 'title', label: 'Надпись, по строкам', t: 'strings', max: 2 }, { k: 'topMeta', label: 'Метки сверху', t: 'strings', max: 2 }, { k: 'bottomMeta', label: 'Метки снизу (слева и справа)', t: 'strings', max: 2 }],
   },
   works: {
     title: 'Работы и категории',
-    fields: [{ k: 'kicker', label: 'Метка' }, { k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' }, { k: 'allLabel', label: 'Фильтр «все»' },
+    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'allLabel', label: 'Вкладка «все»' },
       { k: 'categories', label: 'Категории', t: 'list', make: () => ({ id: uid('cat'), label: '[Категория]' }), of: [{ k: 'label', label: 'Название', half: true }, { k: 'id', label: 'Код (латиница)', half: true, slug: true }] }],
   },
-  cases: { title: 'Кейсы', fields: [{ k: 'kicker', label: 'Надпись сверху' }, { k: 'title', label: 'Заголовок' }, { k: 'items', label: 'Кейсы', t: 'list', make: KINDS.case.make, of: KINDS.case.fields.filter((f) => f.k !== 'metrics'), note: 'Метрики правь прямо на бирке' }] },
+  cases: { title: 'Кейсы', fields: [{ k: 'title', label: 'Заголовок' }, { k: 'items', label: 'Кейсы', t: 'list', make: KINDS.case.make, of: KINDS.case.fields.filter((f) => f.k !== 'metrics'), note: 'Метрики правь прямо в журнале' }] },
   contact: {
     title: 'Связь и форма',
     fields: [
-      { k: 'kicker', label: 'Надпись сверху' }, { k: 'title', label: 'Заголовок формы' }, { k: 'lead', label: 'Текст над формой', t: 'textarea' }, { k: 'frequency', label: 'Строка на дисплее' },
+      { k: 'title', label: 'Заголовок формы' }, { k: 'lead', label: 'Текст над формой', t: 'textarea' }, { k: 'frequency', label: 'Строка на дисплее' },
       { group: 'Поля формы' },
       { k: 'fields.name.label', label: 'Имя: метка', half: true }, { k: 'fields.name.placeholder', label: 'подсказка', half: true },
       { k: 'fields.contact.label', label: 'Контакт: метка', half: true }, { k: 'fields.contact.placeholder', label: 'подсказка', half: true },
@@ -202,7 +224,8 @@ const SECTIONS = {
       { k: 'consent', label: 'Абзацы согласия', t: 'strings', area: true },
     ],
   },
-  footer: { title: 'Футер', fields: [{ k: 'copyright', label: 'Копирайт' }, { k: 'lines', label: 'Строки', t: 'strings' }, { k: 'toTop', label: 'Ссылка наверх' }, { k: 'privacyLabel', label: 'Ссылка на политику', half: true }, { k: 'consentLabel', label: 'Ссылка на согласие', half: true }] },
+  footer: { title: 'Футер', fields: [{ k: 'copyright', label: 'Копирайт' }, { k: 'toTop', label: 'Ссылка наверх' }, { k: 'privacyLabel', label: 'Ссылка на политику', half: true }, { k: 'consentLabel', label: 'Ссылка на согласие', half: true },
+    { group: 'Плашка о cookie' }, { k: 'cookieText', label: 'Текст: {privacy:слово} - ссылка на политику (пусто - текст по умолчанию)', t: 'textarea' }, { k: 'cookieAccept', label: 'Кнопка «Принять»', half: true }, { k: 'cookieDecline', label: 'Кнопка «Отклонить»', half: true }] },
 };
 
 /* ============ хранилище черновика с отменой ============ */
@@ -223,8 +246,9 @@ function EditText({ ed, p, v, ph }) {
   const ref = useRef(null); const val = v == null ? '' : String(v);
   useLayoutEffect(() => { const el = ref.current; if (el && document.activeElement !== el && el.textContent !== val) el.textContent = val; }, [val]);
   const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
-  return <span ref={ref} className={cx('aa-ed-text', isPh(val) && 'aa-ed-text--ph')} contentEditable="plaintext-only" suppressContentEditableWarning spellCheck
-    role="textbox" aria-label={ph || 'Текст'} data-ph={ph || 'Пусто'} title={isPh(val) ? 'Плейсхолдер - замени на настоящий текст' : undefined}
+  const untr = ed.untranslated(p);
+  return <span ref={ref} className={cx('aa-ed-text', isPh(val) && 'aa-ed-text--ph', untr && 'aa-ed-text--untr')} contentEditable="plaintext-only" suppressContentEditableWarning spellCheck
+    role="textbox" aria-label={ph || 'Текст'} data-ph={ph || 'Пусто'} title={untr ? 'Нет перевода: на английской версии сейчас русский текст' : isPh(val) ? 'Плейсхолдер - замени на настоящий текст' : undefined}
     onClick={stop} onMouseDown={(e) => e.stopPropagation()}
     onFocus={() => ed.snap()}
     onInput={(e) => ed.set(p, e.currentTarget.textContent.replace(/\n+/g, ' '))}
@@ -305,12 +329,14 @@ function Tools({ ed, list, id, index, kind, axis }) {
   const draftWork = kind === 'work' && item.published === false;
   const stop = (fn) => (e) => { e.preventDefault(); e.stopPropagation(); fn(); };
   const name = typeof item === 'string' ? item.slice(0, 40) : (item.title || item.client || item.label || 'элемент');
+  const en = ed.lang() === 'en';
+  if (en && !(KINDS[kind] && KINDS[kind].fields)) return null;
   return <div className={cx('aa-ed-tools', draftWork && 'aa-ed-tools--pinned')} onClick={(e) => e.stopPropagation()}>
-    {kind === 'work' && <button type="button" className={cx('aa-ed-tool aa-ed-tool--wide', draftWork && 'is-off')} onClick={stop(() => ed.set(list + '.' + key + '.published', draftWork, { snapshot: true }))} title="Показывать на сайте">{draftWork ? 'Черновик' : 'На сайте'}</button>}
+    {kind === 'work' && !en && <button type="button" className={cx('aa-ed-tool aa-ed-tool--wide', draftWork && 'is-off')} onClick={stop(() => ed.set(list + '.' + key + '.published', draftWork, { snapshot: true }))} title="Показывать на сайте">{draftWork ? 'Черновик' : 'На сайте'}</button>}
     {KINDS[kind] && KINDS[kind].fields && <button type="button" className="aa-ed-tool" onClick={stop(() => ed.openItem(list, key, kind))} title="Все поля" aria-label="Все поля">⚙</button>}
-    <button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, -1, kind))} title="Раньше" aria-label="Переместить раньше">{axis === 'x' ? '←' : '↑'}</button>
+    {!en && <Fragment><button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, -1, kind))} title="Раньше" aria-label="Переместить раньше">{axis === 'x' ? '←' : '↑'}</button>
     <button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, 1, kind))} title="Позже" aria-label="Переместить позже">{axis === 'x' ? '→' : '↓'}</button>
-    <button type="button" className="aa-ed-tool" onClick={stop(() => { if (confirm(`Удалить «${name}»?`)) ed.remove(list, key); })} title="Удалить" aria-label="Удалить">✕</button>
+    <button type="button" className="aa-ed-tool" onClick={stop(() => { if (confirm(`Удалить «${name}»?`)) ed.remove(list, key); })} title="Удалить" aria-label="Удалить">✕</button></Fragment>}
   </div>;
 }
 
@@ -339,59 +365,82 @@ function MediaField({ value, onChange, accept, link, onFocus, openLibrary, purpo
   </div>;
 }
 
-function Field({ f, bp, d, content, ed, depth = 0 }) {
+// что переводится: тексты, абзацы, медиа (например, логотип с латиницей); выборы, числа, галочки, ссылки и коды - общие
+const trField = (f) => !f.slug && (!f.t || f.t === 'text' || f.t === 'textarea' || f.t === 'strings' || f.t === 'list' || f.t === 'media');
+const rowKey = (item, i) => (item && typeof item === 'object' && item.id != null ? '@' + item.id : String(i));
+function Field({ f, bp, d, td, content, ed, depth = 0 }) {
+  const en = ed.lang() === 'en';
   if (f.group) return <h4 className="aa-ed-group aa-label">{f.group}</h4>;
-  if (f.note && !f.k) return <p className="aa-ed-note">{f.note}</p>;
+  if (f.note && !f.k) return en ? null : <p className="aa-ed-note">{f.note}</p>;
   if (f.when && !f.when(d || {})) return null;
+  if (en && !trField(f)) return null;
   const path = bp ? bp + '.' + f.k : f.k;
   const v = getIn(d, f.k);
+  const tv = en ? getIn(td, f.k) : undefined; // перевод (может не быть)
+  const val = en ? tv : v;
   const set = (x) => ed.set(path, x);
   const onFocus = () => ed.snap();
   const t = f.t || 'text';
   const id = 'f-' + path.replace(/[^A-Za-z0-9]/g, '_');
+  const phRu = en && typeof v === 'string' ? v : ''; // в режиме EN подсказка в поле - русский текст
   let ctl;
-  if (t === 'text' || t === 'url') ctl = <input id={id} className="aa-ed-input" value={v == null ? '' : v} onFocus={onFocus} onChange={(e) => set(f.slug ? e.target.value.replace(/[^A-Za-z0-9_-]/g, '') : e.target.value)} type={t === 'url' ? 'url' : 'text'} placeholder={t === 'url' ? 'https://' : ''} />;
-  else if (t === 'textarea') ctl = <textarea id={id} className="aa-ed-input" rows={3} value={v || ''} onFocus={onFocus} onChange={(e) => set(e.target.value)} />;
-  else if (t === 'number') ctl = <input id={id} className="aa-ed-input" type="number" value={v == null ? '' : v} onFocus={onFocus} onChange={(e) => set(e.target.value === '' ? (f.nullable ? null : 0) : Number(e.target.value))} />;
+  if (t === 'text' || t === 'url') ctl = <input id={id} className="aa-ed-input" value={val == null ? '' : val} onFocus={onFocus} onChange={(e) => set(f.slug ? e.target.value.replace(/[^A-Za-z0-9_-]/g, '') : e.target.value)} type={t === 'url' ? 'url' : 'text'} placeholder={phRu || (t === 'url' ? 'https://' : '')} />;
+  else if (t === 'textarea') ctl = <textarea id={id} className="aa-ed-input" rows={3} value={val || ''} onFocus={onFocus} onChange={(e) => set(e.target.value)} placeholder={phRu} />;
+  else if (t === 'number') ctl = <input id={id} className="aa-ed-input" type="number" value={v == null ? '' : v} onFocus={onFocus} onChange={(e) => ed.set(path, e.target.value === '' ? (f.nullable ? null : 0) : Number(e.target.value), { base: true })} />;
   else if (t === 'info') return <div className="aa-ed-field"><span className="aa-ed-field__l aa-label">{f.label}</span><p className="aa-ed-info">{v == null || v === '' ? '-' : String(v)}</p></div>;
   else if (t === 'bool') return <label className="aa-ed-check"><input type="checkbox" checked={!!v} onChange={(e) => ed.set(path, e.target.checked, { snapshot: true })} /><span>{f.label}{f.hint && <small>{f.hint}</small>}</span></label>;
-  else if (t === 'select') { const opts = typeof f.options === 'function' ? f.options(content) : f.options; ctl = <select id={id} className="aa-ed-input" value={v == null ? '' : v} onChange={(e) => ed.set(path, e.target.value, { snapshot: true })}>{opts.map(([val, lab]) => <option key={val} value={val}>{lab}</option>)}{v && !opts.some((o) => o[0] === v) && <option value={v}>{v}</option>}</select>; }
-  else if (t === 'media') ctl = <MediaField value={v} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} onFocus={onFocus} onChange={(x) => ed.set(path, x, { snapshot: true })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />;
+  else if (t === 'select') { const opts = typeof f.options === 'function' ? f.options(content) : f.options; ctl = <select id={id} className="aa-ed-input" value={v == null ? '' : v} onChange={(e) => ed.set(path, e.target.value, { snapshot: true, base: true })}>{opts.map(([val2, lab]) => <option key={val2} value={val2}>{lab}</option>)}{v && !opts.some((o) => o[0] === v) && <option value={v}>{v}</option>}</select>; }
+  else if (t === 'media') ctl = <Fragment>
+    <MediaField value={val} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} onFocus={onFocus} onChange={(x) => ed.set(path, x, { snapshot: true })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />
+    {en && !hasText(tv) && v && <p className="aa-ed-note aa-ed-note--tight">Пусто - как в русской версии.</p>}
+  </Fragment>;
   else if (t === 'strings' || t === 'list') {
     const arr = Array.isArray(v) ? v : [];
+    const tarr = Array.isArray(tv) ? tv : [];
     const strings = t === 'strings';
     const mv = (i, dir) => { const j = i + dir; if (j < 0 || j >= arr.length) return; const c = arr.slice(); [c[i], c[j]] = [c[j], c[i]]; ed.set(path, c, { snapshot: true }); };
     const rm = (i) => ed.set(path, arr.filter((_, k) => k !== i), { snapshot: true });
     const add = () => ed.set(path, [...arr, strings ? '' : (f.make ? f.make(content) : {})], { snapshot: true });
+    const trRow = (item, i) => (item && typeof item === 'object' && item.id != null ? tarr.find((x) => x && x.id === item.id) : tarr[i]);
+    const shape = !en && !f.fixed; // в EN список не перестраивается: состав и порядок - общие, правятся в русской версии
     return <fieldset className={cx('aa-ed-list', depth && 'aa-ed-list--nested')}>
       <legend className="aa-ed-field__l aa-label">{f.label}</legend>
-      {f.note && <p className="aa-ed-note">{f.note}</p>}
+      {f.note && !en && <p className="aa-ed-note">{f.note}</p>}
       {arr.map((item, i) => <div key={(item && item.id) || i} className={cx('aa-ed-list__row', !strings && 'aa-ed-list__row--obj')}>
         <div className="aa-ed-list__body">
-          {strings ? (f.area ? <textarea className="aa-ed-input" rows={3} value={item || ''} onFocus={onFocus} onChange={(e) => ed.set(path + '.' + i, e.target.value)} />
-            : <input className="aa-ed-input" value={item || ''} onFocus={onFocus} onChange={(e) => ed.set(path + '.' + i, e.target.value)} aria-label={f.label + ' ' + (i + 1)} />)
-            : <div className="aa-ed-grid">{f.of.map((sf, k) => <div key={k} className={cx('aa-ed-cell', sf.half && 'aa-ed-cell--half')}><Field f={sf} bp={path + '.' + i} d={item} content={content} ed={ed} depth={depth + 1} /></div>)}</div>}
+          {strings ? (() => {
+            const sv = en ? (tarr[i] || '') : (item || ''); const ph = en ? item || '' : undefined;
+            const ch = (e) => ed.set(path + '.' + i, e.target.value);
+            return f.area ? <textarea className="aa-ed-input" rows={3} value={sv} placeholder={ph} onFocus={onFocus} onChange={ch} /> : <input className="aa-ed-input" value={sv} placeholder={ph} onFocus={onFocus} onChange={ch} aria-label={f.label + ' ' + (i + 1)} />;
+          })()
+            : <div className="aa-ed-grid">{f.of.map((sf, k) => <div key={k} className={cx('aa-ed-cell', sf.half && 'aa-ed-cell--half')}><Field f={sf} bp={path + '.' + rowKey(item, i)} d={item} td={en ? trRow(item, i) : undefined} content={content} ed={ed} depth={depth + 1} /></div>)}</div>}
         </div>
-        {!f.fixed && <div className="aa-ed-list__acts">
+        {shape && <div className="aa-ed-list__acts">
           <button type="button" className="aa-ed-tool" onClick={() => mv(i, -1)} aria-label="Выше" disabled={i === 0}>↑</button>
           <button type="button" className="aa-ed-tool" onClick={() => mv(i, 1)} aria-label="Ниже" disabled={i === arr.length - 1}>↓</button>
           <button type="button" className="aa-ed-tool" onClick={() => rm(i)} aria-label="Удалить">✕</button>
         </div>}
       </div>)}
-      {!f.fixed && !(f.max && arr.length >= f.max) && <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={add}>+ Добавить</button>}
+      {shape && !(f.max && arr.length >= f.max) && <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={add}>+ Добавить</button>}
     </fieldset>;
   }
   return <div className="aa-ed-field">
     <label className="aa-ed-field__l aa-label" htmlFor={id}>{f.label}</label>
     {ctl}
-    {isPh(v) && <span className="aa-ed-field__ph">плейсхолдер</span>}
+    {isPh(val) && <span className="aa-ed-field__ph">плейсхолдер</span>}
+    {en && (t === 'text' || t === 'textarea') && !hasText(tv) && hasText(v) && <span className="aa-ed-field__ph aa-ed-field__ph--tr">нет перевода</span>}
   </div>;
 }
 
 function FormPanel({ spec, ed, content }) {
   const d = spec.p ? getIn(content, spec.p) : content;
   if (d === undefined) return <p className="aa-ed-note">Элемент удалён.</p>;
-  return <div className="aa-ed-grid">{spec.fields.map((f, i) => <div key={i} className={cx('aa-ed-cell', f.half && 'aa-ed-cell--half', f.group && 'aa-ed-cell--full')}><Field f={f} bp={spec.p} d={d} content={content} ed={ed} /></div>)}</div>;
+  const en = ed.lang() === 'en';
+  const td = en ? (spec.p ? getTr(content.en, content, segs(spec.p)) : content.en) : undefined;
+  return <Fragment>
+    {en && <p className="aa-ed-note aa-ed-note--en">Английская версия. Здесь только тексты и медиа: пустое поле - на сайте будет русский текст (он виден серым внутри поля). Состав списков, порядок, ссылки и настройки - общие, правятся в режиме RU.</p>}
+    <div className="aa-ed-grid">{spec.fields.map((f, i) => <div key={i} className={cx('aa-ed-cell', f.half && 'aa-ed-cell--half', f.group && 'aa-ed-cell--full')}><Field f={f} bp={spec.p} d={d} td={td} content={content} ed={ed} /></div>)}</div>
+  </Fragment>;
 }
 
 /* ============ заявки ============ */
@@ -560,6 +609,7 @@ function App() {
   const [status, setStatus] = useState(null); // { text, tone }
   const [saving, setSaving] = useState(false);
   const [more, setMore] = useState(false); // меню «⋯» на пульте
+  const [lang, setLang] = useState('ru'); const langRef = useRef('ru'); langRef.current = lang; // язык правки: ru - основа, en - перевод в content.en
   const opener = useRef(null); const panelOpen = useRef(false); const panelRef = useRef(null);
   panelOpen.current = !!panel;
   const remember = () => { if (!panelOpen.current) opener.current = document.activeElement; };
@@ -622,9 +672,15 @@ function App() {
 
   // объект ed, который видят компоненты лендинга
   const ed = useMemo(() => {
-    const set = (p, v, opts) => D.update((d) => setIn(d, p, noDash(v)), opts);
+    // в режиме EN строки (тексты и адреса медиа) уходят в перевод content.en; выборы, числа, галочки и опция base - в основу
+    const set = (p, v, opts = {}) => {
+      const toEn = langRef.current === 'en' && !opts.base && typeof v === 'string';
+      D.update((d) => (toEn ? { ...d, en: setTr(d.en, d, segs(p), noDash(v)) } : setIn(d, p, noDash(v))), opts);
+    };
     const api = {
       draft: () => D.ref.current.draft,
+      lang: () => langRef.current,
+      untranslated: (p) => { if (langRef.current !== 'en') return false; const d = D.ref.current.draft; return hasText(getIn(d, p)) && !hasText(getTr(d.en, d, segs(p))); },
       snap: D.snap,
       set,
       move(list, key, dir, kind) {
@@ -659,6 +715,7 @@ function App() {
     api.slot = (props) => <Slot ed={api} {...props} />;
     api.tools = (props) => <Tools ed={api} {...props} />;
     api.add = ({ list, kind, label, tag, extra }) => {
+      if (langRef.current === 'en') return null; // новые элементы - в русской версии
       const T = tag || 'div';
       return <T className={cx('aa-ed-add', 'aa-ed-add--' + kind)}><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); api.addItem(list, kind, extra); }}><span aria-hidden="true">+</span> {label}</button></T>;
     };
@@ -671,10 +728,11 @@ function App() {
   if (auth === 'error' || !D.draft) return <div className="aa-page aa-ed-login" data-theme="other"><p className="aa-label">Нет сигнала от сервера. <button type="button" className="aa-ed-btn" onClick={loadAll}>Повторить</button></p></div>;
 
   const content = D.draft;
+  const view = lang === 'en' ? AA.localize(content, 'en') : content; // что видно на странице: в EN - перевод поверх русского
   const logout = async () => { if (dirty && !confirm('Есть несохранённые правки. Выйти?')) return; await call('POST', '/logout').catch(() => {}); D.load(null, null); setAuth('out'); };
   let panelTitle = '', panelBody = null;
   if (panel) {
-    if (panel.type === 'section') { const S = SECTIONS[panel.kind]; panelTitle = S.title; panelBody = <FormPanel spec={{ p: panel.p, fields: S.fields }} ed={ed} content={content} />; }
+    if (panel.type === 'section') { const S = SECTIONS[panel.kind] || { title: 'Секция', fields: [] }; panelTitle = S.title + (lang === 'en' ? ' · EN' : ''); panelBody = <FormPanel spec={{ p: panel.p, fields: S.fields }} ed={ed} content={content} />; }
     else if (panel.type === 'item') { const K = KINDS[panel.kind]; const d = getIn(content, panel.p) || {}; panelTitle = K.title ? K.title(d) : 'Элемент'; panelBody = <FormPanel spec={{ p: panel.p, fields: K.fields }} ed={ed} content={content} />; }
     else if (panel.type === 'leads') { panelTitle = 'Заявки'; panelBody = <LeadsPanel onCount={setNewLeads} />; }
     else if (panel.type === 'history') { panelTitle = 'История версий'; panelBody = <HistoryPanel onRestore={(c) => { D.update(() => c, { snapshot: true }); flash('Версия в черновике. Сохрани, чтобы опубликовать.'); }} />; }
@@ -682,8 +740,8 @@ function App() {
   }
 
   return <div className={cx('aa-ed-app', editing && 'is-editing', panel && 'has-panel')}>
-    {editing ? <AA.EditContext.Provider value={ed}><AA.Landing content={content} onSubmitLead={() => Promise.reject(new Error('preview'))} /></AA.EditContext.Provider>
-      : <AA.Landing content={content} onSubmitLead={() => new Promise((r) => setTimeout(r, 600))} />}
+    {editing ? <AA.EditContext.Provider value={ed}><AA.Landing key={lang} content={view} lang={lang} onSubmitLead={() => Promise.reject(new Error('preview'))} /></AA.EditContext.Provider>
+      : <AA.Landing key={lang} content={view} lang={lang} onSubmitLead={() => new Promise((r) => setTimeout(r, 600))} />}
 
     {panel && <aside className="aa-ed-panel" data-theme="other" aria-label={panelTitle} ref={panelRef} tabIndex={-1}>
       <header className="aa-ed-panel__h">
@@ -700,6 +758,10 @@ function App() {
       <div className="aa-ed-seg" role="group" aria-label="Режим">
         <button type="button" aria-pressed={editing} onClick={() => setEditing(true)}>Правка</button>
         <button type="button" aria-pressed={!editing} onClick={() => setEditing(false)}>Как на сайте</button>
+      </div>
+      <div className="aa-ed-seg aa-ed-seg--lang" role="group" aria-label="Язык правки" title={AA.langOn(content, 'en') ? 'Английская версия включена (/en)' : 'Английская версия выключена: включить - «Страница»'}>
+        <button type="button" aria-pressed={lang === 'ru'} onClick={() => setLang('ru')}>RU</button>
+        <button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN{!AA.langOn(content, 'en') && <span className="aa-ed-off" aria-label="выключена"> ○</span>}</button>
       </div>
       <span className="aa-ed-dock__grp aa-ed-sec">
         <button type="button" className="aa-ed-tool" onClick={D.undo} disabled={!D.canUndo} title="Отменить (Ctrl+Z)" aria-label="Отменить">↶</button>

@@ -62,6 +62,106 @@ const useEd = () => React.useContext(EditContext);
 export function E({ p, v, ph }) { const ed = useEd(); return ed ? ed.text({ p, v, ph }) : (v == null ? null : v); }
 const edEl = (ed, k, props) => (ed ? ed[k](props) : null);
 
+/* ============ языки ============
+   Русский - основа. Английский - перевод поверх: content.en той же формы, что и сам контент (только тексты и медиа,
+   которые отличаются). Пустое или отсутствующее поле в content.en - на сайте русский текст. Списки с id сливаются по id,
+   без id - по номеру. Включается галочкой content.i18n.en.enabled (админка, «Страница»). Адреса: / и /en,
+   документы /privacy и /en/privacy. Тексты интерфейса, которых нет в контенте, - UI. */
+export const LANGS = ['ru', 'en'];
+export const LangContext = React.createContext('ru');
+const useLang = () => React.useContext(LangContext);
+const UI = {
+  ru: {
+    skip: 'К содержимому', home: 'Артем Артемов - на главную', sections: 'Разделы', menu: 'Меню', close: 'Закрыть', lang: 'Язык сайта',
+    intro: 'Вступление', watch: 'Смотреть', worksCats: 'Категории работ', worksShown: 'Показано работ: ', worksList: 'Работы', all: 'Все',
+    catEmpty: 'В этой категории пока пусто', still: 'Кадр из работы', closeX: 'Закрыть ✕', noSignal: 'Сигнал отсутствует', openYt: 'Открыть на YouTube ↗',
+    protocol: 'Протокол №', task: 'Задача', done: 'Сделано', result: 'Результат', before: 'было', after: 'стало', watchWork: 'смотреть работу →',
+    journal: 'журнал', casesAt: 'Кейсы: запись {n} из {m}', record: 'запись {n} из {m}', prevPage: 'Предыдущая страница', nextPage: 'Следующая страница',
+    errName: 'Назови себя - хотя бы две буквы', errContactEmpty: 'Оставь @username или email', errContact: 'Нужен @username в Telegram или email',
+    errMessage: 'Опиши задачу хотя бы парой предложений', errConsent: 'Нужно согласие на обработку данных',
+    consentText: 'Согласен на обработку персональных данных согласно {consent:согласию} и ознакомлен с {privacy:политикой}',
+    freq: 'Частота 104.7 · Канал AA', sending: 'Отправка…', successTitle: 'Сигнал принят', errorText: 'Ошибка отправки', again: 'Передать ещё',
+    submit: 'Отправить', sendingBtn: 'Передача…', channels: 'Каналы связи', channelsTitle: 'Прямые частоты',
+    toTop: 'Наверх', docs: 'Документы', privacyLabel: 'Политика обработки данных', consentLabel: 'Согласие на обработку данных',
+    policyTitle: 'Политика обработки персональных данных', consentTitle: 'Согласие на обработку персональных данных',
+    toSite: '← На сайт', homeShort: 'На главную', doc: 'Документ', version: 'Версия', since: 'действует с', dev: 'Разработка сайта - vissegor.ru',
+    cookieText: 'Сайт может сохранить одну техническую cookie - чтобы запомнить выбранный язык. Аналитики, рекламы и слежки нет. Подробнее - в {privacy:политике}.', cookieAccept: 'Принять', cookieDecline: 'Отклонить', cookieLabel: 'Cookie', cookieSettings: 'Cookie',
+  },
+  en: {
+    skip: 'Skip to content', home: 'Artem Artemov - home', sections: 'Sections', menu: 'Menu', close: 'Close', lang: 'Site language',
+    intro: 'Intro', watch: 'Watch', worksCats: 'Work categories', worksShown: 'Works shown: ', worksList: 'Works', all: 'All',
+    catEmpty: 'Nothing in this category yet', still: 'Still from', closeX: 'Close ✕', noSignal: 'No signal', openYt: 'Open on YouTube ↗',
+    protocol: 'Record No.', task: 'Task', done: 'Done', result: 'Result', before: 'before', after: 'after', watchWork: 'watch the work →',
+    journal: 'journal', casesAt: 'Cases: record {n} of {m}', record: 'record {n} of {m}', prevPage: 'Previous page', nextPage: 'Next page',
+    errName: 'Your name - at least two letters', errContactEmpty: 'Leave a @username or an email', errContact: 'Need a Telegram @username or an email',
+    errMessage: 'Describe the task in a couple of sentences', errConsent: 'Consent to data processing is required',
+    consentText: 'I consent to the processing of personal data under the {consent:consent form} and have read the {privacy:policy}',
+    freq: 'Frequency 104.7 · Channel AA', sending: 'Sending…', successTitle: 'Signal received', errorText: 'Sending failed', again: 'Send another',
+    submit: 'Send', sendingBtn: 'Transmitting…', channels: 'Contact channels', channelsTitle: 'Direct frequencies',
+    toTop: 'Back to top', docs: 'Documents', privacyLabel: 'Privacy policy', consentLabel: 'Consent to data processing',
+    policyTitle: 'Personal data processing policy', consentTitle: 'Consent to personal data processing',
+    toSite: '← Back to site', homeShort: 'Home', doc: 'Document', version: 'Version', since: 'effective from', dev: 'Website by vissegor.ru',
+    cookieText: 'This site can store one technical cookie - to remember the language you chose. No analytics, ads or tracking. More in the {privacy:policy}.', cookieAccept: 'Accept', cookieDecline: 'Decline', cookieLabel: 'Cookies', cookieSettings: 'Cookies',
+  },
+};
+const tr = (lang, k, vars) => { let t = (UI[lang] && UI[lang][k]) || UI.ru[k] || k; if (vars) for (const [a, b] of Object.entries(vars)) t = t.replace('{' + a + '}', b); return t; };
+const useT = () => { const l = useLang(); return (k, vars) => tr(l, k, vars); };
+const hasText = (v) => !(v == null || (typeof v === 'string' && v.trim() === ''));
+// перевод поверх основы: строки - если не пустые, объекты - по ключам, списки - по id или по номеру
+function overlay(base, t) {
+  if (t == null) return base;
+  if (Array.isArray(base)) {
+    if (!Array.isArray(t)) return base;
+    const byId = base.some((x) => x && typeof x === 'object' && x.id != null);
+    return base.map((b, i) => overlay(b, byId ? t.find((x) => x && b && x.id === b.id) : t[i]));
+  }
+  if (base && typeof base === 'object') {
+    if (typeof t !== 'object' || Array.isArray(t)) return base;
+    const o = { ...base };
+    for (const k of Object.keys(t)) if (k !== 'id') o[k] = k in base ? overlay(base[k], t[k]) : (hasText(t[k]) ? t[k] : base[k]);
+    return o;
+  }
+  return typeof t === 'string' && (base == null || typeof base === 'string') ? (hasText(t) ? t : base) : base;
+}
+/** Контент на нужном языке: для en - перевод content.en поверх русского. */
+export function localize(content, lang) {
+  if (!content || lang !== 'en') return content;
+  const { en, ...base } = content;
+  return { ...overlay(base, en || {}), en };
+}
+/** Включён ли язык на сайте (русский - всегда). */
+export const langOn = (content, lang) => lang === 'ru' || !!(content && content.i18n && content.i18n[lang] && content.i18n[lang].enabled);
+const DEF_URLS = { home: { ru: '/', en: '/en' }, privacy: { ru: '/privacy', en: '/en/privacy' }, consent: { ru: '/consent', en: '/en/consent' } };
+/** Выбор языка в переключателе: cookie aa_lang на год (техническая, только для этого; см. плашку CookieNotice). */
+const COOKIE_KEY = 'aa-cookie';
+const cookieChoice = () => { try { return localStorage.getItem(COOKIE_KEY) || ''; } catch (_) { return ''; } };
+const setLangCookie = (l, maxAge) => { try { document.cookie = 'aa_lang=' + l + '; Path=/; Max-Age=' + maxAge + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : ''); } catch (_) { /* нет cookie - и не надо */ } };
+// переключатель: с согласием - запоминаем язык в cookie; без него - только ?lang=ru, чтобы сервер не увёл обратно на /en
+const goLang = (e, l, cur) => {
+  e.preventDefault(); if (l === cur) return;
+  const accepted = cookieChoice() === 'accepted';
+  if (accepted) setLangCookie(l, 31536000);
+  fogTo(siteUrl('home', l) + (l === 'ru' && !accepted ? '?lang=ru' : ''));
+};
+/* Смена языка в тумане: страницу заволакивает туман (тот же, что у прелоадера в index.html, класс .aa-pre--fog),
+   потом переход; новая страница открывается уже под туманом (флаг aa-fog в sessionStorage) и рассеивает его,
+   когда загрузится. Только opacity/transform. reduced-motion - сразу переход. */
+function fogTo(url) {
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { location.href = url; return; }
+  try { sessionStorage.setItem('aa-fog', '1'); } catch (_) { /* без флага новая страница покажет обычный прелоадер */ }
+  const el = document.createElement('div');
+  el.className = 'aa-pre aa-pre--fog is-enter'; el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = '<div class="aa-pre__fog"></div><div class="aa-pre__fog"></div><div class="aa-pre__fog"></div>';
+  document.body.appendChild(el);
+  el.getBoundingClientRect(); el.classList.add('is-on'); // старт перехода с прозрачного
+  // назад из кэша браузера (bfcache) - туман не должен остаться висеть
+  window.addEventListener('pageshow', (ev) => { if (ev.persisted) el.remove(); }, { once: true });
+  setTimeout(() => { location.href = url; }, 950);
+}
+/** Адреса главной и документов по языку. */
+export function siteUrl(kind, lang = 'ru') { return DEF_URLS[kind][lang] || DEF_URLS[kind].ru; }
+
 /* ============ базовые элементы ============ */
 export function Monogram({ variant = 'mark', text = 'AA', className, label, ...rest }) {
   const deco = variant !== 'mark';
@@ -99,19 +199,20 @@ export function Atmosphere({ fixed = true, grain = true, scanlines = true, vigne
 }
 
 /* ============ хедер ============ */
-export function Header({ nav = [], monogram = 'AA', recLabel = 'REC', theme = 'other', active, onNavigate, fixed = true, solid = false }) {
-  const [open, setOpen] = useState(false);
+export function Header({ nav = [], monogram = 'AA', recLabel = 'REC', theme = 'other', active, onNavigate, fixed = true, solid = false, langs = [] }) {
+  const [open, setOpen] = useState(false); const lang = useLang(); const t = useT();
   const go = (e, id) => { if (onNavigate) { e.preventDefault(); onNavigate(id); } setOpen(false); };
   return <header className={cx('aa-header', !fixed && 'aa-header--static', open && 'aa-header--open', solid && 'aa-header--solid')} data-theme={theme}>
-    <a className="aa-header__logo" href="#top" onClick={(e) => go(e, 'top')}><Monogram variant="mark" text={monogram} label="Артем Артемов - на главную" /></a>
-    <nav aria-label="Разделы">
+    <a className="aa-header__logo" href="#top" onClick={(e) => go(e, 'top')}><Monogram variant="mark" text={monogram} label={t('home')} /></a>
+    <nav aria-label={t('sections')}>
       <ul className="aa-header__nav aa-label" id="aa-nav">
         {nav.map((n) => <li key={n.id}><a href={'#' + n.id} aria-current={active === n.id ? 'true' : undefined} onClick={(e) => go(e, n.id)}>{n.label}</a></li>)}
       </ul>
     </nav>
     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      {langs.length > 1 && <nav className="aa-langs" aria-label={t('lang')}>{langs.map((l) => <a key={l} href={siteUrl('home', l)} hrefLang={l} lang={l} aria-current={l === lang ? 'true' : undefined} onClick={(e) => goLang(e, l, lang)}>{l.toUpperCase()}</a>)}</nav>}
       <Rec label={recLabel} />
-      <button type="button" className="aa-header__menu aa-label" aria-expanded={open} aria-controls="aa-nav" onClick={() => setOpen(!open)}>{open ? 'Закрыть' : 'Меню'}</button>
+      <button type="button" className="aa-header__menu aa-label" aria-expanded={open} aria-controls="aa-nav" onClick={() => setOpen(!open)}>{open ? t('close') : t('menu')}</button>
     </div>
   </header>;
 }
@@ -127,8 +228,8 @@ export function Hero({ hero = {}, onNavigate, id = 'top' }) {
   let scene = null;
   if (media.type === 'video' && media.src) scene = <video key={media.src} poster={media.poster || undefined} autoPlay muted loop playsInline preload="metadata" aria-hidden="true">{videoSources(media.src)}</video>;
   else if (media.src) scene = <img src={media.src} alt={media.alt || ''} decoding="async" fetchpriority="high" />;
-  const lines = hero.titleLines || ['Артем', 'Артемов'];
-  return <section className="aa-hero" id={id} data-theme="other" data-header="other" aria-label="Вступление">
+  const lines = hero.titleLines || ['Артем', 'Артемов']; const t = useT();
+  return <section className="aa-hero" id={id} data-theme="other" data-header="other" aria-label={t('intro')}>
     <div className="aa-hero__scene">{scene}</div>
     {edEl(ed, 'section', { p: 'hero', kind: 'hero', label: 'Hero и фон' })}
     <div className="aa-hero__content">
@@ -609,7 +710,7 @@ export function youtubeId(url) {
 }
 
 export function VideoModal({ work, onClose, categoryLabel }) {
-  const closeRef = useRef(null); const prev = useRef(null);
+  const T = useT(); const closeRef = useRef(null); const prev = useRef(null);
   useEffect(() => {
     prev.current = document.activeElement; closeRef.current && closeRef.current.focus();
     const onKey = (e) => { if (e.key === 'Escape') onClose && onClose(); };
@@ -623,14 +724,14 @@ export function VideoModal({ work, onClose, categoryLabel }) {
     <div className={cx('aa-modal__box', vertical && 'aa-modal__box--v')}>
       <div className="aa-modal__head">
         <div><span className="aa-micro aa-muted">{categoryLabel || work.category} · {work.year} · {work.format}</span><h2 className="aa-h3" id="aa-modal-t" style={{ marginTop: 6 }}>{work.title}</h2></div>
-        <button type="button" ref={closeRef} className="aa-modal__close aa-label" onClick={onClose}>Закрыть ✕</button>
+        <button type="button" ref={closeRef} className="aa-modal__close aa-label" onClick={onClose}>{T('closeX')}</button>
       </div>
       <div className="aa-modal__player" style={{ aspectRatio: vertical ? '9 / 16' : '16 / 9' }}>
         {yt ? <iframe src={`https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&rel=0`} title={work.title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen loading="lazy"></iframe>
           : work.videoUrl ? <video key={work.videoUrl} controls autoPlay playsInline poster={work.previewImage || undefined}>{videoSources(work.videoUrl)}</video>
-            : <div className="aa-modal__nosignal"><div><Monogram variant="mark" /><p className="aa-label" style={{ marginTop: 12 }}>Сигнал отсутствует</p><p className="aa-micro aa-muted" style={{ marginTop: 8 }}>Слот под видео: videoUrl (YouTube или файл)</p></div></div>}
+            : <div className="aa-modal__nosignal"><div><Monogram variant="mark" /><p className="aa-label" style={{ marginTop: 12 }}>{T('noSignal')}</p><p className="aa-micro aa-muted" style={{ marginTop: 8 }}>Слот под видео: videoUrl (YouTube или файл)</p></div></div>}
       </div>
-      {yt && <p className="aa-label" style={{ marginTop: 12 }}><a href={`https://www.youtube.com/watch?v=${yt}`} target="_blank" rel="noopener">Открыть на YouTube ↗</a></p>}
+      {yt && <p className="aa-label" style={{ marginTop: 12 }}><a href={`https://www.youtube.com/watch?v=${yt}`} target="_blank" rel="noopener">{T('openYt')}</a></p>}
       {work.description && <p className="aa-modal__desc">{work.description}</p>}
     </div>
   </div>;
@@ -644,7 +745,7 @@ export function VideoModal({ work, onClose, categoryLabel }) {
    стрелки двигают выбор по сетке, Enter/клик по выбранной открывает плеер. В админке на осмотре - слоты медиа. */
 const INV_COLS = 4, INV_MIN = 12;
 export function Works({ works = {}, id = 'works' }) {
-  const ed = useEd(); const reduced = useReducedMotion();
+  const ed = useEd(); const reduced = useReducedMotion(); const T = useT();
   const [filter, setFilter] = useState('all'); const [open, setOpen] = useState(null); const [sel, setSel] = useState(null);
   const secRef = useRef(null); const [host, setHost] = useState(null); const gridRef = useRef(null);
   useEffect(() => { setHost((secRef.current && secRef.current.closest('.aa-page')) || null); }, []);
@@ -676,13 +777,13 @@ export function Works({ works = {}, id = 'works' }) {
       <div className="aa-section__head aa-inv__head">
         <div><h2 className="aa-h2" id={id + '-h'}><E p="works.title" v={works.title} /></h2></div>
       </div>
-      <div className="aa-inv__tabs" role="tablist" aria-label="Категории работ">
-        {tab('all', works.allLabel || 'Все', items.length)}
+      <div className="aa-inv__tabs" role="tablist" aria-label={T('worksCats')}>
+        {tab('all', works.allLabel || T('all'), items.length)}
         {cats.filter((c) => count(c.id) > 0).map((c) => tab(c.id, c.label, count(c.id)))}
       </div>
-      <div className="aa-sr" aria-live="polite">Показано работ: {shown.length}</div>
+      <div className="aa-sr" aria-live="polite">{T('worksShown')}{shown.length}</div>
       <div className="aa-inv__body">
-        <div className="aa-inv__grid" ref={gridRef} role="listbox" aria-label="Работы" aria-activedescendant={cur ? 'inv-' + cur.id : undefined} onKeyDown={onKey}>
+        <div className="aa-inv__grid" ref={gridRef} role="listbox" aria-label={T('worksList')} aria-activedescendant={cur ? 'inv-' + cur.id : undefined} onKeyDown={onKey}>
           {Array.from({ length: slots }, (_, k) => {
             const w = shown[k];
             if (!w) return k === shown.length && ed ? <div key="add" className="aa-inv__slot aa-inv__slot--add">{edEl(ed, 'add', { list: 'works.items', kind: 'work', label: '+', extra: { category: filter === 'all' ? undefined : filter } })}</div>
@@ -699,7 +800,7 @@ export function Works({ works = {}, id = 'works' }) {
           })}
         </div>
         {cur ? <InvDetail key={cur.id} work={cur} index={items.indexOf(cur)} categoryLabel={catLabel(cur.category)} reduced={reduced} onOpen={setOpen} />
-          : <div className="aa-inv__detail aa-inv__detail--empty"><p className="aa-label">{ed ? 'Добавьте работу' : 'В этой категории пока пусто'}</p></div>}
+          : <div className="aa-inv__detail aa-inv__detail--empty"><p className="aa-label">{ed ? 'Добавьте работу' : T('catEmpty')}</p></div>}
       </div>
     </div>
     {open && (() => { const m = <VideoModal work={open} categoryLabel={catLabel(open.category)} onClose={() => setOpen(null)} />; return host && window.ReactDOM && window.ReactDOM.createPortal ? window.ReactDOM.createPortal(m, host) : m; })()}
@@ -708,14 +809,14 @@ export function Works({ works = {}, id = 'works' }) {
 
 // «осмотр» выбранной работы: крупное превью, подписи, кнопка в плеер; в админке - слоты медиа и редактируемый текст
 function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
-  const ed = useEd(); const p = 'works.items.@' + work.id; const vertical = work.format === '9:16';
+  const ed = useEd(); const T = useT(); const p = 'works.items.@' + work.id; const vertical = work.format === '9:16';
   const [vid, setVid] = useState(false);
   useEffect(() => { if (!work.previewVideo || reduced || ed) return; const t = setTimeout(() => setVid(true), 220); return () => clearTimeout(t); }, [work.previewVideo, reduced, ed]);
   return <div className="aa-inv__detail">
     {edEl(ed, 'tools', { list: 'works.items', id: work.id, kind: 'work', axis: 'x' })}
     <div className={cx('aa-inv__view', vertical && 'aa-inv__view--v')}>
       <div className="aa-inv__frame" style={{ aspectRatio: vertical ? '9 / 16' : '16 / 9' }}>
-        {work.previewImage && <img src={work.previewImage} alt={`Кадр из работы «${work.title}»`} decoding="async" />}
+        {work.previewImage && <img src={work.previewImage} alt={`${T('still')} «${work.title}»`} decoding="async" />}
         {vid && <video key={work.previewVideo} muted loop playsInline autoPlay preload="none" aria-hidden="true">{videoSources(work.previewVideo)}</video>}
         {!work.previewImage && !vid && <span className="aa-inv__ph" aria-hidden="true"><Monogram variant="watermark" /></span>}
         {edEl(ed, 'slot', { p: p + '.previewImage', v: work.previewImage, accept: 'image', label: 'Превью ' + work.format })}
@@ -726,7 +827,7 @@ function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
     <p className="aa-inv__meta aa-micro">№ {pad(index + 1)} · {categoryLabel} · {work.format} · {work.year}</p>
     <h3 className="aa-inv__title"><E p={p + '.title'} v={work.title} ph="Название" /></h3>
     {(work.description || ed) && <p className="aa-inv__desc"><E p={p + '.description'} v={work.description} ph="Описание" /></p>}
-    {!ed && <button type="button" className="aa-inv__play" onClick={() => onOpen && onOpen(work)}><span aria-hidden="true">▶</span> Смотреть</button>}
+    {!ed && <button type="button" className="aa-inv__play" onClick={() => onOpen && onOpen(work)}><span aria-hidden="true">▶</span> {T('watch')}</button>}
   </div>;
 }
 
@@ -768,36 +869,36 @@ const JR_FLIP = 760;
 // кусок большого листа бумаги для страницы: детерминированно по номеру кейса и стороне (пятна у всех страниц разные)
 const paperPos = (i, side) => { const r = rng(((i + 1) * 7919 + (side === 'L' ? 13 : 101)) >>> 0); return `${-Math.round(r() * 1536)}px ${-Math.round(r() * 1536)}px`; };
 function CasePage({ item, index, side }) {
-  const ed = useEd(); const p = 'cases.items.@' + item.id; const metrics = item.metrics || [];
+  const ed = useEd(); const T = useT(); const p = 'cases.items.@' + item.id; const metrics = item.metrics || [];
   const pp = paperPos(index, side);
   if (side === 'L') return <div className="aa-jr__page aa-jr__page--l" style={{ '--pp': pp }}>
     {edEl(ed, 'tools', { list: 'cases.items', id: item.id, kind: 'case' })}
-    <div className="aa-jr__meta">Протокол № {pad(index + 1, 3)}{item.year ? ' · ' + item.year : ''}</div>
+    <div className="aa-jr__meta">{T('protocol')} {pad(index + 1, 3)}{item.year ? ' · ' + item.year : ''}</div>
     <h3 className="aa-jr__client"><E p={p + '.client'} v={item.client} ph="Клиент" /></h3>
-    <div className="aa-jr__label">Задача</div>
+    <div className="aa-jr__label">{T('task')}</div>
     <p className="aa-jr__text"><E p={p + '.task'} v={item.task} ph="Задача" /></p>
     <span className="aa-jr__num" aria-hidden="true">{index * 2 + 1}</span>
   </div>;
   return <div className="aa-jr__page aa-jr__page--r" style={{ '--pp': pp }}>
-    <div className="aa-jr__label">Сделано</div>
+    <div className="aa-jr__label">{T('done')}</div>
     <p className="aa-jr__text"><E p={p + '.done'} v={item.done} ph="Что сделано" /></p>
     {(metrics.length > 0 || ed) && <div className="aa-jr__res">
-      <div className="aa-jr__label">Результат</div>
+      <div className="aa-jr__label">{T('result')}</div>
       {metrics.map((m, i) => { const mp = p + '.metrics.' + i; return <div className="aa-jr__metric aa-ed-host" key={i}>
         <span className="aa-jr__mlabel"><E p={mp + '.label'} v={m.label} ph="Метрика" /></span>
-        <s className="aa-jr__before" aria-label={'было ' + m.before}><E p={mp + '.before'} v={m.before} ph="0" /></s>
-        <span className="aa-jr__after" aria-label={'стало ' + m.after}><E p={mp + '.after'} v={m.after} ph="0" />
+        <s className="aa-jr__before" aria-label={T('before') + ' ' + m.before}><E p={mp + '.before'} v={m.before} ph="0" /></s>
+        <span className="aa-jr__after" aria-label={T('after') + ' ' + m.after}><E p={mp + '.after'} v={m.after} ph="0" />
           <svg viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true"><path d="M8 28 C 6 8, 70 2, 92 18 C 104 30, 70 48, 34 46 C 10 44, 2 34, 14 20" /></svg></span>
         {edEl(ed, 'tools', { list: p + '.metrics', index: i, kind: 'metric' })}
       </div>; })}
       {edEl(ed, 'add', { list: p + '.metrics', kind: 'metric', label: 'Метрика' })}
     </div>}
-    {item.link ? <a className="aa-jr__link" href={item.link} target="_blank" rel="noopener">смотреть работу →</a> : null}
+    {item.link ? <a className="aa-jr__link" href={item.link} target="_blank" rel="noopener">{T('watchWork')}</a> : null}
     <span className="aa-jr__num" aria-hidden="true">{index * 2 + 2}</span>
   </div>;
 }
 export function Cases({ cases = {}, id = 'cases' }) {
-  const ed = useEd(); const reduced = useReducedMotion();
+  const ed = useEd(); const reduced = useReducedMotion(); const T = useT();
   const items = cases.items || [];
   const pages = useMemo(() => items.flatMap((it, i) => [{ it, i, side: 'L' }, { it, i, side: 'R' }]), [items]);
   const bookRef = useRef(null); const [single, setSingle] = useState(false);
@@ -852,18 +953,18 @@ export function Cases({ cases = {}, id = 'cases' }) {
       <div className={cx('aa-jr', single && 'aa-jr--single')}>
         <div className="aa-jr__glow" aria-hidden="true"></div>
         <div className="aa-jr__stage">
-          <div ref={bookRef} className="aa-jr__book" tabIndex={0} role="group" aria-roledescription="журнал" aria-label={`Кейсы: запись ${caseNo} из ${items.length}`}
+          <div ref={bookRef} className="aa-jr__book" tabIndex={0} role="group" aria-roledescription={T('journal')} aria-label={T('casesAt', { n: caseNo, m: items.length })}
             onKeyDown={onKey} onPointerDown={ed ? undefined : onDown} onPointerUp={ed ? undefined : onUp}>
             {base}{leaf}
             {!ed && !flip && <>
-              {cur > 0 && <button type="button" className="aa-jr__hit aa-jr__hit--prev" onClick={() => go(-1)} aria-label="Предыдущая страница"></button>}
-              {cur + step < pages.length && <button type="button" className="aa-jr__hit aa-jr__hit--next" onClick={() => go(1)} aria-label="Следующая страница"></button>}
+              {cur > 0 && <button type="button" className="aa-jr__hit aa-jr__hit--prev" onClick={() => go(-1)} aria-label={T('prevPage')}></button>}
+              {cur + step < pages.length && <button type="button" className="aa-jr__hit aa-jr__hit--next" onClick={() => go(1)} aria-label={T('nextPage')}></button>}
             </>}
           </div>
         </div>
         <div className="aa-jr__nav">
           {/* кнопок «назад/далее» нет (владелец убрал): листают кликом по странице, стрелками и свайпом */}
-          <span className="aa-jr__count" aria-live="polite">запись {caseNo} из {items.length}</span>
+          <span className="aa-jr__count" aria-live="polite">{T('record', { n: caseNo, m: items.length })}</span>
         </div>
         {edEl(ed, 'add', { list: 'cases.items', kind: 'case', label: 'Кейс' })}
       </div>
@@ -875,13 +976,13 @@ export function Cases({ cases = {}, id = 'cases' }) {
 const RE_TG = /^@[A-Za-z0-9_]{4,32}$/;
 const RE_TGURL = /^(https?:\/\/)?t\.me\/[A-Za-z0-9_]{4,32}\/?$/i;
 const RE_MAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-export function validateLead(v) {
+export function validateLead(v, lang = 'ru') {
   const e = {};
-  if (!v.name || v.name.trim().length < 2) e.name = 'Назови себя - хотя бы две буквы';
+  if (!v.name || v.name.trim().length < 2) e.name = tr(lang, 'errName');
   const c = (v.contact || '').trim();
-  if (!c) e.contact = 'Оставь @username или email';
-  else if (!(RE_TG.test(c) || RE_TGURL.test(c) || RE_MAIL.test(c))) e.contact = 'Нужен @username в Telegram или email';
-  if (!v.message || v.message.trim().length < 10) e.message = 'Опиши задачу хотя бы парой предложений';
+  if (!c) e.contact = tr(lang, 'errContactEmpty');
+  else if (!(RE_TG.test(c) || RE_TGURL.test(c) || RE_MAIL.test(c))) e.contact = tr(lang, 'errContact');
+  if (!v.message || v.message.trim().length < 10) e.message = tr(lang, 'errMessage');
   return e;
 }
 function StaticBurst() {
@@ -894,28 +995,23 @@ function StaticBurst() {
   }, [reduced]);
   return <canvas ref={ref} aria-hidden="true"></canvas>;
 }
-const LEGAL_URL = { consent: '/consent', privacy: '/privacy' };
-// адреса документов и главной: на своём сервере - /privacy, /consent, /; на GitHub Pages (сайт в подпапке репозитория)
-// scripts/pages.mjs задаёт относительные через AA_CONFIG.legalUrls / homeUrl
-const cfgUrl = (k) => (typeof window !== 'undefined' && window.AA_CONFIG && window.AA_CONFIG.legalUrls && window.AA_CONFIG.legalUrls[k]) || LEGAL_URL[k];
-const homeUrl = () => (typeof window !== 'undefined' && window.AA_CONFIG && window.AA_CONFIG.homeUrl) || '/';
-function consentLabel(text) {
-  const t = text || 'Согласен на обработку персональных данных согласно {consent:согласию} и ознакомлен с {privacy:политикой}';
+function consentLabel(text, lang = 'ru') {
+  const t = text || tr(lang, 'consentText');
   return t.split(/(\{(?:consent|privacy):[^}]+\})/).map((part, i) => {
     const m = /^\{(consent|privacy):([^}]+)\}$/.exec(part);
-    return m ? <a key={i} href={cfgUrl(m[1])} target="_blank" rel="noopener">{m[2]}</a> : part;
+    return m ? <a key={i} href={siteUrl(m[1], lang)} target="_blank" rel="noopener">{m[2]}</a> : part;
   });
 }
 export function Transmitter({ contact = {}, onSubmit, initialState = 'idle' }) {
-  const ed = useEd();
+  const ed = useEd(); const lang = useLang(); const T = useT();
   const f = contact.fields || {};
   const [vals, setVals] = useState({ name: '', contact: '', message: '' });
   const [errs, setErrs] = useState({}); const [touched, setTouched] = useState({});
   const [state, setState] = useState(initialState);
   const [consent, setConsent] = useState(false); // никогда не отмечено заранее
   const refs = { name: useRef(null), contact: useRef(null), message: useRef(null), consent: useRef(null) };
-  const consentErr = contact.consentError || 'Нужно согласие на обработку данных';
-  const check = (v, c) => { const e = validateLead(v); if (!c) e.consent = consentErr; return e; };
+  const consentErr = contact.consentError || T('errConsent');
+  const check = (v, c) => { const e = validateLead(v, lang); if (!c) e.consent = consentErr; return e; };
   const set = (k) => (e) => { const nv = { ...vals, [k]: e.target.value }; setVals(nv); if (touched[k]) setErrs(check(nv, consent)); };
   const blur = (k) => () => { setTouched({ ...touched, [k]: true }); setErrs(check(vals, consent)); };
   const toggleConsent = (e) => { const c = e.target.checked; setConsent(c); if (touched.consent) setErrs(check(vals, c)); };
@@ -939,27 +1035,27 @@ export function Transmitter({ contact = {}, onSubmit, initialState = 'idle' }) {
     </div>;
   };
   // стрелка шкалы «настраивается» на частоту станции по мере заполнения формы (0..4 шага: три поля и согласие)
-  const freqStr = contact.frequency || 'Частота 104.7 · Канал AA';
+  const freqStr = contact.frequency || T('freq');
   const fm = /(\d{2,3}(?:[.,]\d)?)/.exec(freqStr); const fq = fm ? Math.min(108, Math.max(88, parseFloat(fm[1].replace(',', '.')))) : 104.7;
   const tuned = ['name', 'contact', 'message'].filter((k) => vals[k].trim()).length + (consent ? 1 : 0);
   const target = (fq - 88) / 20 * 100, needle = state === 'success' ? target : 8 + (target - 8) * tuned / 4;
   return <div className={cx('aa-tx', state === 'sending' && 'aa-tx--sending')} data-theme="other" data-tuned={tuned === 4 ? 'true' : 'false'}>
     <span className="aa-tx__antenna" aria-hidden="true"><i></i><i></i><i></i></span>
     <div className="aa-tx__display aa-label">
-      <span className="aa-tx__freq"><E p="contact.frequency" v={contact.frequency || (ed ? '' : 'Частота 104.7 · Канал AA')} ph="Частота" /></span>
+      <span className="aa-tx__freq"><E p="contact.frequency" v={contact.frequency || (ed ? '' : T('freq'))} ph="Частота" /></span>
       <span style={{ display: 'inline-flex', gap: 12, alignItems: 'center' }}><span className="aa-tx__bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><Rec label={state === 'sending' ? 'TX' : 'ON AIR'} /></span>
     </div>
     <div className="aa-tx__dial" aria-hidden="true">
       <div className="aa-tx__scale">{[88, 92, 96, 100, 104, 108].map((n) => <span key={n} style={{ left: (n - 88) / 20 * 100 + '%' }}>{n}</span>)}</div>
       <span className="aa-tx__needle" style={{ transform: `translateX(${needle.toFixed(2)}%)` }}><i></i></span>
     </div>
-    <div aria-live="polite" className="aa-sr">{state === 'sending' ? 'Отправка…' : state === 'success' ? (contact.successTitle || 'Сигнал принят') : state === 'error' ? (contact.errorText || 'Ошибка отправки') : ''}</div>
+    <div aria-live="polite" className="aa-sr">{state === 'sending' ? T('sending') : state === 'success' ? (contact.successTitle || T('successTitle')) : state === 'error' ? (contact.errorText || T('errorText')) : ''}</div>
     {state === 'success' ? <div className="aa-tx__ok">
       <StaticBurst />
       <div>
-        <p className="aa-display aa-tx__ok-t">{contact.successTitle || 'Сигнал принят'}</p>
+        <p className="aa-display aa-tx__ok-t">{contact.successTitle || T('successTitle')}</p>
         <p>{contact.successText}</p>
-        <Button variant="outline" onClick={() => setState('idle')}>{contact.successAgain || 'Передать ещё'}</Button>
+        <Button variant="outline" onClick={() => setState('idle')}>{contact.successAgain || T('again')}</Button>
       </div>
     </div> : <form className="aa-tx__body" noValidate onSubmit={submit}>
       <h2 className="aa-display aa-tx__title" id="contact-h"><E p="contact.title" v={contact.title} /></h2>
@@ -971,14 +1067,14 @@ export function Transmitter({ contact = {}, onSubmit, initialState = 'idle' }) {
         return <div className="aa-field aa-consent" data-invalid={invalid ? 'true' : 'false'}>
           <label className="aa-consent__l aa-label" htmlFor="aa-f-consent">
             <input id="aa-f-consent" ref={refs.consent} className="aa-consent__box" type="checkbox" name="consent" checked={consent} onChange={toggleConsent} disabled={state === 'sending'} aria-invalid={invalid ? 'true' : 'false'} aria-describedby={invalid ? 'aa-f-consent-e' : undefined} />
-            <span className="aa-consent__t">{consentLabel(contact.consentText)}</span>
+            <span className="aa-consent__t">{consentLabel(contact.consentText, lang)}</span>
             <span className="aa-consent__ch" aria-hidden="true">CH-4</span>
           </label>
           {invalid && <div className="aa-field__err" id="aa-f-consent-e">{errs.consent}</div>}
         </div>;
       })()}
       <div className="aa-tx__foot">
-        <Button variant="siren" type="submit" disabled={state === 'sending'} arrow={state === 'sending' ? null : '→'}>{state === 'sending' ? (contact.sendingLabel || 'Передача…') : (contact.submitLabel || 'Отправить')}</Button>
+        <Button variant="siren" type="submit" disabled={state === 'sending'} arrow={state === 'sending' ? null : '→'}>{state === 'sending' ? (contact.sendingLabel || T('sendingBtn')) : (contact.submitLabel || T('submit'))}</Button>
         {state === 'sending' && <span className="aa-tx__progress" aria-hidden="true"><i></i></span>}
         <span className="aa-tx__grille" aria-hidden="true"></span>
       </div>
@@ -986,14 +1082,14 @@ export function Transmitter({ contact = {}, onSubmit, initialState = 'idle' }) {
   </div>;
 }
 export function Contact({ contact = {}, onSubmit, id = 'contact' }) {
-  const ed = useEd();
+  const ed = useEd(); const T = useT();
   return <section className="aa-section aa-contact" id={id} data-theme="other" data-header="other" aria-labelledby="contact-h">
     {edEl(ed, 'section', { p: 'contact', kind: 'contact', label: 'Связь и форма' })}
     <div className="aa-wrap">
       <div className="aa-contact__grid">
         <Transmitter contact={contact} onSubmit={onSubmit} />
-        <aside className="aa-contact__aside" aria-label="Каналы связи">
-          <p className="aa-label" style={{ marginBottom: 12 }}><E p="contact.channelsTitle" v={contact.channelsTitle || (ed ? '' : 'Прямые частоты')} ph="Прямые частоты" /></p>
+        <aside className="aa-contact__aside" aria-label={T('channels')}>
+          <p className="aa-label" style={{ marginBottom: 12 }}><E p="contact.channelsTitle" v={contact.channelsTitle || (ed ? '' : T('channelsTitle'))} ph="Прямые частоты" /></p>
           <ul className="aa-channels">
             {(contact.channels || []).map((c, i) => <li key={c.id}>{c.url ? <a href={c.url} target="_blank" rel="noopener"><span className="aa-channels__n aa-micro">{pad(i + 1)}</span><span><span className="aa-micro aa-muted" style={{ display: 'block' }}><E p={'contact.channels.@' + c.id + '.label'} v={c.label} /></span><span className="aa-channels__v"><E p={'contact.channels.@' + c.id + '.value'} v={c.value} /></span></span><span aria-hidden="true">↗</span></a>
               : <a aria-disabled="true" role="link"><span className="aa-channels__n aa-micro">{pad(i + 1)}</span><span><span className="aa-micro aa-muted" style={{ display: 'block' }}><E p={'contact.channels.@' + c.id + '.label'} v={c.label} /></span><span className="aa-channels__v"><E p={'contact.channels.@' + c.id + '.value'} v={c.value} /></span></span><span></span></a>}</li>)}
@@ -1173,63 +1269,103 @@ export function Otherworld({ children, seam = false }) {
 
 /* ============ ФУТЕР ============ */
 /* подпись разработчика (согласовано с владельцем сайта) - намеренно вне контента, чтобы её нельзя было поменять из админки */
-const DEV_CREDIT = { label: 'Разработка сайта - vissegor.ru', url: 'https://vissegor.ru/' };
+const DEV_CREDIT = { url: 'https://vissegor.ru/' }; // подпись - UI.dev на языке страницы
 export function Footer({ footer = {}, monogram = 'AA', onNavigate }) {
-  const ed = useEd();
+  const ed = useEd(); const lang = useLang(); const T = useT();
   return <footer className="aa-footer" data-theme="other" data-header="other">
     {edEl(ed, 'section', { p: 'footer', kind: 'footer', label: 'Футер' })}
     <div className="aa-wrap aa-footer__row">
       <Monogram variant="mark" text={monogram} />
       <div className="aa-label"><E p="footer.copyright" v={footer.copyright} /></div>
-      <a className="aa-label" href="#top" onClick={(e) => { if (onNavigate) { e.preventDefault(); onNavigate('top'); } }}>↑ <E p="footer.toTop" v={footer.toTop || (ed ? '' : 'Наверх')} ph="Наверх" /></a>
+      <a className="aa-label" href="#top" onClick={(e) => { if (onNavigate) { e.preventDefault(); onNavigate('top'); } }}>↑ <E p="footer.toTop" v={footer.toTop || (ed ? '' : T('toTop'))} ph="Наверх" /></a>
     </div>
-    <nav className="aa-wrap aa-footer__legal aa-micro" aria-label="Документы">
-      <a href={cfgUrl('privacy')} target={ed ? '_blank' : undefined}><E p="footer.privacyLabel" v={footer.privacyLabel || (ed ? '' : 'Политика обработки данных')} ph="Политика обработки данных" /></a>
-      <a href={cfgUrl('consent')} target={ed ? '_blank' : undefined}><E p="footer.consentLabel" v={footer.consentLabel || (ed ? '' : 'Согласие на обработку данных')} ph="Согласие на обработку данных" /></a>
+    <nav className="aa-wrap aa-footer__legal aa-micro" aria-label={T('docs')}>
+      <a href={siteUrl('privacy', lang)} target={ed ? '_blank' : undefined}><E p="footer.privacyLabel" v={footer.privacyLabel || (ed ? '' : T('privacyLabel'))} ph="Политика обработки данных" /></a>
+      <a href={siteUrl('consent', lang)} target={ed ? '_blank' : undefined}><E p="footer.consentLabel" v={footer.consentLabel || (ed ? '' : T('consentLabel'))} ph="Согласие на обработку данных" /></a>
       {/* подпись разработчика: задана в коде, в админке не редактируется */}
-      <a className="aa-footer__credit" href={DEV_CREDIT.url} target="_blank" rel="noopener">{DEV_CREDIT.label} ↗</a>
+      {!ed && <a href="#cookies" onClick={(e) => { e.preventDefault(); window.dispatchEvent(new Event('aa-cookie-open')); }}>{T('cookieSettings')}</a>}
+      <a className="aa-footer__credit" href={DEV_CREDIT.url} target="_blank" rel="noopener">{T('dev')} ↗</a>
     </nav>
   </footer>;
+}
+
+/* ============ ПЛАШКА О COOKIE ============
+   Единственная cookie сайта - aa_lang (запоминает выбранный язык), аналитики и рекламы нет. Пока посетитель не нажал
+   «Принять», cookie не ставится. «Принять» и «Отклонить» равноценны (одного вида). Решение - в localStorage aa-cookie
+   (accepted | declined): без него выбор нельзя было бы соблюдать. «Отклонить» удаляет aa_lang, если она была.
+   Плашка появляется после прелоадера; передумать - ссылка «Cookie» в футере (событие aa-cookie-open).
+   Тексты - footer.cookieText / cookieAccept / cookieDecline ({privacy:слово} - ссылка на политику). Только opacity/transform. */
+export function CookieNotice({ footer = {} }) {
+  const ed = useEd(); const lang = useLang(); const T = useT();
+  const [show, setShow] = useState(false); const [out, setOut] = useState(false);
+  useEffect(() => {
+    if (ed) return;
+    const open = () => { setOut(false); setShow(true); };
+    window.addEventListener('aa-cookie-open', open);
+    let t = 0;
+    if (!cookieChoice()) {
+      // ждём, пока уйдёт прелоадер, и ещё секунду - чтобы не лезть поверх первого кадра
+      const wait = () => { if (document.documentElement.classList.contains('aa-preloading')) { t = setTimeout(wait, 300); return; } t = setTimeout(open, 1200); };
+      wait();
+    }
+    return () => { clearTimeout(t); window.removeEventListener('aa-cookie-open', open); };
+  }, [ed]);
+  if (ed || !show) return null;
+  const decide = (v) => {
+    try { localStorage.setItem(COOKIE_KEY, v); } catch (_) {}
+    if (v === 'declined') setLangCookie('', 0); // отказ - убираем, если раньше ставили
+    else setLangCookie(lang, 31536000); // принял - запоминаем язык, на котором он сейчас
+    setOut(true); setTimeout(() => setShow(false), 400);
+  };
+  const text = footer.cookieText || T('cookieText');
+  return <div className={cx('aa-cookie', out && 'is-out')} role="dialog" aria-modal="false" aria-label={T('cookieLabel')} data-theme="other">
+    <p className="aa-cookie__t">{text.split(/(\{privacy:[^}]+\})/).map((part, i) => { const m = /^\{privacy:([^}]+)\}$/.exec(part); return m ? <a key={i} href={siteUrl('privacy', lang)}>{m[1]}</a> : part; })}</p>
+    <div className="aa-cookie__acts">
+      <button type="button" className="aa-cookie__btn" onClick={() => decide('accepted')}>{footer.cookieAccept || T('cookieAccept')}</button>
+      <button type="button" className="aa-cookie__btn" onClick={() => decide('declined')}>{footer.cookieDecline || T('cookieDecline')}</button>
+    </div>
+  </div>;
 }
 
 /* ============ ДОКУМЕНТЫ: /privacy и /consent ============ */
 const ruDate = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${m[3]}.${m[2]}.${m[1]}` : (iso || ''); };
 /** Подставляет реквизиты в текст документа: {operatorName}, {operatorEmail}, {retentionMonths}, {policyLink}, {consentLink}… */
-export function legalText(text, legal = {}, site = '') {
+export function legalText(text, legal = {}, site = '', lang = 'ru') {
   const vals = { ...legal, effectiveDate: ruDate(legal.effectiveDate), site: site || (typeof location !== 'undefined' ? location.host : '') };
   return String(text || '').split(/(\{\w+\})/).map((part, i) => {
     const m = /^\{(\w+)\}$/.exec(part); if (!m) return part;
-    if (m[1] === 'policyLink') return <a key={i} href={cfgUrl('privacy')}>«{legal.policyTitle || 'Политика обработки персональных данных'}»</a>;
-    if (m[1] === 'consentLink') return <a key={i} href={cfgUrl('consent')}>«{legal.consentTitle || 'Согласие на обработку персональных данных'}»</a>;
+    if (m[1] === 'policyLink') return <a key={i} href={siteUrl('privacy', lang)}>«{legal.policyTitle || tr(lang, 'policyTitle')}»</a>;
+    if (m[1] === 'consentLink') return <a key={i} href={siteUrl('consent', lang)}>«{legal.consentTitle || tr(lang, 'consentTitle')}»</a>;
     return vals[m[1]] != null ? String(vals[m[1]]) : part;
   });
 }
-export function LegalPage({ content, kind = 'privacy' }) {
-  const c = content || {}; const L = c.legal || {}; const mono = (c.site && c.site.monogram) || 'AA';
+export function LegalPage({ content, kind = 'privacy', lang = 'ru' }) {
+  const T = (k, v) => tr(lang, k, v); const c = content || {}; const L = c.legal || {}; const mono = (c.site && c.site.monogram) || 'AA';
   const isPolicy = kind !== 'consent';
-  const title = isPolicy ? (L.policyTitle || 'Политика обработки персональных данных') : (L.consentTitle || 'Согласие на обработку персональных данных');
+  const title = isPolicy ? (L.policyTitle || T('policyTitle')) : (L.consentTitle || T('consentTitle'));
   const version = isPolicy ? L.policyVersion : L.consentVersion;
-  return <div className="aa-page aa-legal" data-theme="other" id="top">
+  return <LangContext.Provider value={lang}><div className="aa-page aa-legal" data-theme="other" id="top">
     <header className="aa-legal__bar">
-      <a className="aa-legal__home" href={homeUrl()}><Monogram variant="mark" text={mono} label="На главную" /><span className="aa-label">← На сайт</span></a>
-      <span className="aa-micro aa-legal__doc">{isPolicy ? 'Документ 01' : 'Документ 02'}</span>
+      <a className="aa-legal__home" href={siteUrl('home', lang)}><Monogram variant="mark" text={mono} label={T('homeShort')} /><span className="aa-label">{T('toSite')}</span></a>
+      <span className="aa-micro aa-legal__doc">{T('doc')} {isPolicy ? '01' : '02'}</span>
     </header>
     <main className="aa-legal__main" id="main">
-      <p className="aa-legal__meta aa-micro">Версия {version || '1.0'} · действует с {ruDate(L.effectiveDate)}</p>
+      <p className="aa-legal__meta aa-micro">{T('version')} {version || '1.0'} · {T('since')} {ruDate(L.effectiveDate)}</p>
       <h1 className="aa-legal__title">{title}</h1>
       {isPolicy ? (L.policy || []).map((sec, i) => <section key={i} className="aa-legal__sec">
         <h2 className="aa-legal__h aa-label"><span aria-hidden="true">{pad(i + 1)}</span>{sec.title}</h2>
-        {(sec.paragraphs || []).map((p, k) => <p key={k}>{legalText(p, L, c.site && c.site.domain)}</p>)}
+        {(sec.paragraphs || []).map((p, k) => <p key={k}>{legalText(p, L, c.site && c.site.domain, lang)}</p>)}
       </section>)
-        : <section className="aa-legal__sec">{(L.consent || []).map((p, k) => <p key={k}>{legalText(p, L, c.site && c.site.domain)}</p>)}</section>}
-      <p className="aa-legal__see aa-micro">{isPolicy ? <a href={cfgUrl('consent')}>{L.consentTitle || 'Согласие на обработку персональных данных'} →</a> : <a href={cfgUrl('privacy')}>{L.policyTitle || 'Политика обработки персональных данных'} →</a>}</p>
+        : <section className="aa-legal__sec">{(L.consent || []).map((p, k) => <p key={k}>{legalText(p, L, c.site && c.site.domain, lang)}</p>)}</section>}
+      <p className="aa-legal__see aa-micro">{isPolicy ? <a href={siteUrl('consent', lang)}>{L.consentTitle || T('consentTitle')} →</a> : <a href={siteUrl('privacy', lang)}>{L.policyTitle || T('policyTitle')} →</a>}</p>
     </main>
     <Footer footer={c.footer} monogram={mono} />
-  </div>;
+    <CookieNotice footer={c.footer} />
+  </div></LangContext.Provider>;
 }
 
 /* ============ ЛЕНДИНГ ============ */
-export function Landing({ content, contained = false, onSubmitLead, atmosphere = true }) {
+export function Landing({ content, contained = false, onSubmitLead, atmosphere = true, lang = 'ru' }) {
   const c = content || {}; const reduced = useReducedMotion(); const lite = useLite();
   const rootRef = useRef(null);
   const [hdr, setHdr] = useState('other'); const [active, setActive] = useState(null); const [solid, setSolid] = useState(false);
@@ -1260,9 +1396,10 @@ export function Landing({ content, contained = false, onSubmitLead, atmosphere =
     sc.addEventListener('scroll', onScroll, { passive: true });
     return () => { ioHdr.disconnect(); ioNav.disconnect(); sc.removeEventListener('scroll', onScroll); clearTimeout(t); root.removeAttribute('data-scrolling'); };
   }, [c.nav]);
-  return <div ref={rootRef} className={cx('aa-page', contained && 'aa-page--contained', lite && 'aa-lite')} data-theme="other">
-    <a className="aa-sr" href="#main">К содержимому</a>
-    <Header nav={c.nav} monogram={mono} theme={hdr} active={active} onNavigate={nav} solid={solid} />
+  const langs = LANGS.filter((l) => langOn(c, l));
+  return <LangContext.Provider value={lang}><div ref={rootRef} className={cx('aa-page', contained && 'aa-page--contained', lite && 'aa-lite')} data-theme="other" lang={lang}>
+    <a className="aa-sr" href="#main">{tr(lang, 'skip')}</a>
+    <Header nav={c.nav} monogram={mono} theme={hdr} active={active} onNavigate={nav} solid={solid} langs={langs} />
     <main id="main">
       <Hero hero={c.hero} onNavigate={nav} />
       <About about={c.about} />
@@ -1277,7 +1414,8 @@ export function Landing({ content, contained = false, onSubmitLead, atmosphere =
     </main>
     <Footer footer={c.footer} monogram={mono} onNavigate={nav} />
     {atmosphere && <Atmosphere fixed scanlines={false} />}
-  </div>;
+    <CookieNotice footer={c.footer} />
+  </div></LangContext.Provider>;
 }
 
 /* ============ слой данных (под будущий бэкенд) ============ */
@@ -1292,8 +1430,6 @@ export const api = {
   /** Заявка из формы. Без endpoint - имитация: 1.2 с задержки; имя со словом «ошибка» - отказ (для проверки состояния). */
   async submitLead(payload, { endpoint } = {}) {
     const ep = endpoint || (window.AA_CONFIG && window.AA_CONFIG.leadEndpoint);
-    // статичная сборка (GitHub Pages): сервера заявок нет - честная ошибка вместо имитации отправки
-    if (!ep && window.AA_CONFIG && window.AA_CONFIG.staticSite) throw new Error('no lead endpoint');
     if (ep) {
       const r = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!r.ok) throw new Error('HTTP ' + r.status); return r.json().catch(() => ({}));

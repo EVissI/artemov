@@ -161,6 +161,27 @@ export function readHistory(id) {
   if (!/^content-[0-9TZ-]+$/.test(id)) return null;
   return readJson(path.join(HISTORY, id + '.json'), null);
 }
+/* ============ языки (та же логика, что localize в src/aa.jsx) ============
+   Русский - основа, английский - перевод поверх (content.en той же формы); пустое поле - русский текст. */
+const hasText = (v) => !(v == null || (typeof v === 'string' && v.trim() === ''));
+function overlay(base, t) {
+  if (t == null) return base;
+  if (Array.isArray(base)) {
+    if (!Array.isArray(t)) return base;
+    const byId = base.some((x) => x && typeof x === 'object' && x.id != null);
+    return base.map((b, i) => overlay(b, byId ? t.find((x) => x && b && x.id === b.id) : t[i]));
+  }
+  if (base && typeof base === 'object') {
+    if (typeof t !== 'object' || Array.isArray(t)) return base;
+    const o = { ...base };
+    for (const k of Object.keys(t)) if (k !== 'id') o[k] = k in base ? overlay(base[k], t[k]) : (hasText(t[k]) ? t[k] : base[k]);
+    return o;
+  }
+  return typeof t === 'string' && (base == null || typeof base === 'string') ? (hasText(t) ? t : base) : base;
+}
+export function localize(c, lang) { if (!c || lang !== 'en') return c; const { en, ...base } = c; return { ...overlay(base, en || {}), en }; }
+export const langOn = (c, lang) => lang === 'ru' || !!(c && c.i18n && c.i18n[lang] && c.i18n[lang].enabled);
+
 /** Публичная версия: без черновиков работ и служебных полей */
 export function publicContent(c = getContent()) {
   const out = { ...c, works: { ...c.works, items: (c.works.items || []).filter((w) => w.published !== false) } };

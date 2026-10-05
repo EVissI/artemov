@@ -466,3 +466,13 @@ select.aa-ed-input { appearance: auto; }
 .aa-ed-panel .aa-chip[aria-pressed="true"] { background: rgba(255,255,255,.08); color: var(--ui-hi); border-color: var(--ui-rim2); }
 .aa-ed-panel .aa-chip[aria-pressed="true"]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 2px; height: 5px; background: var(--ui-line) left center / 100% 5px no-repeat; }
 .aa-inv__slot--add .aa-ed-add button > span { display: none; } /* у ячейки свой «+» в подписи, иконка дублировала */
+
+/* ---------- английская версия: режим EN на пульте ---------- */
+.aa-ed-seg--lang button { min-width: 38px; }
+.aa-ed-off { color: var(--ui-dim); font-size: 10px; }
+/* текст без перевода: на английской версии сейчас русский - красный пунктир */
+.aa-ed-text--untr, [data-theme="fog"] .aa-ed-text--untr { outline: 1px dashed rgba(201,48,42,.85); background: rgba(179,38,30,.1); }
+.aa-jr__page .aa-ed-text--untr { outline-color: rgba(179,38,30,.8); background: rgba(179,38,30,.07); }
+.aa-ed-field__ph--tr { right: auto; left: auto; position: static; display: inline-block; margin-top: 4px; }
+.aa-ed-note--en { padding: 10px 12px; border-left: 2px solid var(--ui-red); background: rgba(179,38,30,.07); color: var(--ui-text); }
+.aa-ed-input::placeholder { color: #5a5a5a; }

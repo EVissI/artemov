@@ -11,8 +11,115 @@
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/aa.css">
 <style>html,body{margin:0;background:#0c0a09}html{scroll-behavior:smooth}@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}</style>
+<script>document.documentElement.classList.add('aa-js','aa-preloading');try{if(sessionStorage.getItem('aa-fog')==='1'){sessionStorage.removeItem('aa-fog');document.documentElement.classList.add('aa-fogin');}}catch(e){}</script>
+<style>
+/* ПРЕЛОАДЕР в духе экрана загрузки SH2: темнота, плывущий туман, мерцающая монограмма, рваная красная полоса прогресса.
+   Ждёт всю страницу (load, шрифты, видео и логотип hero) и только тогда пускает на сайт. Только opacity/transform.
+   Без JS не показывается (класс aa-js). Логика - скрипт сразу после разметки в <body>. */
+.aa-pre{display:none}
+.aa-js .aa-pre{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#0a0908;overflow:hidden;transition:opacity .9s ease,visibility 0s linear .9s}
+.aa-preloading,.aa-preloading body{overflow:hidden}
+.aa-pre.is-done{opacity:0;visibility:hidden;pointer-events:none}
+.aa-pre__fog{position:absolute;inset:-30%;pointer-events:none;opacity:.55;
+  background:radial-gradient(ellipse 38% 30% at 30% 40%,rgba(200,190,175,.10),transparent 70%),radial-gradient(ellipse 34% 26% at 70% 62%,rgba(200,190,175,.08),transparent 70%),radial-gradient(ellipse 50% 40% at 50% 50%,rgba(255,236,218,.05),transparent 70%);
+  animation:aa-pre-fog 14s ease-in-out infinite alternate}
+.aa-pre__fog+.aa-pre__fog{opacity:.4;animation-duration:19s;animation-direction:alternate-reverse;transform:scale(1.2)}
+@keyframes aa-pre-fog{from{transform:translate3d(-6%,-3%,0) scale(1)}to{transform:translate3d(6%,4%,0) scale(1.12)}}
+.aa-pre__noise{position:absolute;inset:-50% 0;pointer-events:none;opacity:.05;background:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px);animation:aa-pre-scan 1.2s steps(6) infinite}
+@keyframes aa-pre-scan{to{transform:translate3d(0,18px,0)}}
+.aa-pre::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 50%,transparent 45%,rgba(0,0,0,.85) 100%)}
+.aa-pre__box{position:relative;z-index:1;display:grid;justify-items:center;gap:26px;transition:transform 1s cubic-bezier(.2,.7,.2,1),opacity .6s}
+.aa-pre.is-done .aa-pre__box{transform:scale(1.06);opacity:0}
+.aa-pre__mono{font:700 clamp(64px,10vw,104px)/1 "UnifrakturCook",serif;color:#e6e1dc;letter-spacing:.02em;text-shadow:0 0 18px rgba(255,255,255,.35),0 0 46px rgba(255,255,255,.12);opacity:0;transition:opacity .8s}
+.aa-pre.has-font .aa-pre__mono{opacity:1;animation:aa-pre-flick 4.6s steps(1) infinite}
+@keyframes aa-pre-flick{0%,100%{opacity:1}7%{opacity:.55}8%{opacity:1}42%{opacity:1}43%{opacity:.35}44%{opacity:.9}45%{opacity:.5}46%{opacity:1}78%{opacity:.8}}
+.aa-pre__bar{position:relative;width:min(240px,60vw);height:9px}
+.aa-pre__bar::before{content:"";position:absolute;left:0;right:0;top:4px;height:1px;background:rgba(255,255,255,.1)}
+.aa-pre__bar i{position:absolute;inset:0;background:url("/assets/tex/line.webp") left center/100% 9px no-repeat;transform:scaleX(0);transform-origin:left center}
+.aa-pre__t{display:flex;gap:14px;align-items:baseline;font:400 13px/1 "Times New Roman","Tinos",Times,serif;letter-spacing:.4em;text-transform:uppercase;color:#8c8c8c}
+.aa-pre__n::after{content:"%";margin-left:2px;color:#8c8c8c}
+.aa-pre__n{min-width:3ch;text-align:right;color:#d9d9d9;letter-spacing:.12em;font-variant-numeric:tabular-nums}
+.aa-pre__lbl{transition:opacity .3s}
+.aa-pre.is-ready .aa-pre__t{color:#d9d9d9}
+@media (prefers-reduced-motion:reduce){.aa-pre__fog,.aa-pre__noise,.aa-pre.has-font .aa-pre__mono{animation:none}.aa-js .aa-pre{transition-duration:.2s}}
+/* ТУМАН при смене языка: та же разметка .aa-pre, но вместо экрана загрузки - плотный серый туман SH (три слоя src/tex/fog.webp
+   плывут в разные стороны поверх серого). Уходящая страница: .aa-pre--fog.is-enter -> .is-on (сгущается за ~0.9 с);
+   новая страница: html.aa-fogin (флаг aa-fog) - стартует уже в тумане и рассеивает его, когда загрузится (~1.8 с). */
+.aa-fogin .aa-pre,.aa-js .aa-pre--fog{background:radial-gradient(ellipse 80% 70% at 50% 45%,#9a958e 0,#7f7a73 55%,#5e5a55 100%)}
+.aa-fogin .aa-pre__box,.aa-fogin .aa-pre__noise,.aa-pre--fog .aa-pre__box,.aa-pre--fog .aa-pre__noise{display:none}
+.aa-fogin .aa-pre::after,.aa-pre--fog::after{background:radial-gradient(ellipse 85% 80% at 50% 50%,transparent 50%,rgba(40,37,34,.45) 100%)}
+.aa-fogin .aa-pre__fog,.aa-pre--fog .aa-pre__fog{inset:-20% auto -20% 0;width:calc(100% + 1800px);--d:-1400px;opacity:1;background:url("/assets/tex/fog.webp") 0 0/1400px 700px repeat;animation:aa-pre-mist 26s linear infinite}
+.aa-fogin .aa-pre__fog+.aa-pre__fog,.aa-pre--fog .aa-pre__fog+.aa-pre__fog{--d:-1000px;background-size:1000px 500px;background-position:0 230px;animation-duration:17s;animation-direction:reverse}
+.aa-fogin .aa-pre__fog+.aa-pre__fog+.aa-pre__fog,.aa-pre--fog .aa-pre__fog+.aa-pre__fog+.aa-pre__fog{--d:-1800px;background-size:1800px 900px;background-position:0 480px;animation-duration:38s;animation-direction:normal;opacity:.85}
+@keyframes aa-pre-mist{from{transform:translate3d(0,0,0)}to{transform:translate3d(var(--d),0,0)}}
+.aa-pre--fog.is-enter{opacity:0;transition:opacity .9s ease}
+.aa-pre--fog.is-enter.is-on{opacity:1}
+.aa-fogin .aa-pre.is-done{transition:opacity 1.8s ease,visibility 0s linear 1.8s}
+
+</style>
 </head>
 <body>
+<div class="aa-pre" id="aa-pre" role="status" aria-live="polite" aria-label="Загрузка">
+  <div class="aa-pre__fog"></div><div class="aa-pre__fog"></div><div class="aa-pre__fog aa-pre__fog--3"></div><div class="aa-pre__noise"></div>
+  <div class="aa-pre__box">
+    <span class="aa-pre__mono" aria-hidden="true">AA</span>
+    <span class="aa-pre__bar" aria-hidden="true"><i></i></span>
+    <span class="aa-pre__t"><span class="aa-pre__lbl">Загрузка</span><span class="aa-pre__n">0</span></span>
+  </div>
+</div>
+<script>
+/* Прелоадер: этапы - разметка (20%), все файлы страницы, load (60%), затем hero (видео, постер, логотип) и шрифты (до 100%).
+   Число догоняет реальный прогресс плавно. Готово - «Добро пожаловать», затухание, прелоадер удаляется из DOM.
+   Страховка: не дольше 15 секунд. Счётчик через rAF пишет в DOM напрямую. */
+(function () {
+  var el = document.getElementById('aa-pre'); if (!el) return;
+  var root = document.documentElement, en = root.lang === 'en', fog = root.classList.contains('aa-fogin'); // fog - пришли сменой языка
+  var lbl = el.querySelector('.aa-pre__lbl'), num = el.querySelector('.aa-pre__n'), bar = el.querySelector('.aa-pre__bar i');
+  if (en) { lbl.textContent = 'Loading'; el.setAttribute('aria-label', 'Loading'); }
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var target = 8, shown = 0, ready = false, t0 = performance.now(), finished = false;
+  var up = function (v) { if (v > target) target = Math.min(100, v); };
+  // монограмма появляется, когда загрузился её шрифт (без вспышки запасного)
+  if (document.fonts && document.fonts.load) Promise.race([document.fonts.load('700 80px UnifrakturCook'), new Promise(function (r) { setTimeout(r, 1500); })]).then(function () { el.classList.add('has-font'); });
+  else el.classList.add('has-font');
+  document.addEventListener('DOMContentLoaded', function () { up(20); });
+  // пока грузятся файлы - медленно подползаем к 55%
+  var creep = setInterval(function () { if (target < 55) up(target + 2); }, 160);
+  function heroReady() {
+    var hero = document.querySelector('.aa-hero, .aa-legal'); if (!hero) return null;
+    var media = Array.prototype.slice.call(hero.querySelectorAll('img, video'));
+    var ok = media.filter(function (m) { return m.tagName === 'IMG' ? m.complete : m.readyState >= 2 || m.error; }).length;
+    return { ok: ok, total: media.length };
+  }
+  function waitHero() {
+    var st = performance.now();
+    (function check() {
+      var h = heroReady(), fontsOk = !document.fonts || document.fonts.status === 'loaded';
+      if (h) up(60 + (h.total ? 34 * h.ok / h.total : 34) + (fontsOk ? 6 : 0));
+      if (h && h.ok === h.total && fontsOk) { up(100); ready = true; return; }
+      if (performance.now() - st > 9000) { up(100); ready = true; return; } // медленная сеть - не держим дольше
+      setTimeout(check, 120);
+    })();
+  }
+  window.addEventListener('load', function () { clearInterval(creep); up(60); waitHero(); });
+  setTimeout(function () { up(100); ready = true; }, 15000);
+  function finish() {
+    if (finished) return; finished = true;
+    if (!fog) { el.classList.add('is-ready'); lbl.textContent = en ? 'Welcome' : 'Добро пожаловать'; }
+    setTimeout(function () {
+      el.classList.add('is-done'); root.classList.remove('aa-preloading');
+      setTimeout(function () { el.parentNode && el.parentNode.removeChild(el); root.classList.remove('aa-fogin'); }, reduce ? 250 : fog ? 1900 : 1000);
+    }, reduce || fog ? 0 : 650);
+  }
+  (function tick(now) {
+    var d = target - shown; shown += d > 0 ? (reduce || fog ? d : Math.min(Math.max(Math.min(d, 0.5), d * 0.06), 0.9)) : 0; // не быстрее ~1 с на весь путь; в тумане счётчика не видно - не ждём его
+    bar.style.transform = 'scaleX(' + (shown / 100).toFixed(3) + ')'; num.textContent = Math.round(shown);
+    // минимум ~1.2 с на экране, чтобы прелоадер не мелькал при быстрой загрузке
+    if (ready && shown >= 99.5 && now - t0 > (reduce ? 0 : fog ? 300 : 1200)) { num.textContent = '100'; finish(); return; }
+    requestAnimationFrame(tick);
+  })(performance.now());
+})();
+</script>
 <div id="root"></div>
 <noscript><p style="color:#e3a596;font-family:monospace;padding:24px">Артем Артемов - видеомонтаж. Для просмотра включите JavaScript.</p></noscript>
 <script>

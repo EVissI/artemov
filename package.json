@@ -12,8 +12,7 @@
     "dev": "node scripts/build.mjs && node server/server.mjs",
     "admin:info": "node server/cli.mjs info",
     "admin:password": "node server/cli.mjs password",
-    "admin:path": "node server/cli.mjs path",
-    "build:pages": "node scripts/build.mjs && node scripts/pages.mjs"
+    "admin:path": "node server/cli.mjs path"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"

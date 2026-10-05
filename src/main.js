@@ -18,22 +18,28 @@
   }
   if (document.fonts && document.fonts.load) document.fonts.load('700 40px UnifrakturCook').then(favicon, favicon); else favicon();
 
-  window.AA.api.loadContent({ endpoint: cfg.contentEndpoint, fallback: window.AA_CONTENT }).then(function (content) {
+  // язык страницы: сервер задаёт AA_CONFIG.lang, иначе - по адресу (/en...)
+  var lang = cfg.lang || (/^\/en(\/|$)/.test(location.pathname) ? 'en' : 'ru');
+  window.AA.api.loadContent({ endpoint: cfg.contentEndpoint, fallback: window.AA_CONTENT }).then(function (raw) {
+    if (lang !== 'ru' && !window.AA.langOn(raw, lang)) lang = 'ru'; // язык выключен в админке - русская версия
+    var content = window.AA.localize(raw, lang);
+    document.documentElement.lang = lang;
     if (content && content.site) {
       document.title = content.site.title || document.title;
       var d = document.querySelector('meta[name="description"]'); if (d && content.site.description) d.setAttribute('content', content.site.description);
     }
     var root = ReactDOM.createRoot(document.getElementById('root'));
     // документы по персональным данным - отдельные страницы на той же сборке
-    var doc = (location.pathname.match(/(?:^|\/)(privacy|consent)(?:\.html)?\/?$/) || [])[1]; // /privacy на сервере, .../privacy.html на GitHub Pages
+    var doc = (location.pathname.match(/^(?:\/en)?\/(privacy|consent)\/?$/) || [])[1]; // /privacy, /en/privacy
     if (doc) {
       var L = (content && content.legal) || {};
       document.title = (doc === 'privacy' ? L.policyTitle : L.consentTitle) || document.title;
-      root.render(React.createElement(window.AA.LegalPage, { content: content, kind: doc }));
+      root.render(React.createElement(window.AA.LegalPage, { content: content, kind: doc, lang: lang }));
       return;
     }
     root.render(React.createElement(window.AA.Landing, {
       content: content,
+      lang: lang,
       onSubmitLead: function (v) { return window.AA.api.submitLead(v, { endpoint: cfg.leadEndpoint }); }
     }));
   });

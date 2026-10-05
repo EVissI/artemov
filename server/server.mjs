@@ -102,15 +102,24 @@ function inside(root, rel) {
 }
 
 /* ============ публичная страница: контент вшит в HTML (без лишнего запроса и для поисковиков) ============ */
-function renderIndex(doc) {
+function renderIndex(doc, lang = 'ru') {
   let html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
-  const c = S.publicContent(); const L = c.legal || {};
+  const raw = S.publicContent(); const c = S.localize(raw, lang); const L = c.legal || {};
   const site = doc ? { title: doc === 'privacy' ? L.policyTitle : L.consentTitle, description: (doc === 'privacy' ? L.policyTitle : L.consentTitle) + ' - ' + ((c.site || {}).name || '') } : (c.site || {});
-  html = html.replace(/<script src="assets\/content\.js"><\/script>/, `<script>window.AA_CONTENT = ${safeJson(c)};</script>`);
-  html = html.replace(/window\.AA_CONFIG = window\.AA_CONFIG \|\| \{\};/, `window.AA_CONFIG = { contentEndpoint: '', leadEndpoint: '/api/leads' };`);
+  // ассеты от корня: страница может быть на /en или /en/privacy
+  html = html.replace(/(href|src)="assets\//g, '$1="/assets/');
+  if (lang !== 'ru') html = html.replace('<html lang="ru">', `<html lang="${lang}">`);
+  html = html.replace(/<script src="\/assets\/content\.js"><\/script>/, `<script>window.AA_CONTENT = ${safeJson(raw)};</script>`);
+  html = html.replace(/window\.AA_CONFIG = window\.AA_CONFIG \|\| \{\};/, `window.AA_CONFIG = { contentEndpoint: '', leadEndpoint: '/api/leads', lang: '${lang}' };`);
   if (site.title) html = html.replace(/<title>[^<]*<\/title>/, `<title>${escHtml(site.title)}</title>`);
   if (site.description) html = html.replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${escHtml(site.description)}">`);
-  if (SITE_URL) html = html.replace('</head>', `<link rel="canonical" href="${escHtml(SITE_URL + '/' + (doc || ''))}">\n</head>`);
+  if (SITE_URL) {
+    const at = (l) => SITE_URL + (l === 'ru' ? '/' + (doc || '') : '/' + l + (doc ? '/' + doc : ''));
+    let links = `<link rel="canonical" href="${escHtml(at(lang))}">\n`;
+    // альтернативные языки для поисковиков - только если английская версия включена
+    if (S.langOn(raw, 'en')) links += ['ru', 'en'].map((l) => `<link rel="alternate" hreflang="${l}" href="${escHtml(at(l))}">\n`).join('') + `<link rel="alternate" hreflang="x-default" href="${escHtml(at('ru'))}">\n`;
+    html = html.replace('</head>', links + '</head>');
+  }
   return html;
 }
 
@@ -137,6 +146,15 @@ function validToken(t) {
 }
 const cookieOf = (req, name) => { for (const part of String(req.headers.cookie || '').split(';')) { const [k, ...v] = part.trim().split('='); if (k === name) return v.join('='); } return ''; };
 const authed = (req) => validToken(cookieOf(req, 'aa_s'));
+/* язык посетителя: cookie aa_lang (выбор в переключателе RU / EN, ставится только с согласием на cookie) или Accept-Language: русский в списке или заголовка нет - русская, иначе английская */
+function pickLang(req) {
+  const c = cookieOf(req, 'aa_lang'); if (c === 'ru' || c === 'en') return c;
+  const langs = String(req.headers['accept-language'] || '').toLowerCase().split(',')
+    .map((x) => { const [tag, ...ps] = x.trim().split(';'); const q = ps.find((y) => y.trim().startsWith('q=')); return { l: tag.split('-')[0], q: q ? Number(q.trim().slice(2)) || 0 : 1 }; })
+    .filter((x) => x.l && x.q > 0).sort((a, b) => b.q - a.q);
+  // нет заголовка (роботы) или русский в списке - русская; любой другой язык (английский, немецкий…) - английская
+  return !langs.length || langs.some((x) => x.l === 'ru') ? 'ru' : 'en';
+}
 const sessionCookie = (req, token, maxAge) => `aa_s=${token}; Path=${A}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${isHttps(req) ? '; Secure' : ''}`;
 
 /* ============ загрузка медиа: тело запроса = файл, имя в X-File-Name ============ */
@@ -285,9 +303,23 @@ async function handle(req, res) {
 
   if (method !== 'GET' && method !== 'HEAD') return fail(res, 405, 'Метод не поддерживается');
 
-  if (p === '/' || p === '/index.html') return send(res, 200, renderIndex(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+  if (p === '/' || p === '/index.html') {
+    // язык по браузеру - только на главной и только если английская включена: выбор в переключателе (cookie aa_lang)
+    // важнее браузера; без выбора - на /en, если в списке языков браузера нет русского
+    // ?lang=ru - посетитель выбрал русский в переключателе, но отказался от cookie: не уводим
+    if (url.searchParams.get('lang') !== 'ru' && S.langOn(S.getContent(), 'en') && pickLang(req) === 'en') { res.writeHead(302, { Location: '/en', 'Cache-Control': 'no-cache', Vary: 'Accept-Language, Cookie' }); return res.end(); }
+    return send(res, 200, renderIndex(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', Vary: 'Accept-Language, Cookie' });
+  }
   if (p === '/privacy' || p === '/consent') return send(res, 200, renderIndex(p.slice(1)), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
   if (p === '/privacy/' || p === '/consent/') { res.writeHead(301, { Location: p.slice(0, -1) }); return res.end(); }
+  // английская версия: /en, /en/privacy, /en/consent (если выключена в админке - на русскую)
+  const enm = /^\/en(?:\/(privacy|consent))?(\/?)$/.exec(p);
+  if (enm) {
+    const path0 = '/' + (enm[1] || '');
+    if (!S.langOn(S.getContent(), 'en')) { res.writeHead(302, { Location: path0 }); return res.end(); }
+    if (enm[2] && enm[1]) { res.writeHead(301, { Location: '/en/' + enm[1] }); return res.end(); }
+    return send(res, 200, renderIndex(enm[1] || '', 'en'), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+  }
   if (p === '/data/content.json') return json(res, 200, S.publicContent(), { 'Cache-Control': 'no-cache' });
   if (p === '/assets/content.js') return send(res, 200, `window.AA_CONTENT = ${safeJson(S.publicContent())};\n`, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
   if (p.startsWith('/uploads/')) {
