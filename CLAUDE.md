@@ -10,6 +10,8 @@
 
 Надписей над заголовками секций (`*.kicker`: «Записка № 1», «Трек-лист», «Стена», «Протоколы», «Эфир открыт» у «Связи») на странице больше нет - владелец убрал, поля в контенте остались.
 
+Фавикон под новый дизайн: светлая монограмма «AA» со свечением на почти чёрном и рваная тёмно-красная черта снизу (рисуется в `src/main.js` на canvas шрифтом UnifrakturCook; запасной SVG в `src/index.html` и `src/admin.html` - Times). Персикового цвета и красной точки в нём больше нет.
+
 ## Структура
 - `content/content.json` - исходный контент страницы. Сервер при первом запуске копирует его в `data/content.json`, дальше живой контент правится только через админку. Разметка ничего не хардкодит.
 - `src/aa.jsx` - все компоненты (React 18, классический JSX → `h`), экспортируются в `window.AA`. `src/aa.css` - стили (префикс `aa-`). `src/main.js` - точка входа, `src/index.html` - страница.
@@ -22,13 +24,17 @@
 ## Запуск
 - `npm install` (один раз, ставит esbuild), `npm run build`, `npm start` → сайт на `http://127.0.0.1:3000/`.
 - Первый запуск печатает путь админки и случайный пароль. `npm run admin:info` - путь, `npm run admin:password -- <пароль>` - сменить пароль (сессии сбрасываются), `npm run admin:path` - новый случайный путь.
-- Окружение: `PORT`, `HOST` (по умолчанию 127.0.0.1), `DATA_DIR`, `ADMIN_PATH`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `TRUST_PROXY=1` (за nginx: IP и https из X-Forwarded-*), `COOKIE_SECURE=1`, `MAX_UPLOAD_MB` (видео, 1024), `MAX_IMAGE_MB` (25), `FFMPEG_PATH` / `FFPROBE_PATH` (по умолчанию из PATH), `IMAGE_MAX_PX` (2560), `VIDEO_MAX_PX` (1080).
+- Окружение: `PORT`, `HOST` (по умолчанию 127.0.0.1), `DATA_DIR`, `ADMIN_PATH`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `TRUST_PROXY=1` (за nginx: IP и https из X-Forwarded-*), `COOKIE_SECURE=1`, `SITE_URL` (каноничный адрес без слэша в конце - `<link rel="canonical">` на `/`, `/privacy`, `/consent`), `MAX_UPLOAD_MB` (видео, 1024), `MAX_IMAGE_MB` (25), `FFMPEG_PATH` / `FFPROBE_PATH` (по умолчанию из PATH), `IMAGE_MAX_PX` (2560), `VIDEO_MAX_PX` (1080).
 
 ## GitHub Pages (статичная версия)
 - `npm run build:pages` = `build.mjs` + `scripts/pages.mjs` -> `dist/`. Workflow `.github/workflows/pages.yml`: пуш в `main` (или вручную) -> сборка -> деплой. В репозитории один раз: Settings -> Pages -> Source: GitHub Actions.
 - Pages отдаёт сайт из подпапки репозитория, поэтому в `dist/` всё относительное: контент из `content/content.json`, адреса `/uploads/x` -> `uploads/x`, медиа копируются из `content/uploads/` (там лежат файлы по умолчанию для hero - `data/` в гит не идёт; новые медиа для Pages класть туда же и прописывать в `content/content.json`). Документы - `privacy.html` и `consent.html`; ссылки на них и на главную берутся из `AA_CONFIG.legalUrls` / `homeUrl` (`cfgUrl`/`homeUrl` в `aa.jsx`), без конфига - прежние `/privacy`, `/consent`, `/`.
 - Бэкенда на Pages нет: админки и приёма заявок нет. `AA_CONFIG.staticSite` - `api.submitLead` без адреса бросает ошибку, форма показывает `contact.errorText` (имитацию «отправлено» не показывать - заявки терялись бы).
 - `.gitignore`: `node_modules/`, `data/` (персональные данные), сборки `site/`, `site-admin/`, `dist/`, `backup/`, `.env`.
+
+## Docker (запуск на VPS)
+- `docker compose up -d --build`: контейнер `app` (`Dockerfile`: сборка esbuild в первом этапе, во втором - Node 20 alpine + ffmpeg, пользователь `node`, `HOST=0.0.0.0`, `DATA_DIR=/data`) и `nginx` перед ним (`deploy/nginx/conf.d/site.conf` + общая часть `proxy.inc`: `client_max_body_size 1100m`, загрузки потоком, gzip, `X-Forwarded-For`/`-Proto`). Данные - в томе `aa-data`. HTTPS - `deploy/nginx/site-https.conf.example` + сервис `certbot` (профиль, запускается вручную). Инструкция - `deploy/README.md`. Прод: домен `temak1n-portfolio.xyz` (каноничный, без www), сервер - `/opt/artemov`; `deploy/nginx/conf.d/site.conf` - HTTPS-конфиг под этот домен: http и www -> 301 на `https://temak1n-portfolio.xyz`.
+- При старте сервер копирует медиа по умолчанию из `content/uploads/` в `data/uploads/`, если их там нет (`ensureDirs` в `store.mjs`) - на новом сервере hero сразу с видео и логотипом.
 
 ## API
 Публичное:

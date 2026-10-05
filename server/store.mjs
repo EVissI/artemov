@@ -23,7 +23,15 @@ function writeJson(p, v) {
   fs.writeFileSync(tmp, JSON.stringify(v, null, 2) + '\n');
   fs.renameSync(tmp, p);
 }
-export function ensureDirs() { for (const d of [DATA, UPLOADS, HISTORY]) fs.mkdirSync(d, { recursive: true }); }
+export function ensureDirs() {
+  for (const d of [DATA, UPLOADS, HISTORY]) fs.mkdirSync(d, { recursive: true });
+  // медиа по умолчанию (видео и логотип hero из content/uploads/) - на новый сервер, где data/ ещё пустая; существующие файлы не трогаются
+  const seed = path.join(ROOT, 'content', 'uploads');
+  if (fs.existsSync(seed)) for (const n of fs.readdirSync(seed)) {
+    const to = path.join(UPLOADS, n);
+    if (!fs.existsSync(to) && fs.statSync(path.join(seed, n)).isFile()) fs.copyFileSync(path.join(seed, n), to);
+  }
+}
 
 /* ============ конфиг и пароль ============ */
 const randomSlug = () => 'kabinet-' + crypto.randomBytes(9).toString('base64url').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);

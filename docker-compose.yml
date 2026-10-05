@@ -1,0 +1,41 @@
+# Запуск: docker compose up -d --build
+# Сайт - http://<сервер>/ (nginx на 80 и 443 -> app:3000). Данные - в томе aa-data (бэкап - см. deploy/README.md).
+# Путь админки и пароль: docker compose logs app (печатаются при первом запуске) или docker compose exec app node server/cli.mjs info
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      TRUST_PROXY: "1"            # IP посетителя и https берутся из заголовков nginx
+      SITE_URL: "https://temak1n-portfolio.xyz"   # каноничный домен (<link rel="canonical">), www и http nginx редиректит сюда
+      # ADMIN_PASSWORD: ""        # задать свой пароль админки (иначе случайный, в логах первого запуска)
+      # ADMIN_PATH: ""            # свой секретный путь админки
+      # SESSION_SECRET: ""
+    volumes:
+      - aa-data:/data
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./deploy/certbot/www:/var/www/certbot:ro
+      - ./deploy/certbot/conf:/etc/letsencrypt:ro
+
+  # сертификат Let's Encrypt: запускается вручную, см. deploy/README.md
+  certbot:
+    image: certbot/certbot
+    profiles: ["certbot"]
+    volumes:
+      - ./deploy/certbot/www:/var/www/certbot
+      - ./deploy/certbot/conf:/etc/letsencrypt
+
+volumes:
+  aa-data:

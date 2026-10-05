@@ -1,14 +1,17 @@
 /* Точка входа сайта. Контент: window.AA_CONTENT (content.js) или бэкенд, если задан AA_CONFIG.contentEndpoint. */
 (function () {
   var cfg = window.AA_CONFIG || {};
-  // фавикон «AA» рисуется шрифтом UnifrakturCook, когда он загрузится
+  // фавикон под дизайн SH2: светлая монограмма «AA» (UnifrakturCook, когда шрифт загрузится) с мягким свечением
+  // на почти чёрном и рваная тёмно-красная черта снизу, как под заголовками секций
   function favicon() {
     try {
       var c = document.createElement('canvas'); c.width = c.height = 64; var x = c.getContext('2d');
-      x.fillStyle = '#0c0a09'; x.fillRect(0, 0, 64, 64);
-      x.fillStyle = '#e3a596'; x.font = '700 40px UnifrakturCook, serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText('AA', 32, 36);
-      x.fillStyle = '#c4141e'; x.beginPath(); x.arc(54, 10, 5, 0, 7); x.fill();
+      x.fillStyle = '#0a0908'; x.fillRect(0, 0, 64, 64);
+      x.font = '700 40px UnifrakturCook, serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.shadowColor = 'rgba(255,255,255,.55)'; x.shadowBlur = 6; x.fillStyle = '#f2f2f2'; x.fillText('AA', 32, 30);
+      x.shadowBlur = 0; x.fillStyle = '#b3261e'; x.beginPath();
+      var top = [[8, 53], [18, 51], [27, 53], [38, 50], [47, 52], [56, 51]], bot = [[56, 55], [47, 57], [37, 55], [28, 57], [18, 55], [8, 56]];
+      top.concat(bot).forEach(function (p, i) { i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]); }); x.closePath(); x.fill();
       var l = document.querySelector('link[rel="icon"]') || document.createElement('link');
       l.rel = 'icon'; l.href = c.toDataURL('image/png'); document.head.appendChild(l);
     } catch (e) {}

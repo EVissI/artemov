@@ -13,6 +13,7 @@ const HOST = process.env.HOST || '127.0.0.1';
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 1024);
 const MAX_IMAGE_MB = Number(process.env.MAX_IMAGE_MB || 25);
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
+const SITE_URL = (process.env.SITE_URL || '').replace(/\/+$/, ''); // каноничный адрес: <link rel="canonical"> на страницах
 const SESSION_DAYS = 14;
 const SITE = path.join(S.ROOT, 'site');
 const SITE_ADMIN = path.join(S.ROOT, 'site-admin');
@@ -109,6 +110,7 @@ function renderIndex(doc) {
   html = html.replace(/window\.AA_CONFIG = window\.AA_CONFIG \|\| \{\};/, `window.AA_CONFIG = { contentEndpoint: '', leadEndpoint: '/api/leads' };`);
   if (site.title) html = html.replace(/<title>[^<]*<\/title>/, `<title>${escHtml(site.title)}</title>`);
   if (site.description) html = html.replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${escHtml(site.description)}">`);
+  if (SITE_URL) html = html.replace('</head>', `<link rel="canonical" href="${escHtml(SITE_URL + '/' + (doc || ''))}">\n</head>`);
   return html;
 }
 

@@ -1,0 +1,15 @@
+node_modules
+data
+site
+site-admin
+dist
+backup
+.git
+.github
+.claude
+.env
+.env.*
+*.log
+deploy
+docker-compose.yml
+Dockerfile

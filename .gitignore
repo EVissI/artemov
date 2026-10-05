@@ -25,3 +25,6 @@ Thumbs.db
 desktop.ini
 *.log
 npm-debug.log*
+
+# сертификаты и служебные файлы certbot
+deploy/certbot/
