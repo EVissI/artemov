@@ -55,6 +55,8 @@
 @keyframes aa-pre-mist{from{transform:translate3d(0,0,0) scale(2)}to{transform:translate3d(var(--d),0,0) scale(2)}}
 .aa-pre--fog.is-enter{opacity:0;transition:opacity .9s ease}
 .aa-pre--fog.is-enter.is-on{opacity:1}
+.aa-pre--fog.is-enter.is-warm{opacity:.001;pointer-events:none} /* заранее созданный слой: почти прозрачный, но уже отрисован */
+.aa-pre--fog.is-enter.is-on.is-out{opacity:0;transition:opacity 1.6s ease;pointer-events:none}
 .aa-fogin .aa-pre.is-done{transition:opacity 1.8s ease,visibility 0s linear 1.8s}
 
 </style>

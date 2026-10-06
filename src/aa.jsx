@@ -141,23 +141,41 @@ const goLang = (e, l, cur) => {
   e.preventDefault(); if (l === cur) return;
   const accepted = cookieChoice() === 'accepted';
   if (accepted) setLangCookie(l, 31536000);
-  fogTo(siteUrl('home', l) + (l === 'ru' && !accepted ? '?lang=ru' : ''));
+  fogSwitch(l, siteUrl('home', l) + (l === 'ru' && !accepted ? '?lang=ru' : ''));
 };
-/* Смена языка в тумане: страницу заволакивает туман (тот же, что у прелоадера в index.html, класс .aa-pre--fog),
-   потом переход; новая страница открывается уже под туманом (флаг aa-fog в sessionStorage) и рассеивает его,
-   когда загрузится. Только opacity/transform. reduced-motion - сразу переход. */
-function fogTo(url) {
+/* Смена языка в тумане - БЕЗ перезагрузки страницы: при перезагрузке браузер замораживает старую страницу
+   и туман на новой стартует заново - был пролаг. Теперь: туман сгущается (~0.9 с, разметка и стили - как у прелоадера,
+   .aa-pre--fog в index.html), под ним main.js подменяет язык (window.AA_setLang: перевод content.en поверх,
+   history.pushState на /en или /, заголовок, lang), страница «успокаивается», туман рассеивается (~1.6 с).
+   Слой тумана создаётся заранее, едва курсор подошёл к переключателю (prewarmFog) - первая отрисовка его текстур
+   не совпадает с анимацией. Нет AA_setLang (например, админка) - обычный переход по ссылке.
+   Только opacity/transform; reduced-motion - язык меняется сразу. */
+let fogEl = null;
+function prewarmFog() {
+  if (fogEl && document.body.contains(fogEl)) return fogEl;
+  fogEl = document.createElement('div');
+  fogEl.className = 'aa-pre aa-pre--fog is-enter is-warm'; fogEl.setAttribute('aria-hidden', 'true');
+  fogEl.innerHTML = '<div class="aa-pre__fog"></div><div class="aa-pre__fog"></div><div class="aa-pre__fog"></div>';
+  document.body.appendChild(fogEl);
+  return fogEl;
+}
+function whenCalm(fn) { // браузер освободился и прошло два кадра
+  const idle = window.requestIdleCallback || ((f) => setTimeout(f, 120));
+  idle(() => requestAnimationFrame(() => requestAnimationFrame(fn)), { timeout: 500 });
+}
+function fogSwitch(l, url) {
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduce) { location.href = url; return; }
-  try { sessionStorage.setItem('aa-fog', '1'); } catch (_) { /* без флага новая страница покажет обычный прелоадер */ }
-  const el = document.createElement('div');
-  el.className = 'aa-pre aa-pre--fog is-enter'; el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = '<div class="aa-pre__fog"></div><div class="aa-pre__fog"></div><div class="aa-pre__fog"></div>';
-  document.body.appendChild(el);
-  el.getBoundingClientRect(); el.classList.add('is-on'); // старт перехода с прозрачного
-  // назад из кэша браузера (bfcache) - туман не должен остаться висеть
-  window.addEventListener('pageshow', (ev) => { if (ev.persisted) el.remove(); }, { once: true });
-  setTimeout(() => { location.href = url; }, 950);
+  if (!window.AA_setLang) { location.href = url; return; }
+  if (reduce) { window.AA_setLang(l, url); return; }
+  const el = prewarmFog();
+  el.getBoundingClientRect(); el.classList.remove('is-warm'); el.classList.add('is-on');
+  setTimeout(() => {
+    window.AA_setLang(l, url); // синхронно, под плотным туманом
+    whenCalm(() => {
+      el.classList.add('is-out');
+      setTimeout(() => { el.remove(); if (fogEl === el) fogEl = null; }, 1700);
+    });
+  }, 950);
 }
 /** Адреса главной и документов по языку. */
 export function siteUrl(kind, lang = 'ru') { return DEF_URLS[kind][lang] || DEF_URLS[kind].ru; }
@@ -210,7 +228,7 @@ export function Header({ nav = [], monogram = 'AA', recLabel = 'REC', theme = 'o
       </ul>
     </nav>
     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-      {langs.length > 1 && <nav className="aa-langs" aria-label={t('lang')}>{langs.map((l) => <a key={l} href={siteUrl('home', l)} hrefLang={l} lang={l} aria-current={l === lang ? 'true' : undefined} onClick={(e) => goLang(e, l, lang)}>{l.toUpperCase()}</a>)}</nav>}
+      {langs.length > 1 && <nav className="aa-langs" aria-label={t('lang')}>{langs.map((l) => <a key={l} href={siteUrl('home', l)} hrefLang={l} lang={l} aria-current={l === lang ? 'true' : undefined} onClick={(e) => goLang(e, l, lang)} onPointerEnter={l === lang ? undefined : prewarmFog} onFocus={l === lang ? undefined : prewarmFog}>{l.toUpperCase()}</a>)}</nav>}
       <Rec label={recLabel} />
       <button type="button" className="aa-header__menu aa-label" aria-expanded={open} aria-controls="aa-nav" onClick={() => setOpen(!open)}>{open ? t('close') : t('menu')}</button>
     </div>

@@ -272,30 +272,45 @@ const goLang = (e, l, cur) => {
   if (l === cur) return;
   const accepted = cookieChoice() === "accepted";
   if (accepted) setLangCookie(l, 31536e3);
-  fogTo(siteUrl("home", l) + (l === "ru" && !accepted ? "?lang=ru" : ""));
+  fogSwitch(l, siteUrl("home", l) + (l === "ru" && !accepted ? "?lang=ru" : ""));
 };
-function fogTo(url) {
+let fogEl = null;
+function prewarmFog() {
+  if (fogEl && document.body.contains(fogEl)) return fogEl;
+  fogEl = document.createElement("div");
+  fogEl.className = "aa-pre aa-pre--fog is-enter is-warm";
+  fogEl.setAttribute("aria-hidden", "true");
+  fogEl.innerHTML = '<div class="aa-pre__fog"></div><div class="aa-pre__fog"></div><div class="aa-pre__fog"></div>';
+  document.body.appendChild(fogEl);
+  return fogEl;
+}
+function whenCalm(fn) {
+  const idle = window.requestIdleCallback || ((f) => setTimeout(f, 120));
+  idle(() => requestAnimationFrame(() => requestAnimationFrame(fn)), { timeout: 500 });
+}
+function fogSwitch(l, url) {
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (reduce) {
+  if (!window.AA_setLang) {
     location.href = url;
     return;
   }
-  try {
-    sessionStorage.setItem("aa-fog", "1");
-  } catch (_) {
+  if (reduce) {
+    window.AA_setLang(l, url);
+    return;
   }
-  const el = document.createElement("div");
-  el.className = "aa-pre aa-pre--fog is-enter";
-  el.setAttribute("aria-hidden", "true");
-  el.innerHTML = '<div class="aa-pre__fog"></div><div class="aa-pre__fog"></div><div class="aa-pre__fog"></div>';
-  document.body.appendChild(el);
+  const el = prewarmFog();
   el.getBoundingClientRect();
+  el.classList.remove("is-warm");
   el.classList.add("is-on");
-  window.addEventListener("pageshow", (ev) => {
-    if (ev.persisted) el.remove();
-  }, { once: true });
   setTimeout(() => {
-    location.href = url;
+    window.AA_setLang(l, url);
+    whenCalm(() => {
+      el.classList.add("is-out");
+      setTimeout(() => {
+        el.remove();
+        if (fogEl === el) fogEl = null;
+      }, 1700);
+    });
   }, 950);
 }
 function siteUrl(kind, lang = "ru") {
@@ -341,7 +356,7 @@ function Header({ nav = [], monogram = "AA", recLabel = "REC", theme = "other", 
     }
     setOpen(false);
   };
-  return /* @__PURE__ */ h("header", { className: cx("aa-header", !fixed && "aa-header--static", open && "aa-header--open", solid && "aa-header--solid"), "data-theme": theme }, /* @__PURE__ */ h("a", { className: "aa-header__logo", href: "#top", onClick: (e) => go(e, "top") }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram, label: t("home") })), /* @__PURE__ */ h("nav", { "aria-label": t("sections") }, /* @__PURE__ */ h("ul", { className: "aa-header__nav aa-label", id: "aa-nav" }, nav.map((n) => /* @__PURE__ */ h("li", { key: n.id }, /* @__PURE__ */ h("a", { href: "#" + n.id, "aria-current": active === n.id ? "true" : void 0, onClick: (e) => go(e, n.id) }, n.label))))), /* @__PURE__ */ h("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, langs.length > 1 && /* @__PURE__ */ h("nav", { className: "aa-langs", "aria-label": t("lang") }, langs.map((l) => /* @__PURE__ */ h("a", { key: l, href: siteUrl("home", l), hrefLang: l, lang: l, "aria-current": l === lang ? "true" : void 0, onClick: (e) => goLang(e, l, lang) }, l.toUpperCase()))), /* @__PURE__ */ h(Rec, { label: recLabel }), /* @__PURE__ */ h("button", { type: "button", className: "aa-header__menu aa-label", "aria-expanded": open, "aria-controls": "aa-nav", onClick: () => setOpen(!open) }, open ? t("close") : t("menu"))));
+  return /* @__PURE__ */ h("header", { className: cx("aa-header", !fixed && "aa-header--static", open && "aa-header--open", solid && "aa-header--solid"), "data-theme": theme }, /* @__PURE__ */ h("a", { className: "aa-header__logo", href: "#top", onClick: (e) => go(e, "top") }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram, label: t("home") })), /* @__PURE__ */ h("nav", { "aria-label": t("sections") }, /* @__PURE__ */ h("ul", { className: "aa-header__nav aa-label", id: "aa-nav" }, nav.map((n) => /* @__PURE__ */ h("li", { key: n.id }, /* @__PURE__ */ h("a", { href: "#" + n.id, "aria-current": active === n.id ? "true" : void 0, onClick: (e) => go(e, n.id) }, n.label))))), /* @__PURE__ */ h("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, langs.length > 1 && /* @__PURE__ */ h("nav", { className: "aa-langs", "aria-label": t("lang") }, langs.map((l) => /* @__PURE__ */ h("a", { key: l, href: siteUrl("home", l), hrefLang: l, lang: l, "aria-current": l === lang ? "true" : void 0, onClick: (e) => goLang(e, l, lang), onPointerEnter: l === lang ? void 0 : prewarmFog, onFocus: l === lang ? void 0 : prewarmFog }, l.toUpperCase()))), /* @__PURE__ */ h(Rec, { label: recLabel }), /* @__PURE__ */ h("button", { type: "button", className: "aa-header__menu aa-label", "aria-expanded": open, "aria-controls": "aa-nav", onClick: () => setOpen(!open) }, open ? t("close") : t("menu"))));
 }
 function Hero({ hero = {}, onNavigate, id = "top" }) {
   const ed = useEd();

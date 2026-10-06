@@ -37,10 +37,30 @@
       root.render(React.createElement(window.AA.LegalPage, { content: content, kind: doc, lang: lang }));
       return;
     }
-    root.render(React.createElement(window.AA.Landing, {
-      content: content,
-      lang: lang,
-      onSubmitLead: function (v) { return window.AA.api.submitLead(v, { endpoint: cfg.leadEndpoint }); }
-    }));
+    var lead = function (v) { return window.AA.api.submitLead(v, { endpoint: cfg.leadEndpoint }); };
+    var draw = function () { root.render(React.createElement(window.AA.Landing, { content: content, lang: lang, onSubmitLead: lead })); };
+    draw();
+    // смена языка на месте (переключатель RU / EN, туман - в aa.jsx): без перезагрузки, адрес - через history
+    var apply = function (l) {
+      lang = l; content = window.AA.localize(raw, l);
+      document.documentElement.lang = l;
+      if (content.site) {
+        document.title = content.site.title || document.title;
+        var dd = document.querySelector('meta[name="description"]'); if (dd && content.site.description) dd.setAttribute('content', content.site.description);
+      }
+      var can = document.querySelector('link[rel="canonical"]');
+      if (can) { var u = new URL(can.href); u.pathname = l === 'ru' ? '/' : '/' + l; can.href = u.href; }
+      if (ReactDOM.flushSync) ReactDOM.flushSync(draw); else draw();
+    };
+    window.AA_setLang = function (l, url) {
+      if (!window.AA.langOn(raw, l)) { location.href = url; return; }
+      if (url) history.pushState({ aaLang: l }, '', url);
+      apply(l);
+    };
+    // «назад» / «вперёд» между версиями - язык по адресу, без тумана
+    window.addEventListener('popstate', function () {
+      var l = /^\/en(\/|$)/.test(location.pathname) ? 'en' : 'ru';
+      if (l !== lang && window.AA.langOn(raw, l)) apply(l);
+    });
   });
 })();
