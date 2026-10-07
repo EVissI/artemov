@@ -9,9 +9,9 @@
   var SRC = 'https://github.com/EVissI/artemov/tree/main/vendor/doom'; // наша сборка (GPL): патч, скрипт, ссылка на cloudflare/doom-wasm
   var T = {
     ru: { close: 'Выход', loading: 'Загрузка', fail: 'Не запустилось', old: 'Браузер не тянет Doom', fire: 'Огонь', use: 'Открыть', weap: 'Оружие', menu: 'Меню', ok: 'ОК', yes: 'Да', run: 'Бег',
-      hint: [['WASD', 'ход'], ['F', 'огонь'], ['E', 'открыть'], ['Shift', 'бег'], ['1-7', 'оружие'], ['Esc', 'меню'], ['Shift+Esc', 'выход']], src: 'Исходники движка (GPL-2.0)' },
+      hint: [['WASD', 'ходьба'], ['← →', 'камера'], ['F', 'огонь'], ['E', 'открыть'], ['Shift', 'бег'], ['1-7', 'оружие'], ['Esc', 'меню'], ['Shift+Esc', 'выход']], src: 'Исходники движка (GPL-2.0)' },
     en: { close: 'Exit', loading: 'Loading', fail: 'Failed to start', old: 'This browser can\'t run Doom', fire: 'Fire', use: 'Use', weap: 'Weapon', menu: 'Menu', ok: 'OK', yes: 'Yes', run: 'Run',
-      hint: [['WASD', 'move'], ['F', 'fire'], ['E', 'use'], ['Shift', 'run'], ['1-7', 'weapons'], ['Esc', 'menu'], ['Shift+Esc', 'quit']], src: 'Engine source (GPL-2.0)' },
+      hint: [['WASD', 'walk'], ['← →', 'camera'], ['F', 'fire'], ['E', 'use'], ['Shift', 'run'], ['1-7', 'weapons'], ['Esc', 'menu'], ['Shift+Esc', 'quit']], src: 'Engine source (GPL-2.0)' },
   };
   var t = function (k) { var l = document.documentElement.lang === 'en' ? 'en' : 'ru'; return T[l][k]; };
 
@@ -152,7 +152,7 @@
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Doom');
     if (matchMedia('(pointer: coarse)').matches) root.classList.add('aa-doom--touch');
     var bar = el('div', 'aa-doom__bar');
-    // подсказка - пары «клавиша действие», как в меню управления игр (стрелки, Ctrl, пробел и клик тоже работают - их не перечисляем)
+    // подсказка - пары «клавиша действие», как в меню управления игр (Ctrl, пробел и клик тоже работают - их не перечисляем)
     var hint = el('div', 'aa-doom__hint'), x = el('button', 'aa-doom__btn', t('close'));
     t('hint').forEach(function (h) { var i = el('span'), k = el('b', '', h[0]); i.appendChild(k); i.appendChild(document.createTextNode(h[1])); hint.appendChild(i); });
     x.type = 'button'; x.addEventListener('click', close);
