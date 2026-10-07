@@ -9,9 +9,9 @@
   var SRC = 'https://github.com/EVissI/artemov/tree/main/vendor/doom'; // наша сборка (GPL): патч, скрипт, ссылка на cloudflare/doom-wasm
   var T = {
     ru: { close: 'Выход', loading: 'Загрузка', fail: 'Не запустилось', old: 'Браузер не тянет Doom', fire: 'Огонь', use: 'Открыть', weap: 'Оружие', menu: 'Меню', ok: 'ОК', yes: 'Да', run: 'Бег',
-      hint: 'WASD или стрелки - ходить · F, Ctrl или клик - огонь · E или пробел - открыть · Shift - бег · 1-7 - оружие · Esc - меню · Shift+Esc - выйти', src: 'Исходники движка (GPL-2.0)' },
+      hint: [['WASD', 'ход'], ['F', 'огонь'], ['E', 'открыть'], ['Shift', 'бег'], ['1-7', 'оружие'], ['Esc', 'меню'], ['Shift+Esc', 'выход']], src: 'Исходники движка (GPL-2.0)' },
     en: { close: 'Exit', loading: 'Loading', fail: 'Failed to start', old: 'This browser can\'t run Doom', fire: 'Fire', use: 'Use', weap: 'Weapon', menu: 'Menu', ok: 'OK', yes: 'Yes', run: 'Run',
-      hint: 'WASD or arrows - move · F, Ctrl or click - fire · E or space - use · Shift - run · 1-7 - weapons · Esc - menu · Shift+Esc - exit', src: 'Engine source (GPL-2.0)' },
+      hint: [['WASD', 'move'], ['F', 'fire'], ['E', 'use'], ['Shift', 'run'], ['1-7', 'weapons'], ['Esc', 'menu'], ['Shift+Esc', 'quit']], src: 'Engine source (GPL-2.0)' },
   };
   var t = function (k) { var l = document.documentElement.lang === 'en' ? 'en' : 'ru'; return T[l][k]; };
 
@@ -20,7 +20,8 @@
     '.aa-doom.is-on{opacity:1}',
     '.aa-doom[hidden],.aa-doom__load[hidden]{display:none}',
     '.aa-doom__bar{display:flex;align-items:center;gap:16px;padding:10px 16px;flex:none}',
-    '.aa-doom__hint{flex:1;font-size:12px;letter-spacing:.04em;color:#7a7470;line-height:1.35}',
+    '.aa-doom__hint{flex:1;display:flex;flex-wrap:wrap;gap:4px 22px;font-size:12px;letter-spacing:.06em;color:#6f6964;text-transform:uppercase}',
+    '.aa-doom__hint b{font-weight:400;color:#b3b3b3;margin-right:7px}',
     '.aa-doom__btn{font:inherit;text-transform:uppercase;letter-spacing:.14em;font-size:14px;color:#b3b3b3;background:none;border:0;padding:8px 4px;cursor:pointer}',
     '.aa-doom__btn:hover,.aa-doom__btn:focus-visible{color:#fff;outline:none}',
     '.aa-doom__stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}',
@@ -151,7 +152,9 @@
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Doom');
     if (matchMedia('(pointer: coarse)').matches) root.classList.add('aa-doom--touch');
     var bar = el('div', 'aa-doom__bar');
-    var hint = el('div', 'aa-doom__hint', t('hint')), x = el('button', 'aa-doom__btn', t('close'));
+    // подсказка - пары «клавиша действие», как в меню управления игр (стрелки, Ctrl, пробел и клик тоже работают - их не перечисляем)
+    var hint = el('div', 'aa-doom__hint'), x = el('button', 'aa-doom__btn', t('close'));
+    t('hint').forEach(function (h) { var i = el('span'), k = el('b', '', h[0]); i.appendChild(k); i.appendChild(document.createTextNode(h[1])); hint.appendChild(i); });
     x.type = 'button'; x.addEventListener('click', close);
     bar.appendChild(hint); bar.appendChild(x);
     var stage = el('div', 'aa-doom__stage');
