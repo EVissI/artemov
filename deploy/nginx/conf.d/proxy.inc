@@ -8,7 +8,7 @@ gzip on;
 gzip_comp_level 5;
 gzip_min_length 1024;
 gzip_proxied any;
-gzip_types text/css text/javascript application/javascript application/json image/svg+xml application/wasm;
+gzip_types text/css text/javascript application/javascript application/json image/svg+xml application/wasm application/octet-stream; # octet-stream - WAD пасхалки Doom (/assets/doom/doom1.wad), видео и картинки идут своими типами
 
 location / {
     proxy_pass http://app:3000;

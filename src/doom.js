@@ -1,10 +1,12 @@
 /* Пасхалка по Konami коду: Doom поверх страницы (main.js грузит этот файл только после ввода кода).
-   Сама игра - в воркере (doom-worker.js), здесь оверлей, клавиатура и экранный джойстик для телефона.
-   Закрыть - «Выход» или Shift+Esc (Esc - меню Doom). Закрытый оверлей ставит игру на паузу, повторный код - продолжает. */
+   Сама игра - Chocolate Doom со звуком и музыкой в iframe (doom/frame.html), здесь оверлей, клавиатура и экранный джойстик.
+   Всё управление идёт отсюда: клавиши, мышь и кнопки превращаются в синтетические события клавиш внутри iframe.
+   Закрыть - «Выход» или Shift+Esc (Esc - меню Doom). Закрытый оверлей ставит игру на паузу, повторный код - продолжает;
+   «Quit Game» в меню Doom закрывает оверлей и выгружает игру. */
 (function () {
   if (window.AA_doom) return;
-  var WORKER = '/assets/doom-worker.js', WASM = '/assets/doom.wasm'; // build.mjs дописывает ?v=<хэш>
-  var SRC = 'https://github.com/jacobenget/doom.wasm';
+  var FRAME = '/assets/doom/frame.html'; // build.mjs дописывает ?v=<хэш>
+  var SRC = 'https://github.com/EVissI/artemov/tree/main/vendor/doom'; // наша сборка (GPL): патч, скрипт, ссылка на cloudflare/doom-wasm
   var T = {
     ru: { close: 'Выход', loading: 'Загрузка', fail: 'Не запустилось', old: 'Браузер не тянет Doom', fire: 'Огонь', use: 'Открыть', weap: 'Оружие', menu: 'Меню', ok: 'ОК', yes: 'Да', run: 'Бег',
       hint: 'WASD или стрелки - ходить · F, Ctrl или клик - огонь · E или пробел - открыть · Shift - бег · 1-7 - оружие · Esc - меню · Shift+Esc - выйти', src: 'Исходники движка (GPL-2.0)' },
@@ -22,7 +24,9 @@
     '.aa-doom__btn{font:inherit;text-transform:uppercase;letter-spacing:.14em;font-size:14px;color:#b3b3b3;background:none;border:0;padding:8px 4px;cursor:pointer}',
     '.aa-doom__btn:hover,.aa-doom__btn:focus-visible{color:#fff;outline:none}',
     '.aa-doom__stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}',
-    '.aa-doom__screen{display:block;background:#000;image-rendering:pixelated;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 60px rgba(0,0,0,.9)}',
+    /* iframe мышь не ловит: клик по экрану - огонь, его ловит сама сцена */
+    '.aa-doom__screen{display:block;border:0;background:#000;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 60px rgba(0,0,0,.9)}',
+    '.aa-doom__screen.is-wait{visibility:hidden}',
     '.aa-doom__load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-transform:uppercase;letter-spacing:.32em;font-size:13px}',
     '.aa-doom__load i{display:block;width:180px;height:2px;background:rgba(255,255,255,.1)}',
     '.aa-doom__load b{display:block;height:100%;width:100%;background:#b3261e;transform-origin:0 50%;transform:scaleX(0);transition:transform .2s}',
@@ -45,77 +49,95 @@
     '@media (prefers-reduced-motion:reduce){.aa-doom,.aa-doom__load b{transition:none}}',
   ].join('\n');
 
-  var root, canvas, ctx2d, load, bar, worker, K = null, size = [640, 400], open = false, lastFocus = null;
-  var held = {}; // зажатые клавиши Doom -> счётчик источников (клавиатура, мышь, джойстик)
+  /* клавиши, которые получает Doom: code -> [key, keyCode] (SDL в Emscripten читает все три поля).
+     Привязки - vendor/doom/default.cfg: WASD, стрелки, Ctrl - огонь, пробел - открыть, Shift - бег, Alt - стрейф. */
+  var KD = { ArrowUp: ['ArrowUp', 38], ArrowDown: ['ArrowDown', 40], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39],
+    ControlLeft: ['Control', 17], ShiftLeft: ['Shift', 16], AltLeft: ['Alt', 18], Space: [' ', 32], Tab: ['Tab', 9], Escape: ['Escape', 27],
+    Enter: ['Enter', 13], Backspace: ['Backspace', 8], Pause: ['Pause', 19], Minus: ['-', 189], Equal: ['=', 187] };
+  for (var c = 65; c <= 90; c++) KD['Key' + String.fromCharCode(c)] = [String.fromCharCode(c + 32), c];
+  for (var d = 0; d <= 9; d++) KD['Digit' + d] = [String(d), 48 + d];
+  for (var f = 1; f <= 11; f++) KD['F' + f] = ['F' + f, 111 + f]; // F12 - полный экран в конфиге, его не шлём
+
+  var root, frame, load, open = false, ready = false, lastFocus = null;
+  var held = {}; // зажатые клавиши Doom (code) -> счётчик источников (клавиатура, мышь, джойстик)
 
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt) e.textContent = txt; return e; }
-  function send(k, down) {
-    if (k == null || !worker) return;
-    var n = held[k] || 0;
-    if (down) { held[k] = n + 1; if (!n) worker.postMessage({ key: k, down: true }); }
-    else if (n) { held[k] = n - 1; if (n === 1) { delete held[k]; worker.postMessage({ key: k, down: false }); } }
+  function emit(code, down) {
+    var w = frame && frame.contentWindow, k = KD[code];
+    if (!w || !w.KeyboardEvent || !k) return;
+    var ev = new w.KeyboardEvent(down ? 'keydown' : 'keyup', { code: code, key: k[0], bubbles: true, cancelable: true });
+    try { Object.defineProperty(ev, 'keyCode', { get: function () { return k[1]; } }); Object.defineProperty(ev, 'which', { get: function () { return k[1]; } }); } catch (_) { /* старые браузеры */ }
+    w.dispatchEvent(ev);
+  }
+  function tap(code) { if (!code || !ready) return; emit(code, true); setTimeout(function () { emit(code, false); }, 60); }
+  function send(code, down) {
+    if (!code || !ready) return;
+    var n = held[code] || 0;
+    if (down) { held[code] = n + 1; if (!n) emit(code, true); }
+    else if (n) { held[code] = n - 1; if (n === 1) { delete held[code]; emit(code, false); } }
   }
   // короткий тап/клик короче тика Doom (1/35 с) игра не заметит - отпускание держим не раньше чем через 90 мс
-  function hold(k) { send(k, true); var t0 = performance.now(); return function () { setTimeout(function () { send(k, false); }, Math.max(0, 90 - (performance.now() - t0))); }; }
-  function tap(k) { if (k == null || !worker) return; worker.postMessage({ key: k, down: true }); setTimeout(function () { worker.postMessage({ key: k, down: false }); }, 60); }
-  function releaseAll() { for (var k in held) worker.postMessage({ key: +k, down: false }); held = {}; pads.forEach(function (f) { f(); }); }
+  function hold(code) { send(code, true); var t0 = performance.now(); return function () { setTimeout(function () { send(code, false); }, Math.max(0, 90 - (performance.now() - t0))); }; }
+  function releaseAll() { for (var k in held) emit(k, false); held = {}; pads.forEach(function (fn) { fn(); }); }
   var pads = []; // сброс экранных контролов
+  function ctl() { var w = frame && frame.contentWindow; return w && w.AA_doomCtl; }
+  function wake() { var c = ctl(); if (c) c.wake(); } // звук разрешается только после жеста - будим на каждое нажатие
 
-  /* клавиатура: по e.code, раскладка не важна; буквы WASD/E/F уходят ещё и буквой - чтобы работали чит-коды (iddqd) */
+  /* клавиатура: по e.code, раскладка не важна; алиасы (F/Ctrl - огонь, E/пробел - открыть) уходят клавишей из конфига,
+     а буквы и цифры - ещё и сами собой, чтобы работали чит-коды (iddqd) и ответы Y/N */
+  var ALIAS = { KeyF: 'ControlLeft', ControlRight: 'ControlLeft', KeyE: 'Space', ShiftRight: 'ShiftLeft', AltRight: 'AltLeft', Comma: 'KeyA', Period: 'KeyD',
+    NumpadEnter: 'Enter', NumpadSubtract: 'Minus', NumpadAdd: 'Equal' };
   function codeKeys(e) {
-    if (!K) return null;
     var c = e.code, out = [];
-    var ACT = { ArrowUp: 'UPARROW', ArrowDown: 'DOWNARROW', ArrowLeft: 'LEFTARROW', ArrowRight: 'RIGHTARROW', KeyW: 'UPARROW', KeyS: 'DOWNARROW', KeyA: 'STRAFE_L', KeyD: 'STRAFE_R',
-      Comma: 'STRAFE_L', Period: 'STRAFE_R', ControlLeft: 'FIRE', ControlRight: 'FIRE', KeyF: 'FIRE', Space: 'USE', KeyE: 'USE', ShiftLeft: 'SHIFT', ShiftRight: 'SHIFT',
-      AltLeft: 'ALT', AltRight: 'ALT', Tab: 'TAB', Escape: 'ESCAPE', Enter: 'ENTER', NumpadEnter: 'ENTER', Backspace: 'BACKSPACE' };
-    if (ACT[c]) out.push(K[ACT[c]]);
-    var m = /^Key([A-Z])$/.exec(c) || /^(?:Digit|Numpad)(\d)$/.exec(c);
-    if (m) out.push(m[1].toLowerCase().charCodeAt(0));
-    if (c === 'Minus' || c === 'NumpadSubtract') out.push(45);
-    if (c === 'Equal' || c === 'NumpadAdd') out.push(61);
+    var m = /^Numpad(\d)$/.exec(c); if (m) c = 'Digit' + m[1];
+    if (ALIAS[c]) out.push(ALIAS[c]);
+    if (KD[c]) out.push(c);
     return out.length ? out : null;
   }
   function onKey(e) {
     if (!open) return;
-    if (e.type === 'keydown' && e.key === 'Escape' && (e.shiftKey || !K)) { e.preventDefault(); close(); return; } // пока грузится - выходит и просто Esc
+    if (e.type === 'keydown') wake();
+    if (e.type === 'keydown' && e.key === 'Escape' && (e.shiftKey || !ready)) { e.preventDefault(); close(); return; } // пока грузится - выходит и просто Esc
     var ks = codeKeys(e);
     if (!ks) return;
-    e.preventDefault(); e.stopPropagation();
+    if (e.preventDefault) e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
     if (e.repeat) return;
     ks.forEach(function (k) { send(k, e.type === 'keydown'); });
   }
 
   function fit() {
     if (!root) return;
-    var st = canvas.parentNode, w = st.clientWidth, h = st.clientHeight;
-    var cw = Math.min(w, h * 4 / 3), ch = cw * 3 / 4; // Doom рисовался под 4:3 - буфер растягиваем так же
-    canvas.style.width = Math.floor(cw) + 'px'; canvas.style.height = Math.floor(ch) + 'px';
+    var st = frame.parentNode, w = st.clientWidth, h = st.clientHeight;
+    var cw = Math.min(w, h * 4 / 3), ch = cw * 3 / 4; // Doom рисуется под 4:3
+    frame.style.width = Math.floor(cw) + 'px'; frame.style.height = Math.floor(ch) + 'px';
   }
 
   function stick() {
     var base = el('div', 'aa-doom__stick'), knob = el('div', 'aa-doom__knob'), id = null, on = {};
+    var CODE = { UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight', RUN: 'ShiftLeft' };
     base.appendChild(knob);
     function set(dx, dy) {
       var r = base.clientWidth / 2, len = Math.hypot(dx, dy), m = Math.min(1, len / r), a = Math.atan2(dy, dx);
       var x = Math.cos(a) * m, y = Math.sin(a) * m;
       knob.style.transform = 'translate(' + (x * r * 0.62).toFixed(1) + 'px,' + (y * r * 0.62).toFixed(1) + 'px)';
-      var want = { UPARROW: y < -0.35, DOWNARROW: y > 0.35, LEFTARROW: x < -0.35, RIGHTARROW: x > 0.35, SHIFT: m > 0.92 };
-      for (var k in want) if (!!on[k] !== want[k]) { on[k] = want[k]; send(K && K[k], want[k]); }
+      var want = { UP: y < -0.35, DOWN: y > 0.35, LEFT: x < -0.35, RIGHT: x > 0.35, RUN: m > 0.92 };
+      for (var k in want) if (!!on[k] !== want[k]) { on[k] = want[k]; send(CODE[k], want[k]); }
     }
     function c(e) { var b = base.getBoundingClientRect(); return [e.clientX - b.left - b.width / 2, e.clientY - b.top - b.height / 2]; }
-    base.addEventListener('pointerdown', function (e) { if (id !== null) return; id = e.pointerId; base.setPointerCapture(id); var p = c(e); set(p[0], p[1]); e.preventDefault(); });
+    base.addEventListener('pointerdown', function (e) { if (id !== null) return; wake(); id = e.pointerId; base.setPointerCapture(id); var p = c(e); set(p[0], p[1]); e.preventDefault(); });
     base.addEventListener('pointermove', function (e) { if (e.pointerId !== id) return; var p = c(e); set(p[0], p[1]); });
     var up = function (e) { if (e && e.pointerId !== id) return; id = null; set(0, 0); };
     base.addEventListener('pointerup', up); base.addEventListener('pointercancel', up);
     pads.push(function () { id = null; on = {}; knob.style.transform = ''; });
     return base;
   }
-  function key(label, cls, getKey, once) {
+  function key(label, cls, getCode, once) {
     var b = el('button', 'aa-doom__k' + (cls ? ' aa-doom__k--' + cls : ''), label), id = null, rel = null;
     b.type = 'button';
     b.addEventListener('pointerdown', function (e) {
-      e.preventDefault(); if (id !== null) return; id = e.pointerId; b.setPointerCapture(id); b.classList.add('is-down');
-      if (once) tap(getKey()); else rel = hold(getKey());
+      e.preventDefault(); if (id !== null) return; wake(); id = e.pointerId; b.setPointerCapture(id); b.classList.add('is-down');
+      if (once) tap(getCode()); else rel = hold(getCode());
     });
     var up = function (e) { if (e.pointerId !== id) return; id = null; b.classList.remove('is-down'); if (rel) { rel(); rel = null; } };
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
@@ -128,28 +150,29 @@
     root = el('div', 'aa-doom'); root.hidden = true;
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Doom');
     if (matchMedia('(pointer: coarse)').matches) root.classList.add('aa-doom--touch');
-    bar = el('div', 'aa-doom__bar');
+    var bar = el('div', 'aa-doom__bar');
     var hint = el('div', 'aa-doom__hint', t('hint')), x = el('button', 'aa-doom__btn', t('close'));
     x.type = 'button'; x.addEventListener('click', close);
     bar.appendChild(hint); bar.appendChild(x);
     var stage = el('div', 'aa-doom__stage');
-    canvas = el('canvas', 'aa-doom__screen'); canvas.width = size[0]; canvas.height = size[1];
+    frame = el('iframe', 'aa-doom__screen is-wait');
+    frame.title = 'Doom'; frame.tabIndex = -1; frame.setAttribute('allow', 'autoplay');
     var mouseFire = null;
-    canvas.addEventListener('mousedown', function (e) { if (e.button === 0 && K && !mouseFire) { e.preventDefault(); mouseFire = hold(K.FIRE); } });
+    stage.addEventListener('mousedown', function (e) { if (e.button === 0 && ready && !mouseFire && e.target === stage) { e.preventDefault(); wake(); mouseFire = hold('ControlLeft'); } });
     window.addEventListener('mouseup', function (e) { if (e.button === 0 && mouseFire) { mouseFire(); mouseFire = null; } });
     pads.push(function () { mouseFire = null; });
-    canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     load = el('div', 'aa-doom__load'); var lt = el('span', '', t('loading') + ' 0%'), li = el('i'), lb = el('b'); li.appendChild(lb);
     load.appendChild(lt); load.appendChild(li); load.lt = lt; load.lb = lb;
-    stage.appendChild(canvas); stage.appendChild(load);
+    load.style.pointerEvents = 'none';
+    stage.appendChild(frame); stage.appendChild(load);
     // справа: служебные кнопки сверху (меню, «Да» для вопросов Doom, ОК), снизу - открыть, оружие (по кругу 1-7) и крупный огонь под большой палец
     var pad = el('div', 'aa-doom__pad'), keys = el('div', 'aa-doom__keys'), row1 = el('div', 'aa-doom__row'), row2 = el('div', 'aa-doom__row'), weap = 1;
-    row1.appendChild(key(t('menu'), '', function () { return K && K.ESCAPE; }, true));
-    row1.appendChild(key(t('yes'), '', function () { return 121; }, true));
-    row1.appendChild(key(t('ok'), '', function () { return K && K.ENTER; }, true));
-    row2.appendChild(key(t('use'), 'mid', function () { return K && K.USE; }));
-    row2.appendChild(key(t('weap'), 'mid', function () { weap = weap % 7 + 1; return 48 + weap; }, true));
-    row2.appendChild(key(t('fire'), 'big', function () { return K && K.FIRE; }));
+    row1.appendChild(key(t('menu'), '', function () { return 'Escape'; }, true));
+    row1.appendChild(key(t('yes'), '', function () { return 'KeyY'; }, true));
+    row1.appendChild(key(t('ok'), '', function () { return 'Enter'; }, true));
+    row2.appendChild(key(t('use'), 'mid', function () { return 'Space'; }));
+    row2.appendChild(key(t('weap'), 'mid', function () { weap = weap % 7 + 1; return 'Digit' + weap; }, true));
+    row2.appendChild(key(t('fire'), 'big', function () { return 'ControlLeft'; }));
     keys.appendChild(row1); keys.appendChild(row2);
     pad.appendChild(stick()); pad.appendChild(keys);
     var foot = el('div', 'aa-doom__foot'), a = el('a', '', t('src')); a.href = SRC; a.target = '_blank'; a.rel = 'noopener'; foot.appendChild(a);
@@ -158,24 +181,32 @@
     document.body.appendChild(root);
     window.addEventListener('keydown', onKey, true); window.addEventListener('keyup', onKey, true);
     window.addEventListener('resize', fit);
-    window.addEventListener('blur', function () { if (open && worker) releaseAll(); });
-    document.addEventListener('visibilitychange', function () { if (open && worker) worker.postMessage(document.hidden ? { pause: 1 } : { resume: 1 }); });
+    window.addEventListener('blur', function () { if (open && ready) releaseAll(); });
+    document.addEventListener('visibilitychange', function () {
+      var c = ctl(); if (!open || !c) return;
+      if (document.hidden) { releaseAll(); c.pause(); } else c.resume();
+    });
   }
 
   function start() {
-    if (!window.Worker || !window.WebAssembly) { load.lt.textContent = t('old'); return; }
-    worker = new Worker(WORKER);
-    var off = canvas.transferControlToOffscreen ? canvas.transferControlToOffscreen() : null;
-    if (!off) ctx2d = canvas.getContext('2d', { alpha: false });
-    worker.onmessage = function (e) {
-      var m = e.data;
-      if (m.progress != null) { var p = Math.round(m.progress * 100); load.lt.textContent = t('loading') + ' ' + p + '%'; load.lb.style.transform = 'scaleX(' + m.progress + ')'; }
-      if (m.size) { size = m.size; if (!off) { canvas.width = size[0]; canvas.height = size[1]; } fit(); }
-      if (m.ready) { K = m.ready; load.hidden = true; if (!open) worker.postMessage({ pause: 1 }); }
-      if (m.frame && ctx2d) ctx2d.putImageData(new ImageData(new Uint8ClampedArray(m.frame), m.w, m.h), 0, 0);
-      if (m.error) { load.hidden = false; load.lt.textContent = t('fail'); console.warn('[doom] ' + m.error); }
+    if (!window.WebAssembly || !window.fetch) { load.lt.textContent = t('old'); return; }
+    ready = false; frame.classList.add('is-wait'); load.hidden = false;
+    load.lt.textContent = t('loading') + ' 0%'; load.lb.style.transform = 'scaleX(0)';
+    window.AA_doomFrame = {
+      progress: function (p) { load.lt.textContent = t('loading') + ' ' + Math.round(p * 100) + '%'; load.lb.style.transform = 'scaleX(' + p + ')'; },
+      ready: function () {
+        ready = true; load.hidden = true; frame.classList.remove('is-wait');
+        if (!open) { var c = ctl(); if (c) c.pause(); }
+      },
+      exit: function () { // «Quit Game»: игра выгружена - следующий код загрузит её заново
+        ready = false; held = {}; close();
+        setTimeout(function () { if (frame) frame.src = 'about:blank'; frame.removeAttribute('data-src'); }, 400);
+      },
+      fail: function (msg) { load.hidden = false; load.lt.textContent = t('fail'); console.warn('[doom] ' + msg); },
+      key: onKey,
     };
-    worker.postMessage({ init: 1, wasm: new URL(WASM, location.href).href, canvas: off }, off ? [off] : []);
+    frame.setAttribute('data-src', '1');
+    frame.src = FRAME;
   }
 
   function show() {
@@ -186,11 +217,13 @@
     fit();
     void root.offsetWidth; root.classList.add('is-on'); // reflow - чтобы сработал переход opacity
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    if (!worker) start(); else worker.postMessage({ resume: 1 });
+    if (!frame.hasAttribute('data-src')) start();
+    else if (ready) { var c = ctl(); if (c) c.resume(); }
   }
   function close() {
     if (!open) return;
-    open = false; if (worker) { releaseAll(); worker.postMessage({ pause: 1 }); }
+    open = false;
+    if (ready) { releaseAll(); var c = ctl(); if (c) c.pause(); }
     root.classList.remove('is-on'); document.documentElement.classList.remove('aa-doom-open');
     var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     setTimeout(function () { if (!open) root.hidden = true; }, reduce ? 0 : 350);

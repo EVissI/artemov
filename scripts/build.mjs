@@ -67,19 +67,29 @@ for (const f of fs.readdirSync(r('src/tex'))) {
   css = css.split(`tex/${f}"`).join(`tex/${f}?v=${ver(fs.readFileSync(r('src/tex/' + f)))}"`);
 }
 write('site/assets/aa.css', css);
-// пасхалка Doom (src/doom.js): грузится из main.js только после Konami кода; адреса получают ?v=<хэш>
-// в гите лежит doom.wasm.gz: голый .wasm GitHub не принимает (проверка секретов при push падает на нём с 500)
-const wasm = zlib.gunzipSync(fs.readFileSync(r('vendor/doom/doom.wasm.gz')));
-const WASM_SHA256 = '8edfe49a7583fd975199969302d8e9adcf8e714d0af72bf3e672f991fd810faa'; // релиз doom.wasm v0.1.0, см. vendor/doom/README.md
-if (crypto.createHash('sha256').update(wasm).digest('hex') !== WASM_SHA256) throw new Error('doom.wasm: sha256 не совпадает с релизом v0.1.0');
-const wasmVer = ver(wasm);
-fs.writeFileSync(r('site/assets/doom.wasm'), wasm);
-const doomWorker = read('src/doom-worker.js');
-write('site/assets/doom-worker.js', doomWorker);
-const doomJs = read('src/doom.js').replace("'/assets/doom-worker.js'", `'/assets/doom-worker.js?v=${ver(doomWorker)}'`).replace("'/assets/doom.wasm'", `'/assets/doom.wasm?v=${wasmVer}'`);
+// пасхалка Doom (src/doom.js -> iframe src/doom-frame.html -> Chocolate Doom из vendor/doom): грузится из main.js только после
+// Konami кода; адреса получают ?v=<хэш>. Бинарники в гите сжаты: голый .wasm GitHub не принимает (проверка секретов при push
+// падает на нём с 500). Хэши - vendor/doom/README.md; не совпало - сборка падает.
+const DOOM_BIN = {
+  'engine.wasm': ['vendor/doom/engine.wasm.gz', 'c5a89f6c6b316bd93fa8948f71ef6cf489b5b1c420d586c729ce7f4e2b13b7c2'], // своя сборка - vendor/doom/build-engine.sh
+  'doom1.wad': ['vendor/doom/doom1.wad.gz', '1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771'], // shareware v1.9 (md5 f0cefca4...)
+};
+const doomVer = {}; let doomTotal = 0;
+for (const [name, [src, sha]] of Object.entries(DOOM_BIN)) {
+  const buf = zlib.gunzipSync(fs.readFileSync(r(src)));
+  if (crypto.createHash('sha256').update(buf).digest('hex') !== sha) throw new Error(`doom: sha256 ${name} не совпадает`);
+  fs.mkdirSync(r('site/assets/doom'), { recursive: true }); fs.writeFileSync(r('site/assets/doom', name), buf);
+  doomVer[name] = ver(buf); doomTotal += buf.length;
+}
+for (const name of ['engine.js', 'default.cfg']) { const buf = fs.readFileSync(r('vendor/doom', name)); fs.writeFileSync(r('site/assets/doom', name), buf); doomVer[name] = ver(buf); }
+let doomFrame = read('src/doom-frame.html').replace('var TOTAL = 0;', `var TOTAL = ${doomTotal};`);
+for (const name of Object.keys(doomVer)) doomFrame = doomFrame.replace(`'/assets/doom/${name}'`, `'/assets/doom/${name}?v=${doomVer[name]}'`);
+if (Object.keys(doomVer).some((n) => !doomFrame.includes(`/assets/doom/${n}?v=`)) || !doomFrame.includes(`TOTAL = ${doomTotal}`)) throw new Error('doom: адреса в doom-frame.html не найдены');
+write('site/assets/doom/frame.html', doomFrame);
+const doomJs = read('src/doom.js').replace("'/assets/doom/frame.html'", `'/assets/doom/frame.html?v=${ver(doomFrame)}'`);
 write('site/assets/doom.js', doomJs);
 const mainJs = read('src/main.js').replace("'/assets/doom.js'", `'/assets/doom.js?v=${ver(doomJs)}'`);
-if (mainJs === read('src/main.js') || !doomJs.includes('doom-worker.js?v=') || !doomJs.includes('doom.wasm?v=')) throw new Error('doom: адреса для ?v= не найдены');
+if (mainJs === read('src/main.js') || !doomJs.includes('frame.html?v=')) throw new Error('doom: адреса для ?v= не найдены');
 write('site/assets/main.js', mainJs);
 write('site/assets/tokens.css', tokens);
 write('site/assets/aa-bundle.js', aa);

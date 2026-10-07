@@ -19,7 +19,7 @@
   if (document.fonts && document.fonts.load) document.fonts.load('700 40px UnifrakturCook').then(favicon, favicon); else favicon();
 
   // пасхалка: Konami код (↑↑↓↓←→←→BA, по e.code - раскладка не важна) или 7 быстрых тапов по «AA» в шапке -> Doom.
-  // doom.js и игра (~2 МБ) грузятся только после кода; в админке main.js нет - там пасхалки тоже нет
+  // doom.js и игра (~2.7 МБ со звуком и музыкой) грузятся только после кода; в админке main.js нет - там пасхалки тоже нет
   var DOOM_JS = '/assets/doom.js'; // build.mjs дописывает ?v=<хэш>
   function doom() {
     if (document.documentElement.classList.contains('aa-preloading')) return; // прелоадер ещё на экране

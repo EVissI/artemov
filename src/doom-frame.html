@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Doom</title>
+<!-- Пасхалка: Chocolate Doom (cloudflare/doom-wasm, своя сборка - vendor/doom/build-engine.sh) внутри iframe из doom.js.
+     Всё управление - из страницы: doom.js шлёт сюда синтетические события клавиш, настоящие клавиши, попавшие сюда, уходят наверх.
+     Связь со страницей: parent.AA_doomFrame = { progress(0..1), ready(), exit(), fail(msg), key(e) }; отсюда - window.AA_doomCtl. -->
+<style>
+html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden}
+canvas{display:block;width:100%!important;height:100%!important;image-rendering:pixelated;outline:none}
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<script>
+(function () {
+  var P = (window.parent !== window && window.parent.AA_doomFrame) || { progress: function () {}, ready: function () {}, exit: function () {}, fail: function () {}, key: null };
+  var F = { js: '/assets/doom/engine.js', wasm: '/assets/doom/engine.wasm', wad: '/assets/doom/doom1.wad', cfg: '/assets/doom/default.cfg' }; // build.mjs дописывает ?v=<хэш>
+  var TOTAL = 0; // build.mjs подставляет размер engine.wasm + doom1.wad - для процента загрузки (nginx жмёт gzip, Content-Length нет)
+  var ARGS = ['-iwad', 'doom1.wad', '-window', '-nogui', '-config', 'default.cfg'];
+
+  // настоящие клавиши, если фокус всё же попал в iframe, - наверх, в общий обработчик doom.js (раскладка, алиасы, Shift+Esc)
+  ['keydown', 'keyup', 'keypress'].forEach(function (t) {
+    window.addEventListener(t, function (e) {
+      if (!e.isTrusted) return;
+      e.stopImmediatePropagation(); e.preventDefault();
+      if (P.key && t !== 'keypress') P.key(e);
+    }, true);
+  });
+
+  var got = 0;
+  function get(url) {
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error(url + ' HTTP ' + r.status);
+      var rd = r.body.getReader(), parts = [], n = 0;
+      return (function pump() {
+        return rd.read().then(function (x) {
+          if (x.done) { var b = new Uint8Array(n), o = 0; parts.forEach(function (p) { b.set(p, o); o += p.length; }); return b; }
+          parts.push(x.value); n += x.value.length; got += x.value.length;
+          if (TOTAL) P.progress(Math.min(0.99, got / TOTAL));
+          return pump();
+        });
+      })();
+    });
+  }
+
+  /* Пауза без Emscripten: его pauseMainLoop() в 3.1.74 завершает рантайм (keepalive), а resumeMainLoop() падает.
+     Поэтому на паузе (1) кадры не запускаются - requestAnimationFrame копит колбэки, процессор свободен; (2) время игры стоит -
+     performance.now() (из него SDL_GetTicks) не идёт, и после возврата Doom не «догоняет» пропущенные тики; (3) звук выключен. */
+  var paused = false, realNow = performance.now.bind(performance), shift = 0, frozenAt = 0, rafReal = window.requestAnimationFrame.bind(window), queued = [];
+  performance.now = function () { return (paused ? frozenAt : realNow()) - shift; };
+  window.requestAnimationFrame = function (cb) { if (paused) { queued.push(cb); return 0; } return rafReal(cb); };
+  function audio() { var s = window.Module && Module.SDL2; return s && s.audioContext; }
+  window.AA_doomCtl = {
+    pause: function () {
+      if (paused) return;
+      paused = true; frozenAt = realNow();
+      var a = audio(); if (a) a.suspend();
+    },
+    resume: function () {
+      if (!paused) return;
+      shift += realNow() - frozenAt; paused = false;
+      var a = audio(); if (a) a.resume();
+      var q = queued; queued = []; q.forEach(function (cb) { rafReal(cb); });
+    },
+    // звук разрешается только после жеста пользователя - doom.js зовёт это на каждое нажатие
+    wake: function () { var a = audio(); if (a && a.state === 'suspended' && !paused) a.resume(); },
+  };
+
+  Promise.all([get(F.wasm), get(F.wad), fetch(F.cfg).then(function (r) { return r.text(); })]).then(function (a) {
+    window.Module = {
+      wasmBinary: a[0],
+      noInitialRun: true,
+      canvas: document.getElementById('canvas'),
+      preRun: [function () { Module.FS.writeFile('/doom1.wad', a[1]); Module.FS.writeFile('/default.cfg', a[2]); }],
+      onRuntimeInitialized: function () { P.progress(1); P.ready(); Module.callMain(ARGS); },
+      onExit: function () { P.exit(); }, // «Quit Game» в меню Doom
+      print: function () {},
+      printErr: function (t) { if (/error/i.test(t)) console.warn('[doom] ' + t); },
+      setStatus: function () {},
+    };
+    var s = document.createElement('script');
+    s.src = F.js;
+    s.onerror = function () { P.fail('engine.js'); };
+    document.body.appendChild(s);
+  }).catch(function (e) { P.fail(String(e && e.message || e)); });
+})();
+</script>
+</body>
+</html>

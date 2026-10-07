@@ -27,3 +27,6 @@ npm-debug.log*
 
 # сертификаты и служебные файлы certbot
 deploy/certbot/
+
+# промежуточная сборка движка Doom (vendor/doom/build-engine.sh)
+vendor/doom/out*/
