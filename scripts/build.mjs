@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 import { transformSync } from 'esbuild';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -66,7 +67,20 @@ for (const f of fs.readdirSync(r('src/tex'))) {
   css = css.split(`tex/${f}"`).join(`tex/${f}?v=${ver(fs.readFileSync(r('src/tex/' + f)))}"`);
 }
 write('site/assets/aa.css', css);
-copy('src/main.js', 'site/assets/main.js');
+// пасхалка Doom (src/doom.js): грузится из main.js только после Konami кода; адреса получают ?v=<хэш>
+// в гите лежит doom.wasm.gz: голый .wasm GitHub не принимает (проверка секретов при push падает на нём с 500)
+const wasm = zlib.gunzipSync(fs.readFileSync(r('vendor/doom/doom.wasm.gz')));
+const WASM_SHA256 = '8edfe49a7583fd975199969302d8e9adcf8e714d0af72bf3e672f991fd810faa'; // релиз doom.wasm v0.1.0, см. vendor/doom/README.md
+if (crypto.createHash('sha256').update(wasm).digest('hex') !== WASM_SHA256) throw new Error('doom.wasm: sha256 не совпадает с релизом v0.1.0');
+const wasmVer = ver(wasm);
+fs.writeFileSync(r('site/assets/doom.wasm'), wasm);
+const doomWorker = read('src/doom-worker.js');
+write('site/assets/doom-worker.js', doomWorker);
+const doomJs = read('src/doom.js').replace("'/assets/doom-worker.js'", `'/assets/doom-worker.js?v=${ver(doomWorker)}'`).replace("'/assets/doom.wasm'", `'/assets/doom.wasm?v=${wasmVer}'`);
+write('site/assets/doom.js', doomJs);
+const mainJs = read('src/main.js').replace("'/assets/doom.js'", `'/assets/doom.js?v=${ver(doomJs)}'`);
+if (mainJs === read('src/main.js') || !doomJs.includes('doom-worker.js?v=') || !doomJs.includes('doom.wasm?v=')) throw new Error('doom: адреса для ?v= не найдены');
+write('site/assets/main.js', mainJs);
 write('site/assets/tokens.css', tokens);
 write('site/assets/aa-bundle.js', aa);
 write('site/data/content.json', JSON.stringify(content, null, 2) + '\n');
@@ -78,7 +92,7 @@ function stamp(htmlPath, files) {
   for (const [ref, body] of Object.entries(files)) html = html.split(`${ref}"`).join(`${ref}?v=${ver(body)}"`);
   write(htmlPath, html);
 }
-stamp('site/index.html', { 'assets/tokens.css': tokens, 'assets/aa.css': css, 'assets/aa-bundle.js': aa, 'assets/main.js': read('src/main.js') });
+stamp('site/index.html', { 'assets/tokens.css': tokens, 'assets/aa.css': css, 'assets/aa-bundle.js': aa, 'assets/main.js': mainJs });
 
 // админка
 copy('src/admin.html', 'site-admin/index.html');

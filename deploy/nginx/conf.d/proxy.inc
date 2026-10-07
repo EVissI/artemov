@@ -8,7 +8,7 @@ gzip on;
 gzip_comp_level 5;
 gzip_min_length 1024;
 gzip_proxied any;
-gzip_types text/css text/javascript application/javascript application/json image/svg+xml;
+gzip_types text/css text/javascript application/javascript application/json image/svg+xml application/wasm;
 
 location / {
     proxy_pass http://app:3000;

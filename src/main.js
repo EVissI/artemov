@@ -18,6 +18,31 @@
   }
   if (document.fonts && document.fonts.load) document.fonts.load('700 40px UnifrakturCook').then(favicon, favicon); else favicon();
 
+  // пасхалка: Konami код (↑↑↓↓←→←→BA, по e.code - раскладка не важна) или 7 быстрых тапов по «AA» в шапке -> Doom.
+  // doom.js и игра (~2 МБ) грузятся только после кода; в админке main.js нет - там пасхалки тоже нет
+  var DOOM_JS = '/assets/doom.js'; // build.mjs дописывает ?v=<хэш>
+  function doom() {
+    if (document.documentElement.classList.contains('aa-preloading')) return; // прелоадер ещё на экране
+    if (window.AA_doom) return window.AA_doom.open();
+    if (document.querySelector('script[data-aa-doom]')) return;
+    var s = document.createElement('script'); s.src = DOOM_JS; s.setAttribute('data-aa-doom', '');
+    s.onload = function () { if (window.AA_doom) window.AA_doom.open(); };
+    document.head.appendChild(s);
+  }
+  var KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'], kp = 0;
+  window.addEventListener('keydown', function (e) {
+    var tg = e.target;
+    if (document.documentElement.classList.contains('aa-doom-open') || (tg && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName)))) return;
+    kp = e.code === KONAMI[kp] ? kp + 1 : (e.code === 'ArrowUp' ? (kp === 2 ? 2 : 1) : 0); // ↑↑↑↓↓... тоже считается
+    if (kp === KONAMI.length) { kp = 0; doom(); }
+  });
+  var taps = [];
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest || !e.target.closest('.aa-header__logo')) return;
+    var now = Date.now(); taps = taps.filter(function (x) { return now - x < 2500; }); taps.push(now);
+    if (taps.length >= 7) { taps = []; doom(); }
+  });
+
   // язык страницы: сервер задаёт AA_CONFIG.lang, иначе - по адресу (/en...)
   var lang = cfg.lang || (/^\/en(\/|$)/.test(location.pathname) ? 'en' : 'ru');
   window.AA.api.loadContent({ endpoint: cfg.contentEndpoint, fallback: window.AA_CONTENT }).then(function (raw) {
