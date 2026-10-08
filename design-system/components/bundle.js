@@ -372,7 +372,42 @@ function Hero({ hero = {}, onNavigate, id = "top" }) {
   else if (media.src) scene = /* @__PURE__ */ h("img", { src: media.src, alt: media.alt || "", decoding: "async", fetchpriority: "high" });
   const lines = hero.titleLines || ["Артем", "Артемов"];
   const t = useT();
-  return /* @__PURE__ */ h("section", { className: "aa-hero", id, "data-theme": "other", "data-header": "other", "aria-label": t("intro") }, /* @__PURE__ */ h("div", { className: "aa-hero__scene" }, scene), edEl(ed, "section", { p: "hero", kind: "hero", label: "Hero и фон" }), /* @__PURE__ */ h("div", { className: "aa-hero__content" }, hero.logo ? /* @__PURE__ */ h("h1", { className: "aa-hero__logo" }, /* @__PURE__ */ h("img", { src: hero.logo, alt: "", decoding: "async", fetchpriority: "high" }), /* @__PURE__ */ h("span", { className: "aa-sr" }, lines.join(" ")), edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип (PNG/WebP без фона)" })) : /* @__PURE__ */ h("h1", { className: "aa-hero__title" }, edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип", compact: true }), /* @__PURE__ */ h("span", { className: "aa-hero__ink" }, lines.map((l, i) => /* @__PURE__ */ h("span", { key: i, className: "aa-hero__line" }, ed || !l ? /* @__PURE__ */ h(E, { p: "hero.titleLines." + i, v: l }) : /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h("span", { className: "aa-hero__cap" }, l[0]), l.slice(1)))))), /* @__PURE__ */ h("div", { className: "aa-hero__cta" }, hero.primaryCta && /* @__PURE__ */ h(Button, { variant: "siren", href: "#" + hero.primaryCta.target, onClick: go(hero.primaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.primaryCta.label", v: hero.primaryCta.label })), hero.secondaryCta && /* @__PURE__ */ h(Button, { variant: "outline", href: "#" + hero.secondaryCta.target, onClick: go(hero.secondaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.secondaryCta.label", v: hero.secondaryCta.label })))));
+  const logoRef = useRef(null);
+  const ctaRef = useRef(null);
+  useEffect(() => {
+    const l = logoRef.current, c = ctaRef.current;
+    if (!l || !c) return;
+    const fit = () => {
+      const main = l.closest("main");
+      const btns = c.querySelectorAll(".aa-btn");
+      if (!btns.length || !main || main.clientWidth <= 720) {
+        l.style.setProperty("--hero-shift", "0px");
+        l.style.setProperty("--hero-scale", "1");
+        return;
+      }
+      const a = btns[0], z = btns[btns.length - 1], sa = getComputedStyle(a), sz = getComputedStyle(z);
+      const from = a.getBoundingClientRect().left + parseFloat(sa.paddingLeft), to = z.getBoundingClientRect().right - parseFloat(sz.paddingRight);
+      const img = l.querySelector("img") || l;
+      const r = img.getBoundingClientRect();
+      const cur = parseFloat(l.style.getPropertyValue("--hero-shift")) || 0;
+      const k0 = parseFloat(l.style.getPropertyValue("--hero-scale")) || 1;
+      const W = r.width / k0, center0 = r.left + r.width / 2 - cur;
+      const C = (from + to) / 2, edge = main.getBoundingClientRect().left + 12;
+      const k = Math.min(1, Math.max(0.85, 2 * (C - edge) / W));
+      const center = Math.max(C, edge + k * W / 2);
+      l.style.setProperty("--hero-scale", k.toFixed(3));
+      l.style.setProperty("--hero-shift", Math.round(center - center0) + "px");
+    };
+    fit();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null;
+    if (ro) {
+      ro.observe(c);
+      ro.observe(l);
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    return () => ro && ro.disconnect();
+  }, [hero.logo, hero.primaryCta && hero.primaryCta.label, hero.secondaryCta && hero.secondaryCta.label]);
+  return /* @__PURE__ */ h("section", { className: "aa-hero", id, "data-theme": "other", "data-header": "other", "aria-label": t("intro") }, /* @__PURE__ */ h("div", { className: "aa-hero__scene" }, scene), edEl(ed, "section", { p: "hero", kind: "hero", label: "Hero и фон" }), /* @__PURE__ */ h("div", { className: "aa-hero__content" }, hero.logo ? /* @__PURE__ */ h("h1", { className: "aa-hero__logo", ref: logoRef }, /* @__PURE__ */ h("img", { src: hero.logo, alt: "", decoding: "async", fetchpriority: "high" }), /* @__PURE__ */ h("span", { className: "aa-sr" }, lines.join(" ")), edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип (PNG/WebP без фона)" })) : /* @__PURE__ */ h("h1", { className: "aa-hero__title" }, edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип", compact: true }), /* @__PURE__ */ h("span", { className: "aa-hero__ink" }, lines.map((l, i) => /* @__PURE__ */ h("span", { key: i, className: "aa-hero__line" }, ed || !l ? /* @__PURE__ */ h(E, { p: "hero.titleLines." + i, v: l }) : /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h("span", { className: "aa-hero__cap" }, l[0]), l.slice(1)))))), /* @__PURE__ */ h("div", { className: "aa-hero__cta", ref: ctaRef }, hero.primaryCta && /* @__PURE__ */ h(Button, { variant: "siren", href: "#" + hero.primaryCta.target, onClick: go(hero.primaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.primaryCta.label", v: hero.primaryCta.label })), hero.secondaryCta && /* @__PURE__ */ h(Button, { variant: "outline", href: "#" + hero.secondaryCta.target, onClick: go(hero.secondaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.secondaryCta.label", v: hero.secondaryCta.label })))));
 }
 function Counter({ value, display, suffix = "", label, duration = 1400 }) {
   const ref = useRef(null);

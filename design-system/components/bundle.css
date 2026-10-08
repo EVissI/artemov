@@ -221,7 +221,7 @@
 /* надпись-логотип картинкой: своё свечение у картинки есть, добавлено мягкое статичное */
 .aa-hero__logo { position: relative; margin: 0; align-self: flex-start; width: min(100%, 700px) !important; max-width: none !important; }
 .aa-hero__logo img { display: block; width: 100%; height: auto; filter: drop-shadow(0 0 5px rgba(255,255,255,.5)) drop-shadow(0 0 24px rgba(255,255,255,.25)); }
-@container (min-width: 721px) { .aa-hero__logo { width: clamp(420px, 48cqi, 760px) !important; margin-left: -1.2cqi; } }
+@container (min-width: 721px) { .aa-hero__logo { width: clamp(420px, 48cqi, 760px) !important; margin-left: -1.2cqi; transform: translateX(var(--hero-shift, 0px)) scale(var(--hero-scale, 1)); } } /* --hero-shift и --hero-scale считает Hero: центр логотипа над серединой кнопок */
 .aa-hero__sub { margin-top: var(--space-5); font-family: var(--font-serif); font-size: clamp(17px, 1.6cqi, 22px); letter-spacing: .08em; text-transform: uppercase;
   max-width: 34ch; text-wrap: balance; color: #d9d4cf; text-shadow: 0 0 12px rgba(12,10,9,.95), 0 0 8px rgba(255,255,255,.18); }
 /* кнопки hero - как пункты главного меню SH2: Times капсом без рамок, под главной - рваный мазок тёмно-красной краски,
