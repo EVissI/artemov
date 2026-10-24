@@ -253,12 +253,14 @@ export function Hero({ hero = {}, onNavigate, id = 'top' }) {
   // Ближе 12px к левому краю не подходит: если по центру не помещается, логотип чуть уменьшается (до 85%), а дальше
   // встаёт правее центра. На узком main (до 720px,
   // логотип во всю ширину) сдвига нет.
+  // Подпись «кто вы» (hero.role) стоит по тому же центру, что и логотип: --hero-cx на .aa-hero__content.
   const logoRef = useRef(null); const ctaRef = useRef(null);
   useEffect(() => {
     const l = logoRef.current, c = ctaRef.current; if (!l || !c) return;
+    const box = l.parentNode;
     const fit = () => {
       const main = l.closest('main'); const btns = c.querySelectorAll('.aa-btn');
-      if (!btns.length || !main || main.clientWidth <= 720) { l.style.setProperty('--hero-shift', '0px'); l.style.setProperty('--hero-scale', '1'); return; }
+      if (!btns.length || !main || main.clientWidth <= 720) { l.style.setProperty('--hero-shift', '0px'); l.style.setProperty('--hero-scale', '1'); box.style.removeProperty('--hero-cx'); return; }
       const a = btns[0], z = btns[btns.length - 1], sa = getComputedStyle(a), sz = getComputedStyle(z);
       const from = a.getBoundingClientRect().left + parseFloat(sa.paddingLeft), to = z.getBoundingClientRect().right - parseFloat(sz.paddingRight);
       const img = l.querySelector('img') || l; const r = img.getBoundingClientRect();
@@ -270,6 +272,7 @@ export function Hero({ hero = {}, onNavigate, id = 'top' }) {
       const center = Math.max(C, edge + k * W / 2);
       l.style.setProperty('--hero-scale', k.toFixed(3));
       l.style.setProperty('--hero-shift', Math.round(center - center0) + 'px');
+      box.style.setProperty('--hero-cx', Math.round(center - box.getBoundingClientRect().left - parseFloat(getComputedStyle(box).paddingLeft)) + 'px'); // от левого края содержимого (без отступа блока)
     };
     fit();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
@@ -290,6 +293,7 @@ export function Hero({ hero = {}, onNavigate, id = 'top' }) {
       </h1> : <h1 className="aa-hero__title">{edEl(ed, 'slot', { p: 'hero.logo', v: hero.logo, accept: 'image', label: 'Надпись-логотип', compact: true })}<span className="aa-hero__ink">{lines.map((l, i) => <span key={i} className="aa-hero__line">
         {ed || !l ? <E p={'hero.titleLines.' + i} v={l} /> : <><span className="aa-hero__cap">{l[0]}</span>{l.slice(1)}</>}
       </span>)}</span></h1>}
+      {(hero.role || ed) && <p className="aa-hero__role"><E p="hero.role" v={hero.role} ph="Кто вы: монтажер, моушн-дизайнер…" /></p>}
       <div className="aa-hero__cta" ref={ctaRef}>
         {hero.primaryCta && <Button variant="siren" href={'#' + hero.primaryCta.target} onClick={go(hero.primaryCta.target)}><E p="hero.primaryCta.label" v={hero.primaryCta.label} /></Button>}
         {hero.secondaryCta && <Button variant="outline" href={'#' + hero.secondaryCta.target} onClick={go(hero.secondaryCta.target)}><E p="hero.secondaryCta.label" v={hero.secondaryCta.label} /></Button>}

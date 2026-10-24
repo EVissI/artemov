@@ -38,6 +38,7 @@
       "Артем",
       "Артемов"
     ],
+    "role": "Монтажер - Моушн Дизайнер",
     "subtitle": "Монтирую так, что досматривают до конца",
     "primaryCta": {
       "label": "Написать",
@@ -528,7 +529,8 @@
       },
       "secondaryCta": {
         "label": "See the works"
-      }
+      },
+      "role": "Editor - Motion Designer"
     },
     "about": {
       "title": "About",

@@ -226,7 +226,14 @@
   max-width: 34ch; text-wrap: balance; color: #d9d4cf; text-shadow: 0 0 12px rgba(12,10,9,.95), 0 0 8px rgba(255,255,255,.18); }
 /* кнопки hero - как пункты главного меню SH2: Times капсом без рамок, под главной - рваный мазок тёмно-красной краски,
    у второй мазок проявляется при наведении (только opacity/transform) */
-.aa-hero__cta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-6); margin-top: var(--space-6); }
+.aa-hero__cta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-6); margin-top: var(--space-5); }
+/* кто владелец (hero.role) - под логотипом, по его центру (--hero-cx ставит Hero), как подпись на обложке игры:
+   Times капсом с широкой разрядкой, светло-серый с мягким свечением; на узком main - просто по левому краю */
+.aa-hero__role { margin: var(--space-4) 0 0; align-self: flex-start; max-width: none !important; white-space: nowrap;
+  font-family: var(--font-serif); font-size: clamp(14px, 1.3cqi, 19px); letter-spacing: .34em; text-transform: uppercase; color: #d9d4cf;
+  text-shadow: 0 0 10px rgba(255,255,255,.28), 0 0 14px rgba(12,10,9,.9); }
+@container (min-width: 721px) { .aa-hero__content[style*="--hero-cx"] > .aa-hero__role { position: relative; left: var(--hero-cx); transform: translateX(-50%); margin-right: 0; } }
+@media (max-width: 720px) { .aa-hero__role { white-space: normal; letter-spacing: .22em; } }
 .aa-hero__cta .aa-btn { isolation: isolate; min-height: 0; padding: 14px 34px 14px 22px; border: 0; background: none; box-shadow: none;
   font-family: var(--font-serif); font-size: clamp(17px, 1.4cqi, 21px); font-weight: 400; letter-spacing: .16em; color: #b3b3b3;
   text-shadow: 0 0 10px rgba(12,10,9,.9); transition: color .2s; }

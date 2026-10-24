@@ -89,6 +89,13 @@ function getTr(t, b, ss) {
   return t;
 }
 const hasText = (v) => typeof v === 'string' && v.trim() !== '';
+// тот же сдвиг/удаление - в переводе списка, если элементы основы без id (иначе перевод уехал бы на чужую строку)
+function withTrList(d, list, fn) {
+  const base = getIn(d, list);
+  if (!Array.isArray(base) || base.some((x) => x && typeof x === 'object' && x.id != null)) return d;
+  const t = getTr(d.en, d, segs(list)); if (!Array.isArray(t)) return d;
+  return { ...d, en: setTr(d.en, d, segs(list), fn(t.slice())) };
+}
 const noDash = (v) => (typeof v === 'string' ? v.replace(/[\u2014\u2013]/g, '-') : v); // правило: только дефис
 const uid = (pre) => pre + '-' + Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 4);
 const isPh = (v) => typeof v === 'string' && /\[[^\]]*\]/.test(v);
@@ -154,6 +161,7 @@ const SECTIONS = {
     title: 'Hero и фон',
     fields: [
       { k: 'titleLines', label: 'Имя текстом, по строкам (для поиска; на экране - если нет картинки-логотипа)', t: 'strings', max: 3 },
+      { k: 'role', label: 'Кто вы - строка под логотипом' },
       { k: 'primaryCta.label', label: 'Главная кнопка', half: true }, { k: 'primaryCta.target', label: 'ведёт в', t: 'select', options: TARGETS, half: true },
       { k: 'secondaryCta.label', label: 'Вторая кнопка', half: true }, { k: 'secondaryCta.target', label: 'ведёт в', t: 'select', options: TARGETS, half: true },
       { group: 'Фон' },
@@ -329,14 +337,12 @@ function Tools({ ed, list, id, index, kind, axis }) {
   const draftWork = kind === 'work' && item.published === false;
   const stop = (fn) => (e) => { e.preventDefault(); e.stopPropagation(); fn(); };
   const name = typeof item === 'string' ? item.slice(0, 40) : (item.title || item.client || item.label || 'элемент');
-  const en = ed.lang() === 'en';
-  if (en && !(KINDS[kind] && KINDS[kind].fields)) return null;
   return <div className={cx('aa-ed-tools', draftWork && 'aa-ed-tools--pinned')} onClick={(e) => e.stopPropagation()}>
-    {kind === 'work' && !en && <button type="button" className={cx('aa-ed-tool aa-ed-tool--wide', draftWork && 'is-off')} onClick={stop(() => ed.set(list + '.' + key + '.published', draftWork, { snapshot: true }))} title="Показывать на сайте">{draftWork ? 'Черновик' : 'На сайте'}</button>}
+    {kind === 'work' && <button type="button" className={cx('aa-ed-tool aa-ed-tool--wide', draftWork && 'is-off')} onClick={stop(() => ed.set(list + '.' + key + '.published', draftWork, { snapshot: true }))} title="Показывать на сайте">{draftWork ? 'Черновик' : 'На сайте'}</button>}
     {KINDS[kind] && KINDS[kind].fields && <button type="button" className="aa-ed-tool" onClick={stop(() => ed.openItem(list, key, kind))} title="Все поля" aria-label="Все поля">⚙</button>}
-    {!en && <Fragment><button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, -1, kind))} title="Раньше" aria-label="Переместить раньше">{axis === 'x' ? '←' : '↑'}</button>
+    <Fragment><button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, -1, kind))} title="Раньше" aria-label="Переместить раньше">{axis === 'x' ? '←' : '↑'}</button>
     <button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, 1, kind))} title="Позже" aria-label="Переместить позже">{axis === 'x' ? '→' : '↓'}</button>
-    <button type="button" className="aa-ed-tool" onClick={stop(() => { if (confirm(`Удалить «${name}»?`)) ed.remove(list, key); })} title="Удалить" aria-label="Удалить">✕</button></Fragment>}
+    <button type="button" className="aa-ed-tool" onClick={stop(() => { if (confirm(`Удалить «${name}»?`)) ed.remove(list, key); })} title="Удалить" aria-label="Удалить">✕</button></Fragment>
   </div>;
 }
 
@@ -371,18 +377,18 @@ const rowKey = (item, i) => (item && typeof item === 'object' && item.id != null
 function Field({ f, bp, d, td, content, ed, depth = 0 }) {
   const en = ed.lang() === 'en';
   if (f.group) return <h4 className="aa-ed-group aa-label">{f.group}</h4>;
-  if (f.note && !f.k) return en ? null : <p className="aa-ed-note">{f.note}</p>;
+  if (f.note && !f.k) return <p className="aa-ed-note">{f.note}</p>;
   if (f.when && !f.when(d || {})) return null;
-  if (en && !trField(f)) return null;
   const path = bp ? bp + '.' + f.k : f.k;
   const v = getIn(d, f.k);
-  const tv = en ? getIn(td, f.k) : undefined; // перевод (может не быть)
-  const val = en ? tv : v;
-  const set = (x) => ed.set(path, x);
+  const useTr = en && trField(f); // в EN переводимое поле (текст, абзацы, медиа) правит перевод; остальное - общее
+  const tv = useTr ? getIn(td, f.k) : undefined; // перевод (может не быть)
+  const val = useTr ? tv : v;
+  const set = (x) => ed.set(path, x, useTr ? undefined : { base: true });
   const onFocus = () => ed.snap();
   const t = f.t || 'text';
   const id = 'f-' + path.replace(/[^A-Za-z0-9]/g, '_');
-  const phRu = en && typeof v === 'string' ? v : ''; // в режиме EN подсказка в поле - русский текст
+  const phRu = useTr && typeof v === 'string' ? v : ''; // в режиме EN подсказка в поле - русский текст
   let ctl;
   if (t === 'text' || t === 'url') ctl = <input id={id} className="aa-ed-input" value={val == null ? '' : val} onFocus={onFocus} onChange={(e) => set(f.slug ? e.target.value.replace(/[^A-Za-z0-9_-]/g, '') : e.target.value)} type={t === 'url' ? 'url' : 'text'} placeholder={phRu || (t === 'url' ? 'https://' : '')} />;
   else if (t === 'textarea') ctl = <textarea id={id} className="aa-ed-input" rows={3} value={val || ''} onFocus={onFocus} onChange={(e) => set(e.target.value)} placeholder={phRu} />;
@@ -392,20 +398,21 @@ function Field({ f, bp, d, td, content, ed, depth = 0 }) {
   else if (t === 'select') { const opts = typeof f.options === 'function' ? f.options(content) : f.options; ctl = <select id={id} className="aa-ed-input" value={v == null ? '' : v} onChange={(e) => ed.set(path, e.target.value, { snapshot: true, base: true })}>{opts.map(([val2, lab]) => <option key={val2} value={val2}>{lab}</option>)}{v && !opts.some((o) => o[0] === v) && <option value={v}>{v}</option>}</select>; }
   else if (t === 'media') ctl = <Fragment>
     <MediaField value={val} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} onFocus={onFocus} onChange={(x) => ed.set(path, x, { snapshot: true })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />
-    {en && !hasText(tv) && v && <p className="aa-ed-note aa-ed-note--tight">Пусто - как в русской версии.</p>}
+    {useTr && !hasText(tv) && v && <p className="aa-ed-note aa-ed-note--tight">Пусто - как в русской версии.</p>}
   </Fragment>;
   else if (t === 'strings' || t === 'list') {
     const arr = Array.isArray(v) ? v : [];
     const tarr = Array.isArray(tv) ? tv : [];
     const strings = t === 'strings';
-    const mv = (i, dir) => { const j = i + dir; if (j < 0 || j >= arr.length) return; const c = arr.slice(); [c[i], c[j]] = [c[j], c[i]]; ed.set(path, c, { snapshot: true }); };
-    const rm = (i) => ed.set(path, arr.filter((_, k) => k !== i), { snapshot: true });
-    const add = () => ed.set(path, [...arr, strings ? '' : (f.make ? f.make(content) : {})], { snapshot: true });
+    // состав и порядок списка общие для обоих языков: ed.move/ed.remove двигают и перевод (у списков без id он по номеру)
+    const mv = (i, dir) => ed.move(path, rowKey(arr[i], i), dir);
+    const rm = (i) => ed.remove(path, rowKey(arr[i], i));
+    const add = () => ed.set(path, [...arr, strings ? '' : (f.make ? f.make(content) : {})], { snapshot: true, base: true });
     const trRow = (item, i) => (item && typeof item === 'object' && item.id != null ? tarr.find((x) => x && x.id === item.id) : tarr[i]);
-    const shape = !en && !f.fixed; // в EN список не перестраивается: состав и порядок - общие, правятся в русской версии
+    const shape = !f.fixed;
     return <fieldset className={cx('aa-ed-list', depth && 'aa-ed-list--nested')}>
       <legend className="aa-ed-field__l aa-label">{f.label}</legend>
-      {f.note && !en && <p className="aa-ed-note">{f.note}</p>}
+      {f.note && <p className="aa-ed-note">{f.note}</p>}
       {arr.map((item, i) => <div key={(item && item.id) || i} className={cx('aa-ed-list__row', !strings && 'aa-ed-list__row--obj')}>
         <div className="aa-ed-list__body">
           {strings ? (() => {
@@ -428,7 +435,7 @@ function Field({ f, bp, d, td, content, ed, depth = 0 }) {
     <label className="aa-ed-field__l aa-label" htmlFor={id}>{f.label}</label>
     {ctl}
     {isPh(val) && <span className="aa-ed-field__ph">плейсхолдер</span>}
-    {en && (t === 'text' || t === 'textarea') && !hasText(tv) && hasText(v) && <span className="aa-ed-field__ph aa-ed-field__ph--tr">нет перевода</span>}
+    {useTr && (t === 'text' || t === 'textarea') && !hasText(tv) && hasText(v) && <span className="aa-ed-field__ph aa-ed-field__ph--tr">нет перевода</span>}
   </div>;
 }
 
@@ -438,7 +445,7 @@ function FormPanel({ spec, ed, content }) {
   const en = ed.lang() === 'en';
   const td = en ? (spec.p ? getTr(content.en, content, segs(spec.p)) : content.en) : undefined;
   return <Fragment>
-    {en && <p className="aa-ed-note aa-ed-note--en">Английская версия. Здесь только тексты и медиа: пустое поле - на сайте будет русский текст (он виден серым внутри поля). Состав списков, порядок, ссылки и настройки - общие, правятся в режиме RU.</p>}
+    {en && <p className="aa-ed-note aa-ed-note--en">Английская версия. Тексты и картинки здесь - только для английской: пустое поле - на сайте будет русский текст (он виден серым внутри поля). Состав списков, порядок, ссылки, категории, годы и галочки - общие для обеих версий.</p>}
     <div className="aa-ed-grid">{spec.fields.map((f, i) => <div key={i} className={cx('aa-ed-cell', f.half && 'aa-ed-cell--half', f.group && 'aa-ed-cell--full')}><Field f={f} bp={spec.p} d={d} td={td} content={content} ed={ed} /></div>)}</div>
   </Fragment>;
 }
@@ -694,11 +701,12 @@ function App() {
             return setIn(d, list, arr.map((w) => ({ ...w, order: ord.get(w.id) })));
           }
           const i = idxOf(arr, key), j = i + dir; if (i < 0 || j < 0 || j >= arr.length) return d;
-          const c = arr.slice(); [c[i], c[j]] = [c[j], c[i]]; return setIn(d, list, c);
+          const c = arr.slice(); [c[i], c[j]] = [c[j], c[i]];
+          return setIn(withTrList(d, list, (t) => { while (t.length <= Math.max(i, j)) t.push(null); [t[i], t[j]] = [t[j], t[i]]; return t; }), list, c);
         }, { snapshot: true });
       },
       remove(list, key) {
-        D.update((d) => { const arr = getIn(d, list); if (!Array.isArray(arr)) return d; const i = idxOf(arr, key); return i < 0 ? d : setIn(d, list, arr.filter((_, k) => k !== i)); }, { snapshot: true });
+        D.update((d) => { const arr = getIn(d, list); if (!Array.isArray(arr)) return d; const i = idxOf(arr, key); return i < 0 ? d : setIn(withTrList(d, list, (t) => t.filter((_, k) => k !== i)), list, arr.filter((_, k) => k !== i)); }, { snapshot: true });
         setPanel((pn) => (pn && pn.type === 'item' && pn.p === list + '.' + key ? null : pn));
       },
       addItem(list, kind, extra) {
@@ -715,7 +723,6 @@ function App() {
     api.slot = (props) => <Slot ed={api} {...props} />;
     api.tools = (props) => <Tools ed={api} {...props} />;
     api.add = ({ list, kind, label, tag, extra }) => {
-      if (langRef.current === 'en') return null; // новые элементы - в русской версии
       const T = tag || 'div';
       return <T className={cx('aa-ed-add', 'aa-ed-add--' + kind)}><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); api.addItem(list, kind, extra); }}><span aria-hidden="true">+</span> {label}</button></T>;
     };
