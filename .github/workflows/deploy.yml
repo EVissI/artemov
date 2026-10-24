@@ -1,0 +1,41 @@
+# Пуш в main -> проверка сборки -> выкатка на прод (temak1n-portfolio.xyz).
+# Деплой: SSH на сервер ключом из секрета DEPLOY_SSH_KEY. На сервере этот ключ привязан к deploy/deploy.sh
+# (forced command в authorized_keys) - он только делает git pull и docker compose up -d --build, больше ничего.
+# Отпечаток сервера зашит ниже (known_hosts) - подменить сервер по дороге не выйдет.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Выкатка на сервер
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          echo "138.16.224.192 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICNqpytcBxfuLmAs11eLsu5euqsMLmjytB4ADQR+2EZX" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes root@138.16.224.192 deploy
