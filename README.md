@@ -1,6 +1,6 @@
 # artemov - сайт Артема Артемова
 
-- Установить: `npm install` (нужен Node 20+).
+- Установить: `npm install` (используйте Node.js 24 LTS, как в CI и Docker).
 - Собрать: `npm run build` (или `bash scripts/build-site.sh`).
 - Запустить: `npm start` → сайт на http://127.0.0.1:3000/. При первом запуске в консоли будут адрес админки и пароль - сохрани их.
 - Админка: `npm run admin:info` - где она, `npm run admin:password -- <новый пароль>` - сменить пароль.

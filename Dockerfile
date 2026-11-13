@@ -1,14 +1,14 @@
 # Сайт Артема Артемова: Node-сервер без зависимостей + ffmpeg для сжатия загрузок.
 # Сборка в два этапа: в первом esbuild собирает site/ и site-admin/, во второй попадает только то, что нужно серверу.
 
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:24-alpine
 # ffmpeg: фото -> WebP, видео -> WebM + MP4 (server/media.mjs); tini корректно передаёт сигналы остановки
 RUN apk add --no-cache ffmpeg tini
 WORKDIR /app
