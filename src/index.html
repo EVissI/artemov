@@ -89,7 +89,7 @@
   // пока грузятся файлы - медленно подползаем к 55%
   var creep = setInterval(function () { if (target < 55) up(target + 2); }, 160);
   function heroReady() {
-    var hero = document.querySelector('.aa-hero, .aa-legal'); if (!hero) return null;
+    var hero = document.querySelector('.aa-hero, .aa-legal, .aa-res__hero'); if (!hero) return null;
     var media = Array.prototype.slice.call(hero.querySelectorAll('img, video'));
     var ok = media.filter(function (m) { return m.tagName === 'IMG' ? m.complete : m.readyState >= 2 || m.error; }).length;
     return { ok: ok, total: media.length };

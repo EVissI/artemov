@@ -101,6 +101,19 @@ const UI = {
     menu: "Меню",
     close: "Закрыть",
     lang: "Язык сайта",
+    resources: "Ресурсы",
+    resourceSearch: "Поиск ресурсов",
+    resourcePlaceholder: "Название, программа или тема",
+    platform: "Платформа",
+    resourceType: "Тип ресурса",
+    allPlatforms: "Все платформы",
+    allTypes: "Все типы",
+    resourceCount: "Найдено: {n} из {m}",
+    resourceEmpty: "Ресурсы не найдены",
+    resourceHint: "Попробуй другой запрос или сбрось фильтры.",
+    resourceReset: "Сбросить",
+    resourceSoftware: "Программа",
+    resourceSource: "Источник",
     intro: "Вступление",
     watch: "Смотреть",
     worksCats: "Категории работ",
@@ -164,6 +177,19 @@ const UI = {
     menu: "Menu",
     close: "Close",
     lang: "Site language",
+    resources: "Resources",
+    resourceSearch: "Search resources",
+    resourcePlaceholder: "Name, software or topic",
+    platform: "Platform",
+    resourceType: "Resource type",
+    allPlatforms: "All platforms",
+    allTypes: "All types",
+    resourceCount: "Showing {n} of {m}",
+    resourceEmpty: "No resources found",
+    resourceHint: "Try a different search or reset the filters.",
+    resourceReset: "Reset",
+    resourceSoftware: "Software",
+    resourceSource: "Source",
     intro: "Intro",
     watch: "Watch",
     worksCats: "Work categories",
@@ -252,7 +278,7 @@ function localize(content, lang) {
   return { ...overlay(base, en || {}), en };
 }
 const langOn = (content, lang) => lang === "ru" || !!(content && content.i18n && content.i18n[lang] && content.i18n[lang].enabled);
-const DEF_URLS = { home: { ru: "/", en: "/en" }, privacy: { ru: "/privacy", en: "/en/privacy" }, consent: { ru: "/consent", en: "/en/consent" } };
+const DEF_URLS = { home: { ru: "/", en: "/en" }, privacy: { ru: "/privacy", en: "/en/privacy" }, consent: { ru: "/consent", en: "/en/consent" }, resources: { ru: "/resources", en: "/en/resources" } };
 const COOKIE_KEY = "aa-cookie";
 const cookieChoice = () => {
   try {
@@ -268,11 +294,12 @@ const setLangCookie = (l, maxAge) => {
   }
 };
 const goLang = (e, l, cur) => {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   e.preventDefault();
   if (l === cur) return;
   const accepted = cookieChoice() === "accepted";
   if (accepted) setLangCookie(l, 31536e3);
-  fogSwitch(l, siteUrl("home", l) + (l === "ru" && !accepted ? "?lang=ru" : ""));
+  fogSwitch(l, siteUrl("home", l) + (l === "ru" && !accepted ? "?lang=ru" : "") + location.hash);
 };
 let fogEl = null;
 function prewarmFog() {
@@ -345,10 +372,11 @@ function Barcode({ seed = "AA", className, bars = 34 }) {
 function Atmosphere({ fixed = true, grain = true, scanlines = true, vignette = true }) {
   return /* @__PURE__ */ h("div", { className: cx("aa-atmos", fixed && "aa-atmos--fixed"), "aria-hidden": "true" }, grain && /* @__PURE__ */ h("div", { className: "aa-atmos__grain" }), scanlines && /* @__PURE__ */ h("div", { className: "aa-atmos__scan" }), vignette && /* @__PURE__ */ h("div", { className: "aa-atmos__vignette" }));
 }
-function Header({ nav = [], monogram = "AA", recLabel = "REC", theme = "other", active, onNavigate, fixed = true, solid = false, langs = [] }) {
+function Header({ nav = [], monogram = "AA", theme = "other", active, onNavigate, onNavigateResources, fixed = true, solid = false, langs = [], onLanguageChange, page = "home" }) {
   const [open, setOpen] = useState(false);
   const lang = useLang();
   const t = useT();
+  const home = siteUrl("home", lang);
   const go = (e, id) => {
     if (onNavigate) {
       e.preventDefault();
@@ -356,7 +384,30 @@ function Header({ nav = [], monogram = "AA", recLabel = "REC", theme = "other", 
     }
     setOpen(false);
   };
-  return /* @__PURE__ */ h("header", { className: cx("aa-header", !fixed && "aa-header--static", open && "aa-header--open", solid && "aa-header--solid"), "data-theme": theme }, /* @__PURE__ */ h("a", { className: "aa-header__logo", href: "#top", onClick: (e) => go(e, "top") }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram, label: t("home") })), /* @__PURE__ */ h("nav", { "aria-label": t("sections") }, /* @__PURE__ */ h("ul", { className: "aa-header__nav aa-label", id: "aa-nav" }, nav.map((n) => /* @__PURE__ */ h("li", { key: n.id }, /* @__PURE__ */ h("a", { href: "#" + n.id, "aria-current": active === n.id ? "true" : void 0, onClick: (e) => go(e, n.id) }, n.label))))), /* @__PURE__ */ h("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, langs.length > 1 && /* @__PURE__ */ h("nav", { className: "aa-langs", "aria-label": t("lang") }, langs.map((l) => /* @__PURE__ */ h("a", { key: l, href: siteUrl("home", l), hrefLang: l, lang: l, "aria-current": l === lang ? "true" : void 0, onClick: (e) => goLang(e, l, lang), onPointerEnter: l === lang ? void 0 : prewarmFog, onFocus: l === lang ? void 0 : prewarmFog }, l.toUpperCase()))), /* @__PURE__ */ h(Rec, { label: recLabel }), /* @__PURE__ */ h("button", { type: "button", className: "aa-header__menu aa-label", "aria-expanded": open, "aria-controls": "aa-nav", onClick: () => setOpen(!open) }, open ? t("close") : t("menu"))));
+  return /* @__PURE__ */ h("header", { className: cx("aa-header", !fixed && "aa-header--static", open && "aa-header--open", solid && "aa-header--solid"), "data-theme": theme }, /* @__PURE__ */ h("a", { className: "aa-header__logo", href: page === "home" ? "#top" : home, onClick: (e) => go(e, "top") }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram, label: t("home") })), /* @__PURE__ */ h("nav", { "aria-label": t("sections") }, /* @__PURE__ */ h("ul", { className: "aa-header__nav aa-label", id: "aa-nav" }, nav.map((n) => /* @__PURE__ */ h("li", { key: n.id }, /* @__PURE__ */ h("a", { href: (page === "home" ? "" : home) + "#" + n.id, "aria-current": active === n.id ? "true" : void 0, onClick: (e) => go(e, n.id) }, n.label))), /* @__PURE__ */ h("li", null, /* @__PURE__ */ h("a", { href: siteUrl("resources", lang), "aria-current": page === "resources" ? "page" : void 0, onClick: (e) => {
+    if (onNavigateResources) {
+      e.preventDefault();
+      onNavigateResources();
+    }
+    setOpen(false);
+  } }, t("resources"))))), /* @__PURE__ */ h("div", { className: "aa-header__controls" }, langs.length > 1 && /* @__PURE__ */ h("nav", { className: "aa-langs", "aria-label": t("lang") }, langs.map((l) => {
+    if (onLanguageChange) return /* @__PURE__ */ h("button", { key: l, type: "button", lang: l, "aria-pressed": l === lang, onClick: () => onLanguageChange(l) }, l.toUpperCase());
+    const animated = page === "home" && l !== lang;
+    return /* @__PURE__ */ h(
+      "a",
+      {
+        key: l,
+        href: siteUrl(page, l),
+        hrefLang: l,
+        lang: l,
+        "aria-current": l === lang ? "true" : void 0,
+        onClick: page === "home" ? (e) => goLang(e, l, lang) : void 0,
+        onPointerEnter: animated ? prewarmFog : void 0,
+        onFocus: animated ? prewarmFog : void 0
+      },
+      l.toUpperCase()
+    );
+  })), /* @__PURE__ */ h("button", { type: "button", className: "aa-header__menu aa-label", "aria-expanded": open, "aria-controls": "aa-nav", onClick: () => setOpen(!open) }, open ? t("close") : t("menu"))));
 }
 function Hero({ hero = {}, onNavigate, id = "top" }) {
   const ed = useEd();
@@ -410,7 +461,7 @@ function Hero({ hero = {}, onNavigate, id = "top" }) {
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
     return () => ro && ro.disconnect();
   }, [hero.logo, hero.primaryCta && hero.primaryCta.label, hero.secondaryCta && hero.secondaryCta.label]);
-  return /* @__PURE__ */ h("section", { className: "aa-hero", id, "data-theme": "other", "data-header": "other", "aria-label": t("intro") }, /* @__PURE__ */ h("div", { className: "aa-hero__scene" }, scene), edEl(ed, "section", { p: "hero", kind: "hero", label: "Hero и фон" }), /* @__PURE__ */ h("div", { className: "aa-hero__content" }, hero.logo ? /* @__PURE__ */ h("h1", { className: "aa-hero__logo", ref: logoRef }, /* @__PURE__ */ h("img", { src: hero.logo, alt: "", decoding: "async", fetchpriority: "high" }), /* @__PURE__ */ h("span", { className: "aa-sr" }, lines.join(" ")), edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип (PNG/WebP без фона)" })) : /* @__PURE__ */ h("h1", { className: "aa-hero__title" }, edEl(ed, "slot", { p: "hero.logo", v: hero.logo, accept: "image", label: "Надпись-логотип", compact: true }), /* @__PURE__ */ h("span", { className: "aa-hero__ink" }, lines.map((l, i) => /* @__PURE__ */ h("span", { key: i, className: "aa-hero__line" }, ed || !l ? /* @__PURE__ */ h(E, { p: "hero.titleLines." + i, v: l }) : /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h("span", { className: "aa-hero__cap" }, l[0]), l.slice(1)))))), (hero.role || ed) && /* @__PURE__ */ h("p", { className: "aa-hero__role" }, /* @__PURE__ */ h(E, { p: "hero.role", v: hero.role, ph: "Кто вы: монтажер, моушн-дизайнер…" })), /* @__PURE__ */ h("div", { className: "aa-hero__cta", ref: ctaRef }, hero.primaryCta && /* @__PURE__ */ h(Button, { variant: "siren", href: "#" + hero.primaryCta.target, onClick: go(hero.primaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.primaryCta.label", v: hero.primaryCta.label })), hero.secondaryCta && /* @__PURE__ */ h(Button, { variant: "outline", href: "#" + hero.secondaryCta.target, onClick: go(hero.secondaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.secondaryCta.label", v: hero.secondaryCta.label })))));
+  return /* @__PURE__ */ h("section", { className: "aa-hero", id, "data-theme": "other", "data-header": "other", "aria-label": t("intro") }, /* @__PURE__ */ h("div", { className: "aa-hero__scene" }, scene), ed && /* @__PURE__ */ h("div", { className: "aa-ed-hero-actions" }, edEl(ed, "section", { p: "hero", kind: "hero", label: "Первый экран" }), edEl(ed, "section", { p: "hero", kind: "hero", label: "Фон", group: "Фон" })), /* @__PURE__ */ h("div", { className: "aa-hero__content" }, hero.logo ? /* @__PURE__ */ h("h1", { className: "aa-hero__logo", ref: logoRef, "aria-label": ed ? lines.join(" ") : void 0 }, /* @__PURE__ */ h("img", { src: hero.logo, alt: "", decoding: "async", fetchpriority: "high" }), /* @__PURE__ */ h("span", { className: "aa-sr" }, lines.join(" ")), edEl(ed, "section", { p: "hero", kind: "hero", label: "Логотип", group: "Логотип", className: "aa-ed-hero-logo" })) : /* @__PURE__ */ h("h1", { className: "aa-hero__title" }, edEl(ed, "section", { p: "hero", kind: "hero", label: "Логотип", group: "Логотип", className: "aa-ed-hero-logo" }), /* @__PURE__ */ h("span", { className: "aa-hero__ink" }, lines.map((l, i) => /* @__PURE__ */ h("span", { key: i, className: "aa-hero__line" }, ed || !l ? /* @__PURE__ */ h(E, { p: "hero.titleLines." + i, v: l }) : /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h("span", { className: "aa-hero__cap" }, l[0]), l.slice(1)))))), (hero.role || ed) && /* @__PURE__ */ h("p", { className: "aa-hero__role" }, /* @__PURE__ */ h(E, { p: "hero.role", v: hero.role, ph: "Кто вы: монтажер, моушн-дизайнер…" })), /* @__PURE__ */ h("div", { className: "aa-hero__cta", ref: ctaRef }, hero.primaryCta && /* @__PURE__ */ h(Button, { variant: "siren", href: "#" + hero.primaryCta.target, onClick: go(hero.primaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.primaryCta.label", v: hero.primaryCta.label })), hero.secondaryCta && /* @__PURE__ */ h(Button, { variant: "outline", href: "#" + hero.secondaryCta.target, onClick: go(hero.secondaryCta.target) }, /* @__PURE__ */ h(E, { p: "hero.secondaryCta.label", v: hero.secondaryCta.label })))));
 }
 function Counter({ value, display, suffix = "", label, duration = 1400 }) {
   const ref = useRef(null);
@@ -944,6 +995,7 @@ function VideoModal({ work, onClose, categoryLabel }) {
 }
 const INV_COLS = 4, INV_MIN = 12;
 function Works({ works = {}, id = "works" }) {
+  var _a;
   const ed = useEd();
   const reduced = useReducedMotion();
   const T = useT();
@@ -957,9 +1009,16 @@ function Works({ works = {}, id = "works" }) {
     setHost(secRef.current && secRef.current.closest(".aa-page") || null);
   }, []);
   const items = useMemo(() => (works.items || []).filter((w) => ed || w.published !== false).sort((a, b) => {
-    var _a, _b;
-    return ((_a = a.order) != null ? _a : 0) - ((_b = b.order) != null ? _b : 0);
+    var _a2, _b;
+    return ((_a2 = a.order) != null ? _a2 : 0) - ((_b = b.order) != null ? _b : 0);
   }), [works.items, ed]);
+  const selectedWork = ed == null ? void 0 : ed.selectedWork;
+  const selectedCategory = (_a = items.find((work) => work.id === selectedWork)) == null ? void 0 : _a.category;
+  useEffect(() => {
+    if (!selectedWork) return;
+    setFilter((current) => current === selectedCategory ? current : "all");
+    setSel(selectedWork);
+  }, [selectedWork, selectedCategory]);
   const cats = works.categories || [];
   const catLabel = (cid) => (cats.find((c) => c.id === cid) || {}).label || cid;
   const shown = filter === "all" ? items : items.filter((w) => w.category === filter);
@@ -1028,10 +1087,11 @@ function Works({ works = {}, id = "works" }) {
         "aria-selected": on,
         tabIndex: on ? 0 : -1,
         className: cx("aa-inv__slot", on && "is-on", ed && w.published === false && "aa-ed-draft"),
-        onMouseEnter: () => hoverPick(w),
+        onMouseEnter: ed ? void 0 : () => hoverPick(w),
         onFocus: () => pick(w),
         onClick: () => {
-          if (on && !ed) setOpen(w);
+          if (ed) ed.openItem("works.items", "@" + w.id, "work");
+          else if (on) setOpen(w);
           else pick(w);
         },
         "aria-label": `${w.title}, ${catLabel(w.category)}, ${w.year}`
@@ -1105,12 +1165,20 @@ function Cases({ cases = {}, id = "cases" }) {
   const [flip, setFlip] = useState(null);
   const flipT = useRef(0);
   useEffect(() => () => clearTimeout(flipT.current), []);
+  const selectedCase = ed == null ? void 0 : ed.selectedCase;
+  const selectedCasePage = selectedCase ? pages.findIndex(({ it }) => it.id === selectedCase) : -1;
+  useEffect(() => {
+    if (selectedCasePage < 0) return;
+    clearTimeout(flipT.current);
+    setFlip(null);
+    setAt(selectedCasePage);
+  }, [selectedCasePage]);
   const cur = Math.max(0, Math.min(single ? at : at - at % 2, pages.length - 1));
   const go = (dir) => {
     if (flip) return;
     const to = cur + dir * step;
     if (to < 0 || to >= pages.length) return;
-    if (reduced) {
+    if (reduced || ed) {
       setAt(to);
       return;
     }
@@ -1170,7 +1238,7 @@ function Cases({ cases = {}, id = "cases" }) {
     base,
     leaf,
     !ed && !flip && /* @__PURE__ */ h(Fragment, null, cur > 0 && /* @__PURE__ */ h("button", { type: "button", className: "aa-jr__hit aa-jr__hit--prev", onClick: () => go(-1), "aria-label": T("prevPage") }), cur + step < pages.length && /* @__PURE__ */ h("button", { type: "button", className: "aa-jr__hit aa-jr__hit--next", onClick: () => go(1), "aria-label": T("nextPage") }))
-  )), /* @__PURE__ */ h("div", { className: "aa-jr__nav" }, /* @__PURE__ */ h("span", { className: "aa-jr__count", "aria-live": "polite" }, T("record", { n: caseNo, m: items.length }))), edEl(ed, "add", { list: "cases.items", kind: "case", label: "Кейс" }))));
+  )), /* @__PURE__ */ h("div", { className: "aa-jr__nav" }, ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-ed-tool", disabled: cur === 0 || !pages.length, onClick: () => go(-1), "aria-label": T("prevPage") }, "←"), /* @__PURE__ */ h("span", { className: "aa-jr__count", "aria-live": "polite" }, T("record", { n: caseNo, m: items.length })), ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-ed-tool", disabled: cur + step >= pages.length, onClick: () => go(1), "aria-label": T("nextPage") }, "→")), edEl(ed, "add", { list: "cases.items", kind: "case", label: "Кейс" }))));
 }
 const RE_TG = /^@[A-Za-z0-9_]{4,32}$/;
 const RE_TGURL = /^(https?:\/\/)?t\.me\/[A-Za-z0-9_]{4,32}\/?$/i;
@@ -1519,12 +1587,12 @@ function Footer({ footer = {}, monogram = "AA", onNavigate }) {
   const ed = useEd();
   const lang = useLang();
   const T = useT();
-  return /* @__PURE__ */ h("footer", { className: "aa-footer", "data-theme": "other", "data-header": "other" }, edEl(ed, "section", { p: "footer", kind: "footer", label: "Футер" }), /* @__PURE__ */ h("div", { className: "aa-wrap aa-footer__row" }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram }), /* @__PURE__ */ h("div", { className: "aa-label" }, /* @__PURE__ */ h(E, { p: "footer.copyright", v: footer.copyright })), /* @__PURE__ */ h("a", { className: "aa-label", href: "#top", onClick: (e) => {
+  return /* @__PURE__ */ h("footer", { id: "footer", className: "aa-footer", "data-theme": "other", "data-header": "other" }, edEl(ed, "section", { p: "footer", kind: "footer", label: "Подвал" }), /* @__PURE__ */ h("div", { className: "aa-wrap aa-footer__row" }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: monogram }), /* @__PURE__ */ h("div", { className: "aa-label aa-footer__meta" }, /* @__PURE__ */ h(E, { p: "footer.copyright", v: footer.copyright })), /* @__PURE__ */ h("a", { className: "aa-label aa-footer__top", href: "#top", onClick: (e) => {
     if (onNavigate) {
       e.preventDefault();
       onNavigate("top");
     }
-  } }, "↑ ", /* @__PURE__ */ h(E, { p: "footer.toTop", v: footer.toTop || (ed ? "" : T("toTop")), ph: "Наверх" }))), /* @__PURE__ */ h("nav", { className: "aa-wrap aa-footer__legal aa-micro", "aria-label": T("docs") }, /* @__PURE__ */ h("a", { href: siteUrl("privacy", lang), target: ed ? "_blank" : void 0 }, /* @__PURE__ */ h(E, { p: "footer.privacyLabel", v: footer.privacyLabel || (ed ? "" : T("privacyLabel")), ph: "Политика обработки данных" })), /* @__PURE__ */ h("a", { href: siteUrl("consent", lang), target: ed ? "_blank" : void 0 }, /* @__PURE__ */ h(E, { p: "footer.consentLabel", v: footer.consentLabel || (ed ? "" : T("consentLabel")), ph: "Согласие на обработку данных" })), !ed && /* @__PURE__ */ h("a", { href: "#cookies", onClick: (e) => {
+  } }, /* @__PURE__ */ h(E, { p: "footer.toTop", v: footer.toTop || (ed ? "" : T("toTop")), ph: "Наверх" }))), /* @__PURE__ */ h("nav", { className: "aa-wrap aa-footer__legal aa-micro", "aria-label": T("docs") }, /* @__PURE__ */ h("a", { href: siteUrl("privacy", lang), target: ed ? "_blank" : void 0 }, /* @__PURE__ */ h(E, { p: "footer.privacyLabel", v: footer.privacyLabel || (ed ? "" : T("privacyLabel")), ph: "Политика обработки данных" })), /* @__PURE__ */ h("a", { href: siteUrl("consent", lang), target: ed ? "_blank" : void 0 }, /* @__PURE__ */ h(E, { p: "footer.consentLabel", v: footer.consentLabel || (ed ? "" : T("consentLabel")), ph: "Согласие на обработку данных" })), !ed && /* @__PURE__ */ h("a", { href: "#cookies", onClick: (e) => {
     e.preventDefault();
     window.dispatchEvent(new Event("aa-cookie-open"));
   } }, T("cookieSettings")), /* @__PURE__ */ h("a", { className: "aa-footer__credit", href: DEV_CREDIT.url, target: "_blank", rel: "noopener" }, T("dev"), " ↗")));
@@ -1599,7 +1667,142 @@ function LegalPage({ content, kind = "privacy", lang = "ru" }) {
   const version = isPolicy ? L.policyVersion : L.consentVersion;
   return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { className: "aa-page aa-legal", "data-theme": "other", id: "top" }, /* @__PURE__ */ h("header", { className: "aa-legal__bar" }, /* @__PURE__ */ h("a", { className: "aa-legal__home", href: siteUrl("home", lang) }, /* @__PURE__ */ h(Monogram, { variant: "mark", text: mono, label: T("homeShort") }), /* @__PURE__ */ h("span", { className: "aa-label" }, T("toSite"))), /* @__PURE__ */ h("span", { className: "aa-micro aa-legal__doc" }, T("doc"), " ", isPolicy ? "01" : "02")), /* @__PURE__ */ h("main", { className: "aa-legal__main", id: "main" }, /* @__PURE__ */ h("p", { className: "aa-legal__meta aa-micro" }, T("version"), " ", version || "1.0", " · ", T("since"), " ", ruDate(L.effectiveDate)), /* @__PURE__ */ h("h1", { className: "aa-legal__title" }, title), isPolicy ? (L.policy || []).map((sec, i) => /* @__PURE__ */ h("section", { key: i, className: "aa-legal__sec" }, /* @__PURE__ */ h("h2", { className: "aa-legal__h aa-label" }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, pad(i + 1)), sec.title), (sec.paragraphs || []).map((p, k) => /* @__PURE__ */ h("p", { key: k }, legalText(p, L, c.site && c.site.domain, lang))))) : /* @__PURE__ */ h("section", { className: "aa-legal__sec" }, (L.consent || []).map((p, k) => /* @__PURE__ */ h("p", { key: k }, legalText(p, L, c.site && c.site.domain, lang)))), /* @__PURE__ */ h("p", { className: "aa-legal__see aa-micro" }, isPolicy ? /* @__PURE__ */ h("a", { href: siteUrl("consent", lang) }, L.consentTitle || T("consentTitle"), " →") : /* @__PURE__ */ h("a", { href: siteUrl("privacy", lang) }, L.policyTitle || T("policyTitle"), " →"))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono }), /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
 }
-function Landing({ content, contained = false, onSubmitLead, atmosphere = true, lang = "ru" }) {
+const EMPTY_RESOURCE_FILTERS = { q: "", platform: "", type: "", resource: "" };
+function readResourceFilters() {
+  const params = new URLSearchParams(window.location.search);
+  return { q: params.get("q") || "", platform: params.get("platform") || "", type: params.get("type") || "", resource: params.get("resource") || "" };
+}
+function ResourceCover({ item }) {
+  return /* @__PURE__ */ h("div", { className: "aa-res__cover", "aria-hidden": "true" }, item.previewImage && /* @__PURE__ */ h("img", { src: item.previewImage, alt: "", loading: "lazy", width: "560", height: "466" }));
+}
+function ResourceDialog({ item, platforms, type, T, onClose }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    const el = dialog.current;
+    const opener = document.activeElement;
+    el.showModal();
+    return () => {
+      el.close();
+      if (opener == null ? void 0 : opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
+  const facts = [
+    [T("resourceType"), type],
+    [T("platform"), platforms.join(" · ")],
+    [T("resourceSoftware"), item.software],
+    [T("resourceSource"), item.source],
+    [T("version"), item.version]
+  ].filter(([, value]) => value);
+  const links = (item.links || []).filter((link) => {
+    var _a, _b;
+    return ((_a = link.label) == null ? void 0 : _a.trim()) && /^https?:\/\/[^\s]+$/i.test((_b = link.url) == null ? void 0 : _b.trim());
+  });
+  return /* @__PURE__ */ h(
+    "dialog",
+    {
+      ref: dialog,
+      className: "aa-res__dialog",
+      "aria-labelledby": "aa-resource-title",
+      onCancel: (e) => {
+        e.preventDefault();
+        onClose();
+      },
+      onClick: (e) => {
+        if (e.target === e.currentTarget) onClose();
+      }
+    },
+    /* @__PURE__ */ h("div", { className: "aa-res__details" }, /* @__PURE__ */ h("button", { type: "button", className: "aa-res__close", "aria-label": T("close"), autoFocus: true, onClick: onClose }, "×"), /* @__PURE__ */ h("div", { className: "aa-res__spec" }, /* @__PURE__ */ h(ResourceCover, { item }), /* @__PURE__ */ h("dl", null, facts.map(([label, value]) => /* @__PURE__ */ h("div", { key: label }, /* @__PURE__ */ h("dt", null, label), /* @__PURE__ */ h("dd", null, value))))), /* @__PURE__ */ h("div", { className: "aa-res__description" }, /* @__PURE__ */ h("h2", { id: "aa-resource-title" }, item.title), /* @__PURE__ */ h("p", null, item.description), item.details && /* @__PURE__ */ h("p", null, item.details), links.length > 0 && /* @__PURE__ */ h("div", { className: "aa-res__actions" }, links.map((link, i) => /* @__PURE__ */ h(
+      "a",
+      {
+        key: link.id,
+        className: i === 0 ? "aa-res__primary" : "aa-res__secondary",
+        href: link.url,
+        target: "_blank",
+        rel: "noopener noreferrer"
+      },
+      link.label,
+      " ",
+      /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "↗")
+    )))))
+  );
+}
+function ResourcesPage({ content = {}, lang = "ru", preview = false, onNavigateHome, onEditItem, selectedResource, renderFilter, onLanguageChange }) {
+  var _a;
+  const resources = content.resources || {};
+  const { title, intro, platforms = {}, types = {} } = resources;
+  const items = (resources.items || []).filter((item) => item.published !== false || onEditItem && item.id === selectedResource);
+  const T = (key, values) => tr(lang, key, values);
+  const [filters, setFilters] = useState(() => preview ? EMPTY_RESOURCE_FILTERS : readResourceFilters());
+  const mono = ((_a = content.site) == null ? void 0 : _a.monogram) || "AA";
+  const search = filters.q.toLocaleLowerCase(lang).trim().split(/\s+/).filter(Boolean);
+  const selectedPlatforms = filters.platform.split(",").filter((id) => Object.hasOwn(platforms, id));
+  const type = Object.hasOwn(types, filters.type) ? filters.type : "";
+  const selected = items.find((item) => item.id === filters.resource);
+  const platformNames = (item) => (item.platforms || []).map((id) => platforms[id]).filter(Boolean);
+  const visible = items.filter((item) => {
+    if (onEditItem && item.id === selectedResource) return true;
+    if (selectedPlatforms.length && !selectedPlatforms.some((id) => {
+      var _a2;
+      return (_a2 = item.platforms) == null ? void 0 : _a2.includes(id);
+    })) return false;
+    if (type && item.type !== type) return false;
+    const fields = [item.title, item.description, item.source, item.software, ...platformNames(item), types[item.type]];
+    const haystack = fields.join(" ").toLocaleLowerCase(lang);
+    return search.every((word) => haystack.includes(word));
+  });
+  const update = (next, open = false) => {
+    if (!preview) {
+      const url = new URL(window.location.href);
+      for (const [key, value] of Object.entries(next)) {
+        if (value.trim()) url.searchParams.set(key, value.trim());
+        else url.searchParams.delete(key);
+      }
+      if (open) window.history.pushState({ ...window.history.state, aaResource: true }, "", url);
+      else window.history.replaceState(window.history.state, "", url);
+    }
+    setFilters(next);
+  };
+  const close = () => {
+    var _a2;
+    if (!preview && ((_a2 = window.history.state) == null ? void 0 : _a2.aaResource)) window.history.back();
+    else update({ ...filters, resource: "" });
+  };
+  const reset = () => update(EMPTY_RESOURCE_FILTERS);
+  const filtered = Boolean(filters.q || selectedPlatforms.length || type);
+  const togglePlatform = (id) => update({ ...filters, platform: (selectedPlatforms.includes(id) ? selectedPlatforms.filter((value) => value !== id) : [...selectedPlatforms, id]).join(",") });
+  const platformOption = (id, label) => /* @__PURE__ */ h("button", { key: id, type: "button", "aria-pressed": selectedPlatforms.includes(id), onClick: () => togglePlatform(id) }, label);
+  const typeOption = (id, label) => /* @__PURE__ */ h("button", { key: id, type: "button", "aria-pressed": type === id, onClick: () => update({ ...filters, type: id }) }, label);
+  useEffect(() => {
+    if (preview) return;
+    const restore = () => setFilters(readResourceFilters());
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [preview]);
+  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { className: "aa-page aa-res", "data-theme": "other", id: "top" }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, T("skip")), /* @__PURE__ */ h(
+    Header,
+    {
+      nav: content.nav,
+      monogram: mono,
+      langs: onLanguageChange ? LANGS : LANGS.filter((l) => langOn(content, l)),
+      onLanguageChange,
+      page: "resources",
+      fixed: false,
+      onNavigate: onNavigateHome,
+      onNavigateResources: preview ? () => window.scrollTo({ top: 0, behavior: "instant" }) : void 0
+    }
+  ), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h("section", { className: "aa-res__hero", "aria-labelledby": "aa-res-title" }, /* @__PURE__ */ h("div", { className: "aa-res__hero-wrap aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-res__heading" }, /* @__PURE__ */ h("h1", { id: "aa-res-title" }, title || T("resources")), /* @__PURE__ */ h("p", null, intro)), /* @__PURE__ */ h(Monogram, { variant: "watermark", text: mono, className: "aa-res__mark" }))), /* @__PURE__ */ h("div", { className: "aa-res__body aa-wrap" }, /* @__PURE__ */ h("form", { id: "resource-filters", className: cx("aa-res__filters", renderFilter && "aa-res__filters--editing"), role: "search", "aria-label": T("resourceSearch"), onSubmit: (e) => e.preventDefault() }, /* @__PURE__ */ h("label", { className: "aa-res__field" }, /* @__PURE__ */ h("span", null, T("resourceSearch")), /* @__PURE__ */ h("input", { type: "search", value: filters.q, onChange: (e) => update({ ...filters, q: e.target.value }), placeholder: T("resourcePlaceholder") })), /* @__PURE__ */ h("fieldset", null, /* @__PURE__ */ h("legend", null, T("platform")), /* @__PURE__ */ h("button", { type: "button", "aria-pressed": !selectedPlatforms.length, onClick: () => update({ ...filters, platform: "" }) }, T("allPlatforms")), renderFilter ? renderFilter("platforms", platforms, platformOption) : Object.entries(platforms).map(([id, label]) => platformOption(id, label))), /* @__PURE__ */ h("fieldset", null, /* @__PURE__ */ h("legend", null, T("resourceType")), /* @__PURE__ */ h("button", { type: "button", "aria-pressed": !type, onClick: () => update({ ...filters, type: "" }) }, T("allTypes")), renderFilter ? renderFilter("types", types, typeOption) : Object.entries(types).map(([id, label]) => typeOption(id, label)))), /* @__PURE__ */ h("div", { className: "aa-res__results" }, /* @__PURE__ */ h("div", { className: "aa-res__result" }, /* @__PURE__ */ h("p", { role: "status" }, T("resourceCount", { n: visible.length, m: items.length })), filtered && /* @__PURE__ */ h("button", { className: "aa-res__reset", type: "button", onClick: reset }, T("resourceReset"))), visible.length ? /* @__PURE__ */ h("ul", { className: "aa-res__grid" }, visible.map((item) => /* @__PURE__ */ h("li", { key: item.id, className: "aa-res__card" }, /* @__PURE__ */ h(
+    "button",
+    {
+      type: "button",
+      "aria-haspopup": onEditItem ? void 0 : "dialog",
+      "aria-current": item.id === selectedResource ? "true" : void 0,
+      onClick: () => onEditItem ? onEditItem(item.id) : update({ ...filters, resource: item.id }, true)
+    },
+    /* @__PURE__ */ h(ResourceCover, { item }),
+    /* @__PURE__ */ h("div", { className: "aa-res__card-info" }, /* @__PURE__ */ h("span", { className: "aa-res__card-title" }, item.title), /* @__PURE__ */ h("div", { className: "aa-res__card-meta" }, item.software && /* @__PURE__ */ h("span", null, item.software), types[item.type] && /* @__PURE__ */ h("span", { className: "aa-res__card-type" }, types[item.type]), item.version && /* @__PURE__ */ h("span", null, item.version), platformNames(item).map((name) => /* @__PURE__ */ h("span", { key: name }, name))))
+  )))) : /* @__PURE__ */ h("div", { className: "aa-res__empty" }, /* @__PURE__ */ h("h2", null, T("resourceEmpty")), filtered && /* @__PURE__ */ h("p", null, T("resourceHint")))))), /* @__PURE__ */ h(Footer, { footer: content.footer, monogram: mono }), !preview && /* @__PURE__ */ h(CookieNotice, { footer: content.footer }), selected && /* @__PURE__ */ h(ResourceDialog, { key: selected.id, item: selected, platforms: platformNames(selected), type: types[selected.type], T, onClose: close })));
+}
+function Landing({ content, contained = false, onSubmitLead, onNavigateResources, onLanguageChange, atmosphere = true, lang = "ru", preview = false }) {
   const c = content || {};
   const reduced = useReducedMotion();
   const lite = useLite();
@@ -1670,8 +1873,8 @@ function Landing({ content, contained = false, onSubmitLead, atmosphere = true, 
       root.removeAttribute("data-scrolling");
     };
   }, [c.nav]);
-  const langs = LANGS.filter((l) => langOn(c, l));
-  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { ref: rootRef, className: cx("aa-page", contained && "aa-page--contained", lite && "aa-lite"), "data-theme": "other", lang }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, tr(lang, "skip")), /* @__PURE__ */ h(Header, { nav: c.nav, monogram: mono, theme: hdr, active, onNavigate: nav, solid, langs }), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h(Hero, { hero: c.hero, onNavigate: nav }), /* @__PURE__ */ h(About, { about: c.about }), /* @__PURE__ */ h(Services, { services: c.services }), c.rift && c.rift.enabled === true && /* @__PURE__ */ h(WorldRift, { rift: c.rift }), /* @__PURE__ */ h(Otherworld, { seam: !(c.rift && c.rift.enabled === true) }, /* @__PURE__ */ h(Works, { works: c.works }), /* @__PURE__ */ h(Cases, { cases: c.cases }), /* @__PURE__ */ h(Contact, { contact: c.contact, onSubmit: onSubmitLead || api.submitLead }))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono, onNavigate: nav }), atmosphere && /* @__PURE__ */ h(Atmosphere, { fixed: true, scanlines: false }), /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
+  const langs = onLanguageChange ? LANGS : LANGS.filter((l) => langOn(c, l));
+  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { ref: rootRef, className: cx("aa-page", contained && "aa-page--contained", lite && "aa-lite"), "data-theme": "other", lang }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, tr(lang, "skip")), /* @__PURE__ */ h(Header, { nav: c.nav, monogram: mono, theme: hdr, active, onNavigate: nav, onNavigateResources, solid, langs, onLanguageChange }), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h(Hero, { hero: c.hero, onNavigate: nav }), /* @__PURE__ */ h(About, { about: c.about }), /* @__PURE__ */ h(Services, { services: c.services }), c.rift && c.rift.enabled === true && /* @__PURE__ */ h(WorldRift, { rift: c.rift }), /* @__PURE__ */ h(Otherworld, { seam: !(c.rift && c.rift.enabled === true) }, /* @__PURE__ */ h(Works, { works: c.works }), /* @__PURE__ */ h(Cases, { cases: c.cases }), /* @__PURE__ */ h(Contact, { contact: c.contact, onSubmit: onSubmitLead || api.submitLead }))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono, onNavigate: nav }), atmosphere && /* @__PURE__ */ h(Atmosphere, { fixed: true, scanlines: false }), !preview && /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
 }
 const api = {
   /** Контент страницы. Сейчас - локальный объект, позже GET {endpoint}. */
@@ -1699,5 +1902,5 @@ const api = {
   }
 };
 
-window.AA = Object.assign(window.AA || {}, { videoSources, scrollToId, E, localize, siteUrl, Monogram, Button, Rec, Chip, Barcode, Atmosphere, Header, Hero, Counter, About, Tracklist, Services, WorldRift, PosterCard, youtubeId, VideoModal, Works, CaseTag, Cases, validateLead, Transmitter, Contact, Otherworld, Footer, CookieNotice, legalText, LegalPage, Landing, EditContext, LANGS, LangContext, langOn, api });
+window.AA = Object.assign(window.AA || {}, { videoSources, scrollToId, E, localize, siteUrl, Monogram, Button, Rec, Chip, Barcode, Atmosphere, Header, Hero, Counter, About, Tracklist, Services, WorldRift, PosterCard, youtubeId, VideoModal, Works, CaseTag, Cases, validateLead, Transmitter, Contact, Otherworld, Footer, CookieNotice, legalText, LegalPage, ResourcesPage, Landing, EditContext, LANGS, LangContext, langOn, api });
 })();

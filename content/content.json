@@ -10,6 +10,161 @@
     "title": "Артем Артемов - видеомонтаж для YouTube, Reels/Shorts и промо",
     "description": "Монтирую так, что досматривают до конца. YouTube-ролики, Reels/Shorts, промо, цветокоррекция, звук и оформление канала."
   },
+  "resources": {
+    "title": "Ресурсы",
+    "intro": "Софт, плагины и материалы для монтажа, моушн-дизайна и 3D.",
+    "platforms": {
+      "windows": "Windows",
+      "macos": "macOS",
+      "linux": "Linux",
+      "web": "Веб"
+    },
+    "types": {
+      "software": "Софт",
+      "plugin": "Плагин",
+      "footage": "Футажи",
+      "models": "3D-модели",
+      "sound": "Звук"
+    },
+    "items": [
+      {
+        "id": "fx-console",
+        "title": "FX Console",
+        "type": "plugin",
+        "software": "After Effects",
+        "platforms": [
+          "windows",
+          "macos"
+        ],
+        "source": "Video Copilot",
+        "previewImage": "/assets/tex/resource-fx-console.webp",
+        "description": "Панель быстрого поиска эффектов и пресетов для After Effects.",
+        "details": "Вызывай панель горячей клавишей, применяй эффекты к выбранному слою и сохраняй снимки композиции для сравнения.",
+        "links": [
+          {
+            "id": "official",
+            "url": "https://www.videocopilot.net/blog/2016/10/new-workflow-plug-in-fx-console-is-now-available/",
+            "label": "Скачать у Video Copilot"
+          },
+          {
+            "id": "guide",
+            "url": "https://www.youtube.com/watch?v=rqmDo04T0pY",
+            "label": "Видеоинструкция"
+          }
+        ]
+      },
+      {
+        "id": "saber",
+        "title": "Saber",
+        "type": "plugin",
+        "software": "After Effects",
+        "platforms": [
+          "windows",
+          "macos"
+        ],
+        "source": "Video Copilot",
+        "previewImage": "/assets/tex/resource-saber.webp",
+        "description": "Плагин для светящихся контуров, лучей и энергетических эффектов.",
+        "details": "Свет можно привязать к маске или тексту, настроить свечение и добавить искажения. На странице разработчика есть пресеты и урок.",
+        "links": [
+          {
+            "id": "official",
+            "url": "https://www.videocopilot.net/blog/2016/03/new-plug-in-saber-now-available-100-free/",
+            "label": "Скачать у Video Copilot"
+          },
+          {
+            "id": "guide",
+            "url": "https://www.youtube.com/watch?v=reSXGxkyr0k",
+            "label": "Видеоинструкция"
+          }
+        ]
+      },
+      {
+        "id": "resolve",
+        "title": "DaVinci Resolve",
+        "type": "software",
+        "platforms": [
+          "windows",
+          "macos",
+          "linux"
+        ],
+        "source": "Blackmagic Design",
+        "previewImage": "/assets/tex/resource-resolve.webp",
+        "description": "Монтаж, цветокоррекция, композитинг и звук в одной программе.",
+        "details": "Для знакомства начни со страницы обучения: там есть уроки и файлы для практики в Edit, Color, Fusion и Fairlight.",
+        "links": [
+          {
+            "id": "official",
+            "url": "https://www.blackmagicdesign.com/products/davinciresolve",
+            "label": "Скачать у Blackmagic Design"
+          },
+          {
+            "id": "guide",
+            "url": "https://www.blackmagicdesign.com/products/davinciresolve/training",
+            "label": "Уроки и материалы"
+          }
+        ]
+      },
+      {
+        "id": "footage",
+        "title": "Стоковые футажи",
+        "type": "footage",
+        "platforms": [
+          "web"
+        ],
+        "source": "Mixkit",
+        "previewImage": "/assets/tex/resource-footage.webp",
+        "description": "B-roll, атмосферные фоны и вертикальные клипы для монтажа.",
+        "details": "В каталоге можно искать сцены по теме или формату. Условия использования указаны на странице каждого клипа.",
+        "links": [
+          {
+            "id": "official",
+            "url": "https://mixkit.co/free-stock-video/",
+            "label": "Открыть каталог Mixkit"
+          }
+        ]
+      },
+      {
+        "id": "models",
+        "title": "Модели для 3D",
+        "type": "models",
+        "software": "Blender",
+        "platforms": [
+          "web"
+        ],
+        "source": "Poly Haven",
+        "previewImage": "/assets/tex/resource-models.webp",
+        "description": "Модели и отсканированные предметы для 3D-сцен.",
+        "details": "Материалы доступны по лицензии CC0. На странице модели можно посмотреть превью и выбрать формат скачивания.",
+        "links": [
+          {
+            "id": "official",
+            "url": "https://polyhaven.com/models",
+            "label": "Открыть модели Poly Haven"
+          }
+        ]
+      },
+      {
+        "id": "sound",
+        "title": "Звуковые эффекты",
+        "type": "sound",
+        "platforms": [
+          "web"
+        ],
+        "source": "Pixabay",
+        "previewImage": "/assets/tex/resource-sound.webp",
+        "description": "Шумы, атмосферы и эффекты для звукового оформления.",
+        "details": "Подбери звук по запросу, прослушай перед скачиванием и проверь условия на странице записи.",
+        "links": [
+          {
+            "id": "official",
+            "url": "https://pixabay.com/sound-effects/",
+            "label": "Открыть каталог Pixabay"
+          }
+        ]
+      }
+    ]
+  },
   "nav": [
     {
       "id": "about",
@@ -488,10 +643,107 @@
   },
   "i18n": {
     "en": {
-      "enabled": false
+      "enabled": true
     }
   },
   "en": {
+    "resources": {
+      "title": "Resources",
+      "intro": "Software, plugins and assets for editing, motion design and 3D.",
+      "platforms": {
+        "web": "Web"
+      },
+      "types": {
+        "software": "Software",
+        "plugin": "Plugin",
+        "footage": "Footage",
+        "models": "3D models",
+        "sound": "Audio"
+      },
+      "items": [
+        {
+          "id": "fx-console",
+          "description": "Quickly find effects and presets in After Effects.",
+          "details": "Open the panel with a shortcut, apply effects to the selected layer, and save snapshots of your composition.",
+          "links": [
+            {
+              "id": "official",
+              "label": "Download from Video Copilot"
+            },
+            {
+              "id": "guide",
+              "label": "Video guide"
+            }
+          ]
+        },
+        {
+          "id": "saber",
+          "description": "Create glowing outlines, beams and energy effects in After Effects.",
+          "details": "Attach the glow to a mask or text, then tune its falloff and distortion. The publisher provides presets and a tutorial.",
+          "links": [
+            {
+              "id": "official",
+              "label": "Download from Video Copilot"
+            },
+            {
+              "id": "guide",
+              "label": "Video guide"
+            }
+          ]
+        },
+        {
+          "id": "resolve",
+          "description": "Edit, grade, composite and mix audio in one application.",
+          "details": "The training page includes lessons and practice files for Edit, Color, Fusion and Fairlight.",
+          "links": [
+            {
+              "id": "official",
+              "label": "Download from Blackmagic Design"
+            },
+            {
+              "id": "guide",
+              "label": "Tutorials and practice files"
+            }
+          ]
+        },
+        {
+          "id": "footage",
+          "title": "Stock footage",
+          "description": "B-roll, atmospheric backgrounds and vertical clips for editing.",
+          "details": "Browse by subject or format. The terms of use are listed on each clip’s page.",
+          "links": [
+            {
+              "id": "official",
+              "label": "Browse Mixkit footage"
+            }
+          ]
+        },
+        {
+          "id": "models",
+          "title": "3D models",
+          "description": "Models and scanned props for 3D scenes.",
+          "details": "Assets use the CC0 license. Open an item to preview it and select a download format.",
+          "links": [
+            {
+              "id": "official",
+              "label": "Browse Poly Haven models"
+            }
+          ]
+        },
+        {
+          "id": "sound",
+          "title": "Sound effects",
+          "description": "Ambience, foley and sound effects.",
+          "details": "Search by keyword, listen before downloading and check the terms on each item’s page.",
+          "links": [
+            {
+              "id": "official",
+              "label": "Browse Pixabay sound effects"
+            }
+          ]
+        }
+      ]
+    },
     "site": {
       "name": "Artem Artemov",
       "title": "Artem Artemov - video editing for YouTube, Reels/Shorts and promo",

@@ -105,7 +105,10 @@ function inside(root, rel) {
 function renderIndex(doc, lang = 'ru') {
   let html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
   const raw = S.publicContent(); const c = S.localize(raw, lang); const L = c.legal || {};
-  const site = doc ? { title: doc === 'privacy' ? L.policyTitle : L.consentTitle, description: (doc === 'privacy' ? L.policyTitle : L.consentTitle) + ' - ' + ((c.site || {}).name || '') } : (c.site || {});
+  const docTitle = doc === 'privacy' ? L.policyTitle : L.consentTitle;
+  const site = doc === 'resources'
+    ? { title: [c.resources?.title, c.site?.name].filter(Boolean).join(' - '), description: c.resources?.intro }
+    : doc ? { title: docTitle, description: docTitle + ' - ' + ((c.site || {}).name || '') } : (c.site || {});
   // ассеты от корня: страница может быть на /en или /en/privacy
   html = html.replace(/(href|src)="assets\//g, '$1="/assets/');
   if (lang !== 'ru') html = html.replace('<html lang="ru">', `<html lang="${lang}">`);
@@ -310,14 +313,16 @@ async function handle(req, res) {
     if (url.searchParams.get('lang') !== 'ru' && S.langOn(S.getContent(), 'en') && pickLang(req) === 'en') { res.writeHead(302, { Location: '/en', 'Cache-Control': 'no-cache', Vary: 'Accept-Language, Cookie' }); return res.end(); }
     return send(res, 200, renderIndex(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', Vary: 'Accept-Language, Cookie' });
   }
-  if (p === '/privacy' || p === '/consent') return send(res, 200, renderIndex(p.slice(1)), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
-  if (p === '/privacy/' || p === '/consent/') { res.writeHead(301, { Location: p.slice(0, -1) }); return res.end(); }
-  // английская версия: /en, /en/privacy, /en/consent (если выключена в админке - на русскую)
-  const enm = /^\/en(?:\/(privacy|consent))?(\/?)$/.exec(p);
+  const subpage = /^\/(privacy|consent|resources)(\/?)$/.exec(p);
+  if (subpage) {
+    if (subpage[2]) { res.writeHead(301, { Location: '/' + subpage[1] + url.search }); return res.end(); }
+    return send(res, 200, renderIndex(subpage[1]), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+  }
+  const enm = /^\/en(?:\/(privacy|consent|resources))?(\/?)$/.exec(p);
   if (enm) {
     const path0 = '/' + (enm[1] || '');
-    if (!S.langOn(S.getContent(), 'en')) { res.writeHead(302, { Location: path0 }); return res.end(); }
-    if (enm[2] && enm[1]) { res.writeHead(301, { Location: '/en/' + enm[1] }); return res.end(); }
+    if (!S.langOn(S.getContent(), 'en')) { res.writeHead(302, { Location: path0 + url.search }); return res.end(); }
+    if (enm[2] && enm[1]) { res.writeHead(301, { Location: '/en/' + enm[1] + url.search }); return res.end(); }
     return send(res, 200, renderIndex(enm[1] || '', 'en'), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
   }
   if (p === '/data/content.json') return json(res, 200, S.publicContent(), { 'Cache-Control': 'no-cache' });

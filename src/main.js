@@ -54,6 +54,14 @@
       var d = document.querySelector('meta[name="description"]'); if (d && content.site.description) d.setAttribute('content', content.site.description);
     }
     var root = ReactDOM.createRoot(document.getElementById('root'));
+    if (/^(?:\/en)?\/resources\/?$/.test(location.pathname)) {
+      var resources = content && content.resources;
+      if (resources && resources.title) document.title = resources.title + (content.site && content.site.name ? ' - ' + content.site.name : '');
+      var description = document.querySelector('meta[name="description"]');
+      if (description && resources && resources.intro) description.setAttribute('content', resources.intro);
+      root.render(React.createElement(window.AA.ResourcesPage, { content: content, lang: lang }));
+      return;
+    }
     // документы по персональным данным - отдельные страницы на той же сборке
     var doc = (location.pathname.match(/^(?:\/en)?\/(privacy|consent)\/?$/) || [])[1]; // /privacy, /en/privacy
     if (doc) {

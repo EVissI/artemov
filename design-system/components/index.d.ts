@@ -51,7 +51,7 @@ export declare function Barcode(props: { seed?: string; bars?: number; className
 /** Зерно, сканлайны, виньетка. */
 export declare function Atmosphere(props: { fixed?: boolean; grain?: boolean; scanlines?: boolean; vignette?: boolean }): JSX.Element;
 /** Фиксированный хедер. */
-export declare function Header(props: { nav: NavItem[]; theme?: Theme; active?: string | null; onNavigate?: (id: string) => void; monogram?: string; recLabel?: string; fixed?: boolean }): JSX.Element;
+export declare function Header(props: { nav: NavItem[]; theme?: Theme; active?: string | null; onNavigate?: (id: string) => void; monogram?: string; fixed?: boolean; langs?: ('ru' | 'en')[]; onLanguageChange?: (lang: 'ru' | 'en') => void }): JSX.Element;
 /** Стена следователя: сцена hero. */
 export declare function EvidenceWall(props: { wall?: HeroContent['wall']; works?: Work[]; monogram?: string }): JSX.Element;
 /** Первый экран с фонариком. */

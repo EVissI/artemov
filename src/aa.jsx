@@ -73,6 +73,8 @@ const useLang = () => React.useContext(LangContext);
 const UI = {
   ru: {
     skip: 'К содержимому', home: 'Артем Артемов - на главную', sections: 'Разделы', menu: 'Меню', close: 'Закрыть', lang: 'Язык сайта',
+    resources: 'Ресурсы', resourceSearch: 'Поиск ресурсов', resourcePlaceholder: 'Название, программа или тема', platform: 'Платформа', resourceType: 'Тип ресурса',
+    allPlatforms: 'Все платформы', allTypes: 'Все типы', resourceCount: 'Найдено: {n} из {m}', resourceEmpty: 'Ресурсы не найдены', resourceHint: 'Попробуй другой запрос или сбрось фильтры.', resourceReset: 'Сбросить', resourceSoftware: 'Программа', resourceSource: 'Источник',
     intro: 'Вступление', watch: 'Смотреть', worksCats: 'Категории работ', worksShown: 'Показано работ: ', worksList: 'Работы', all: 'Все',
     catEmpty: 'В этой категории пока пусто', still: 'Кадр из работы', closeX: 'Закрыть ✕', noSignal: 'Сигнал отсутствует', openYt: 'Открыть на YouTube ↗',
     protocol: 'Протокол №', task: 'Задача', done: 'Сделано', result: 'Результат', before: 'было', after: 'стало', watchWork: 'смотреть работу →',
@@ -89,6 +91,8 @@ const UI = {
   },
   en: {
     skip: 'Skip to content', home: 'Artem Artemov - home', sections: 'Sections', menu: 'Menu', close: 'Close', lang: 'Site language',
+    resources: 'Resources', resourceSearch: 'Search resources', resourcePlaceholder: 'Name, software or topic', platform: 'Platform', resourceType: 'Resource type',
+    allPlatforms: 'All platforms', allTypes: 'All types', resourceCount: 'Showing {n} of {m}', resourceEmpty: 'No resources found', resourceHint: 'Try a different search or reset the filters.', resourceReset: 'Reset', resourceSoftware: 'Software', resourceSource: 'Source',
     intro: 'Intro', watch: 'Watch', worksCats: 'Work categories', worksShown: 'Works shown: ', worksList: 'Works', all: 'All',
     catEmpty: 'Nothing in this category yet', still: 'Still from', closeX: 'Close ✕', noSignal: 'No signal', openYt: 'Open on YouTube ↗',
     protocol: 'Record No.', task: 'Task', done: 'Done', result: 'Result', before: 'before', after: 'after', watchWork: 'watch the work →',
@@ -131,17 +135,18 @@ export function localize(content, lang) {
 }
 /** Включён ли язык на сайте (русский - всегда). */
 export const langOn = (content, lang) => lang === 'ru' || !!(content && content.i18n && content.i18n[lang] && content.i18n[lang].enabled);
-const DEF_URLS = { home: { ru: '/', en: '/en' }, privacy: { ru: '/privacy', en: '/en/privacy' }, consent: { ru: '/consent', en: '/en/consent' } };
+const DEF_URLS = { home: { ru: '/', en: '/en' }, privacy: { ru: '/privacy', en: '/en/privacy' }, consent: { ru: '/consent', en: '/en/consent' }, resources: { ru: '/resources', en: '/en/resources' } };
 /** Выбор языка в переключателе: cookie aa_lang на год (техническая, только для этого; см. плашку CookieNotice). */
 const COOKIE_KEY = 'aa-cookie';
 const cookieChoice = () => { try { return localStorage.getItem(COOKIE_KEY) || ''; } catch (_) { return ''; } };
 const setLangCookie = (l, maxAge) => { try { document.cookie = 'aa_lang=' + l + '; Path=/; Max-Age=' + maxAge + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : ''); } catch (_) { /* нет cookie - и не надо */ } };
 // переключатель: с согласием - запоминаем язык в cookie; без него - только ?lang=ru, чтобы сервер не увёл обратно на /en
 const goLang = (e, l, cur) => {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   e.preventDefault(); if (l === cur) return;
   const accepted = cookieChoice() === 'accepted';
   if (accepted) setLangCookie(l, 31536000);
-  fogSwitch(l, siteUrl('home', l) + (l === 'ru' && !accepted ? '?lang=ru' : ''));
+  fogSwitch(l, siteUrl('home', l) + (l === 'ru' && !accepted ? '?lang=ru' : '') + location.hash);
 };
 /* Смена языка в тумане - БЕЗ перезагрузки страницы: при перезагрузке браузер замораживает старую страницу
    и туман на новой стартует заново - был пролаг. Теперь: туман сгущается (~0.9 с, разметка и стили - как у прелоадера,
@@ -217,19 +222,28 @@ export function Atmosphere({ fixed = true, grain = true, scanlines = true, vigne
 }
 
 /* ============ хедер ============ */
-export function Header({ nav = [], monogram = 'AA', recLabel = 'REC', theme = 'other', active, onNavigate, fixed = true, solid = false, langs = [] }) {
+export function Header({ nav = [], monogram = 'AA', theme = 'other', active, onNavigate, onNavigateResources, fixed = true, solid = false, langs = [], onLanguageChange, page = 'home' }) {
   const [open, setOpen] = useState(false); const lang = useLang(); const t = useT();
+  const home = siteUrl('home', lang);
   const go = (e, id) => { if (onNavigate) { e.preventDefault(); onNavigate(id); } setOpen(false); };
   return <header className={cx('aa-header', !fixed && 'aa-header--static', open && 'aa-header--open', solid && 'aa-header--solid')} data-theme={theme}>
-    <a className="aa-header__logo" href="#top" onClick={(e) => go(e, 'top')}><Monogram variant="mark" text={monogram} label={t('home')} /></a>
+    <a className="aa-header__logo" href={page === 'home' ? '#top' : home} onClick={(e) => go(e, 'top')}><Monogram variant="mark" text={monogram} label={t('home')} /></a>
     <nav aria-label={t('sections')}>
       <ul className="aa-header__nav aa-label" id="aa-nav">
-        {nav.map((n) => <li key={n.id}><a href={'#' + n.id} aria-current={active === n.id ? 'true' : undefined} onClick={(e) => go(e, n.id)}>{n.label}</a></li>)}
+        {nav.map((n) => <li key={n.id}><a href={(page === 'home' ? '' : home) + '#' + n.id} aria-current={active === n.id ? 'true' : undefined} onClick={(e) => go(e, n.id)}>{n.label}</a></li>)}
+        <li><a href={siteUrl('resources', lang)} aria-current={page === 'resources' ? 'page' : undefined} onClick={(e) => {
+          if (onNavigateResources) { e.preventDefault(); onNavigateResources(); }
+          setOpen(false);
+        }}>{t('resources')}</a></li>
       </ul>
     </nav>
-    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-      {langs.length > 1 && <nav className="aa-langs" aria-label={t('lang')}>{langs.map((l) => <a key={l} href={siteUrl('home', l)} hrefLang={l} lang={l} aria-current={l === lang ? 'true' : undefined} onClick={(e) => goLang(e, l, lang)} onPointerEnter={l === lang ? undefined : prewarmFog} onFocus={l === lang ? undefined : prewarmFog}>{l.toUpperCase()}</a>)}</nav>}
-      <Rec label={recLabel} />
+    <div className="aa-header__controls">
+      {langs.length > 1 && <nav className="aa-langs" aria-label={t('lang')}>{langs.map((l) => {
+        if (onLanguageChange) return <button key={l} type="button" lang={l} aria-pressed={l === lang} onClick={() => onLanguageChange(l)}>{l.toUpperCase()}</button>;
+        const animated = page === 'home' && l !== lang;
+        return <a key={l} href={siteUrl(page, l)} hrefLang={l} lang={l} aria-current={l === lang ? 'true' : undefined}
+          onClick={page === 'home' ? (e) => goLang(e, l, lang) : undefined} onPointerEnter={animated ? prewarmFog : undefined} onFocus={animated ? prewarmFog : undefined}>{l.toUpperCase()}</a>;
+      })}</nav>}
       <button type="button" className="aa-header__menu aa-label" aria-expanded={open} aria-controls="aa-nav" onClick={() => setOpen(!open)}>{open ? t('close') : t('menu')}</button>
     </div>
   </header>;
@@ -282,15 +296,18 @@ export function Hero({ hero = {}, onNavigate, id = 'top' }) {
   }, [hero.logo, hero.primaryCta && hero.primaryCta.label, hero.secondaryCta && hero.secondaryCta.label]);
   return <section className="aa-hero" id={id} data-theme="other" data-header="other" aria-label={t('intro')}>
     <div className="aa-hero__scene">{scene}</div>
-    {edEl(ed, 'section', { p: 'hero', kind: 'hero', label: 'Hero и фон' })}
+    {ed && <div className="aa-ed-hero-actions">
+      {edEl(ed, 'section', { p: 'hero', kind: 'hero', label: 'Первый экран' })}
+      {edEl(ed, 'section', { p: 'hero', kind: 'hero', label: 'Фон', group: 'Фон' })}
+    </div>}
     <div className="aa-hero__content">
       {/* имя как логотип на обложке SH: первая буква строки крупнее, трещины-паутина (маска + нити, src/tex/hero-crack-*.webp), статичное свечение */}
-      {hero.logo ? <h1 className="aa-hero__logo" ref={logoRef}>
+      {hero.logo ? <h1 className="aa-hero__logo" ref={logoRef} aria-label={ed ? lines.join(' ') : undefined}>
         {/* надпись-логотип картинкой (рисованная, в стиле обложки SH); настоящий текст - для поиска и экранных дикторов */}
         <img src={hero.logo} alt="" decoding="async" fetchpriority="high" />
         <span className="aa-sr">{lines.join(' ')}</span>
-        {edEl(ed, 'slot', { p: 'hero.logo', v: hero.logo, accept: 'image', label: 'Надпись-логотип (PNG/WebP без фона)' })}
-      </h1> : <h1 className="aa-hero__title">{edEl(ed, 'slot', { p: 'hero.logo', v: hero.logo, accept: 'image', label: 'Надпись-логотип', compact: true })}<span className="aa-hero__ink">{lines.map((l, i) => <span key={i} className="aa-hero__line">
+        {edEl(ed, 'section', { p: 'hero', kind: 'hero', label: 'Логотип', group: 'Логотип', className: 'aa-ed-hero-logo' })}
+      </h1> : <h1 className="aa-hero__title">{edEl(ed, 'section', { p: 'hero', kind: 'hero', label: 'Логотип', group: 'Логотип', className: 'aa-ed-hero-logo' })}<span className="aa-hero__ink">{lines.map((l, i) => <span key={i} className="aa-hero__line">
         {ed || !l ? <E p={'hero.titleLines.' + i} v={l} /> : <><span className="aa-hero__cap">{l[0]}</span>{l.slice(1)}</>}
       </span>)}</span></h1>}
       {(hero.role || ed) && <p className="aa-hero__role"><E p="hero.role" v={hero.role} ph="Кто вы: монтажер, моушн-дизайнер…" /></p>}
@@ -803,6 +820,13 @@ export function Works({ works = {}, id = 'works' }) {
   useEffect(() => { setHost((secRef.current && secRef.current.closest('.aa-page')) || null); }, []);
   // в админке видны и черновики (published: false), они помечены
   const items = useMemo(() => (works.items || []).filter((w) => ed || w.published !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [works.items, ed]);
+  const selectedWork = ed?.selectedWork;
+  const selectedCategory = items.find((work) => work.id === selectedWork)?.category;
+  useEffect(() => {
+    if (!selectedWork) return;
+    setFilter((current) => current === selectedCategory ? current : 'all');
+    setSel(selectedWork);
+  }, [selectedWork, selectedCategory]);
   const cats = works.categories || [];
   const catLabel = (cid) => (cats.find((c) => c.id === cid) || {}).label || cid;
   const shown = filter === 'all' ? items : items.filter((w) => w.category === filter);
@@ -843,7 +867,7 @@ export function Works({ works = {}, id = 'works' }) {
             const on = cur && cur.id === w.id;
             return <button key={w.id} id={'inv-' + w.id} data-id={w.id} type="button" role="option" aria-selected={on} tabIndex={on ? 0 : -1}
               className={cx('aa-inv__slot', on && 'is-on', ed && w.published === false && 'aa-ed-draft')}
-              onMouseEnter={() => hoverPick(w)} onFocus={() => pick(w)} onClick={() => { if (on && !ed) setOpen(w); else pick(w); }}
+              onMouseEnter={ed ? undefined : () => hoverPick(w)} onFocus={() => pick(w)} onClick={() => { if (ed) ed.openItem('works.items', '@' + w.id, 'work'); else if (on) setOpen(w); else pick(w); }}
               aria-label={`${w.title}, ${catLabel(w.category)}, ${w.year}`}>
               {w.previewImage ? <img src={w.previewImage} alt="" loading="lazy" decoding="async" /> : <span className="aa-inv__ph" aria-hidden="true"><Monogram variant="mark" /></span>}
               <span className="aa-inv__badge" aria-hidden="true">{items.indexOf(w) + 1}</span>
@@ -963,10 +987,18 @@ export function Cases({ cases = {}, id = 'cases' }) {
   const step = single ? 1 : 2;
   const [at, setAt] = useState(0); const [flip, setFlip] = useState(null); const flipT = useRef(0);
   useEffect(() => () => clearTimeout(flipT.current), []);
+  const selectedCase = ed?.selectedCase;
+  const selectedCasePage = selectedCase ? pages.findIndex(({ it }) => it.id === selectedCase) : -1;
+  useEffect(() => {
+    if (selectedCasePage < 0) return;
+    clearTimeout(flipT.current);
+    setFlip(null);
+    setAt(selectedCasePage);
+  }, [selectedCasePage]);
   const cur = Math.max(0, Math.min(single ? at : at - (at % 2), pages.length - 1));
   const go = (dir) => {
     if (flip) return; const to = cur + dir * step; if (to < 0 || to >= pages.length) return;
-    if (reduced) { setAt(to); return; }
+    if (reduced || ed) { setAt(to); return; }
     setFlip({ dir, to }); clearTimeout(flipT.current); flipT.current = setTimeout(() => { setAt(to); setFlip(null); }, JR_FLIP);
   };
   // чистый лист (нет записи): своя бумага по «номеру» n
@@ -1015,8 +1047,9 @@ export function Cases({ cases = {}, id = 'cases' }) {
           </div>
         </div>
         <div className="aa-jr__nav">
-          {/* кнопок «назад/далее» нет (владелец убрал): листают кликом по странице, стрелками и свайпом */}
+          {ed && <button type="button" className="aa-ed-tool" disabled={cur === 0 || !pages.length} onClick={() => go(-1)} aria-label={T('prevPage')}>←</button>}
           <span className="aa-jr__count" aria-live="polite">{T('record', { n: caseNo, m: items.length })}</span>
+          {ed && <button type="button" className="aa-ed-tool" disabled={cur + step >= pages.length} onClick={() => go(1)} aria-label={T('nextPage')}>→</button>}
         </div>
         {edEl(ed, 'add', { list: 'cases.items', kind: 'case', label: 'Кейс' })}
       </div>
@@ -1324,12 +1357,12 @@ export function Otherworld({ children, seam = false }) {
 const DEV_CREDIT = { url: 'https://vissegor.ru/' }; // подпись - UI.dev на языке страницы
 export function Footer({ footer = {}, monogram = 'AA', onNavigate }) {
   const ed = useEd(); const lang = useLang(); const T = useT();
-  return <footer className="aa-footer" data-theme="other" data-header="other">
-    {edEl(ed, 'section', { p: 'footer', kind: 'footer', label: 'Футер' })}
+  return <footer id="footer" className="aa-footer" data-theme="other" data-header="other">
+    {edEl(ed, 'section', { p: 'footer', kind: 'footer', label: 'Подвал' })}
     <div className="aa-wrap aa-footer__row">
       <Monogram variant="mark" text={monogram} />
-      <div className="aa-label"><E p="footer.copyright" v={footer.copyright} /></div>
-      <a className="aa-label" href="#top" onClick={(e) => { if (onNavigate) { e.preventDefault(); onNavigate('top'); } }}>↑ <E p="footer.toTop" v={footer.toTop || (ed ? '' : T('toTop'))} ph="Наверх" /></a>
+      <div className="aa-label aa-footer__meta"><E p="footer.copyright" v={footer.copyright} /></div>
+      <a className="aa-label aa-footer__top" href="#top" onClick={(e) => { if (onNavigate) { e.preventDefault(); onNavigate('top'); } }}><E p="footer.toTop" v={footer.toTop || (ed ? '' : T('toTop'))} ph="Наверх" /></a>
     </div>
     <nav className="aa-wrap aa-footer__legal aa-micro" aria-label={T('docs')}>
       <a href={siteUrl('privacy', lang)} target={ed ? '_blank' : undefined}><E p="footer.privacyLabel" v={footer.privacyLabel || (ed ? '' : T('privacyLabel'))} ph="Политика обработки данных" /></a>
@@ -1416,8 +1449,175 @@ export function LegalPage({ content, kind = 'privacy', lang = 'ru' }) {
   </div></LangContext.Provider>;
 }
 
+/* ============ КАТАЛОГ РЕСУРСОВ ============ */
+const EMPTY_RESOURCE_FILTERS = { q: '', platform: '', type: '', resource: '' };
+
+function readResourceFilters() {
+  const params = new URLSearchParams(window.location.search);
+  return { q: params.get('q') || '', platform: params.get('platform') || '', type: params.get('type') || '', resource: params.get('resource') || '' };
+}
+
+function ResourceCover({ item }) {
+  return <div className="aa-res__cover" aria-hidden="true">
+    {item.previewImage && <img src={item.previewImage} alt="" loading="lazy" width="560" height="466" />}
+  </div>;
+}
+
+function ResourceDialog({ item, platforms, type, T, onClose }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    const el = dialog.current;
+    const opener = document.activeElement;
+    el.showModal();
+    return () => {
+      el.close();
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
+  const facts = [
+    [T('resourceType'), type],
+    [T('platform'), platforms.join(' · ')],
+    [T('resourceSoftware'), item.software],
+    [T('resourceSource'), item.source],
+    [T('version'), item.version],
+  ].filter(([, value]) => value);
+  const links = (item.links || []).filter((link) => link.label?.trim() && /^https?:\/\/[^\s]+$/i.test(link.url?.trim()));
+  return <dialog ref={dialog} className="aa-res__dialog" aria-labelledby="aa-resource-title"
+    onCancel={(e) => { e.preventDefault(); onClose(); }}
+    onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="aa-res__details">
+      <button type="button" className="aa-res__close" aria-label={T('close')} autoFocus onClick={onClose}>×</button>
+      <div className="aa-res__spec">
+        <ResourceCover item={item} />
+        <dl>{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+      </div>
+      <div className="aa-res__description">
+        <h2 id="aa-resource-title">{item.title}</h2>
+        <p>{item.description}</p>
+        {item.details && <p>{item.details}</p>}
+        {links.length > 0 && <div className="aa-res__actions">
+          {links.map((link, i) => <a key={link.id} className={i === 0 ? 'aa-res__primary' : 'aa-res__secondary'}
+            href={link.url} target="_blank" rel="noopener noreferrer">{link.label} <span aria-hidden="true">↗</span></a>)}
+        </div>}
+      </div>
+    </div>
+  </dialog>;
+}
+
+export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNavigateHome, onEditItem, selectedResource, renderFilter, onLanguageChange }) {
+  const resources = content.resources || {};
+  const { title, intro, platforms = {}, types = {} } = resources;
+  const items = (resources.items || []).filter((item) => item.published !== false || (onEditItem && item.id === selectedResource));
+  const T = (key, values) => tr(lang, key, values);
+  const [filters, setFilters] = useState(() => preview ? EMPTY_RESOURCE_FILTERS : readResourceFilters());
+  const mono = content.site?.monogram || 'AA';
+  const search = filters.q.toLocaleLowerCase(lang).trim().split(/\s+/).filter(Boolean);
+  const selectedPlatforms = filters.platform.split(',').filter((id) => Object.hasOwn(platforms, id));
+  const type = Object.hasOwn(types, filters.type) ? filters.type : '';
+  const selected = items.find((item) => item.id === filters.resource);
+  const platformNames = (item) => (item.platforms || []).map((id) => platforms[id]).filter(Boolean);
+  const visible = items.filter((item) => {
+    if (onEditItem && item.id === selectedResource) return true;
+    if (selectedPlatforms.length && !selectedPlatforms.some((id) => item.platforms?.includes(id))) return false;
+    if (type && item.type !== type) return false;
+    const fields = [item.title, item.description, item.source, item.software, ...platformNames(item), types[item.type]];
+    const haystack = fields.join(' ').toLocaleLowerCase(lang);
+    return search.every((word) => haystack.includes(word));
+  });
+  const update = (next, open = false) => {
+    if (!preview) {
+      const url = new URL(window.location.href);
+      for (const [key, value] of Object.entries(next)) {
+        if (value.trim()) url.searchParams.set(key, value.trim()); else url.searchParams.delete(key);
+      }
+      if (open) window.history.pushState({ ...window.history.state, aaResource: true }, '', url);
+      else window.history.replaceState(window.history.state, '', url);
+    }
+    setFilters(next);
+  };
+  const close = () => {
+    if (!preview && window.history.state?.aaResource) window.history.back();
+    else update({ ...filters, resource: '' });
+  };
+  const reset = () => update(EMPTY_RESOURCE_FILTERS);
+  const filtered = Boolean(filters.q || selectedPlatforms.length || type);
+  const togglePlatform = (id) => update({ ...filters, platform: (selectedPlatforms.includes(id)
+    ? selectedPlatforms.filter((value) => value !== id) : [...selectedPlatforms, id]).join(',') });
+  const platformOption = (id, label) => <button key={id} type="button" aria-pressed={selectedPlatforms.includes(id)} onClick={() => togglePlatform(id)}>{label}</button>;
+  const typeOption = (id, label) => <button key={id} type="button" aria-pressed={type === id} onClick={() => update({ ...filters, type: id })}>{label}</button>;
+  useEffect(() => {
+    if (preview) return;
+    const restore = () => setFilters(readResourceFilters());
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, [preview]);
+  return <LangContext.Provider value={lang}><div className="aa-page aa-res" data-theme="other" id="top">
+    <a className="aa-sr" href="#main">{T('skip')}</a>
+    <Header nav={content.nav} monogram={mono} langs={onLanguageChange ? LANGS : LANGS.filter((l) => langOn(content, l))} onLanguageChange={onLanguageChange} page="resources" fixed={false}
+      onNavigate={onNavigateHome} onNavigateResources={preview ? () => window.scrollTo({ top: 0, behavior: 'instant' }) : undefined} />
+    <main id="main">
+      <section className="aa-res__hero" aria-labelledby="aa-res-title">
+        <div className="aa-res__hero-wrap aa-wrap">
+          <div className="aa-res__heading">
+            <h1 id="aa-res-title">{title || T('resources')}</h1>
+            <p>{intro}</p>
+          </div>
+          <Monogram variant="watermark" text={mono} className="aa-res__mark" />
+        </div>
+      </section>
+      <div className="aa-res__body aa-wrap">
+        <form id="resource-filters" className={cx('aa-res__filters', renderFilter && 'aa-res__filters--editing')} role="search" aria-label={T('resourceSearch')} onSubmit={(e) => e.preventDefault()}>
+          <label className="aa-res__field">
+            <span>{T('resourceSearch')}</span>
+            <input type="search" value={filters.q} onChange={(e) => update({ ...filters, q: e.target.value })} placeholder={T('resourcePlaceholder')} />
+          </label>
+          <fieldset>
+            <legend>{T('platform')}</legend>
+            <button type="button" aria-pressed={!selectedPlatforms.length} onClick={() => update({ ...filters, platform: '' })}>{T('allPlatforms')}</button>
+            {renderFilter ? renderFilter('platforms', platforms, platformOption) : Object.entries(platforms).map(([id, label]) => platformOption(id, label))}
+          </fieldset>
+          <fieldset>
+            <legend>{T('resourceType')}</legend>
+            <button type="button" aria-pressed={!type} onClick={() => update({ ...filters, type: '' })}>{T('allTypes')}</button>
+            {renderFilter ? renderFilter('types', types, typeOption) : Object.entries(types).map(([id, label]) => typeOption(id, label))}
+          </fieldset>
+        </form>
+        <div className="aa-res__results">
+          <div className="aa-res__result">
+            <p role="status">{T('resourceCount', { n: visible.length, m: items.length })}</p>
+            {filtered && <button className="aa-res__reset" type="button" onClick={reset}>{T('resourceReset')}</button>}
+          </div>
+          {visible.length ? <ul className="aa-res__grid">
+            {visible.map((item) => <li key={item.id} className="aa-res__card">
+              <button type="button" aria-haspopup={onEditItem ? undefined : 'dialog'} aria-current={item.id === selectedResource ? 'true' : undefined}
+                onClick={() => onEditItem ? onEditItem(item.id) : update({ ...filters, resource: item.id }, true)}>
+                <ResourceCover item={item} />
+                <div className="aa-res__card-info">
+                  <span className="aa-res__card-title">{item.title}</span>
+                  <div className="aa-res__card-meta">
+                    {item.software && <span>{item.software}</span>}
+                    {types[item.type] && <span className="aa-res__card-type">{types[item.type]}</span>}
+                    {item.version && <span>{item.version}</span>}
+                    {platformNames(item).map((name) => <span key={name}>{name}</span>)}
+                  </div>
+                </div>
+              </button>
+            </li>)}
+          </ul> : <div className="aa-res__empty">
+            <h2>{T('resourceEmpty')}</h2>
+            {filtered && <p>{T('resourceHint')}</p>}
+          </div>}
+        </div>
+      </div>
+    </main>
+    <Footer footer={content.footer} monogram={mono} />
+    {!preview && <CookieNotice footer={content.footer} />}
+    {selected && <ResourceDialog key={selected.id} item={selected} platforms={platformNames(selected)} type={types[selected.type]} T={T} onClose={close} />}
+  </div></LangContext.Provider>;
+}
+
 /* ============ ЛЕНДИНГ ============ */
-export function Landing({ content, contained = false, onSubmitLead, atmosphere = true, lang = 'ru' }) {
+export function Landing({ content, contained = false, onSubmitLead, onNavigateResources, onLanguageChange, atmosphere = true, lang = 'ru', preview = false }) {
   const c = content || {}; const reduced = useReducedMotion(); const lite = useLite();
   const rootRef = useRef(null);
   const [hdr, setHdr] = useState('other'); const [active, setActive] = useState(null); const [solid, setSolid] = useState(false);
@@ -1448,10 +1648,10 @@ export function Landing({ content, contained = false, onSubmitLead, atmosphere =
     sc.addEventListener('scroll', onScroll, { passive: true });
     return () => { ioHdr.disconnect(); ioNav.disconnect(); sc.removeEventListener('scroll', onScroll); clearTimeout(t); root.removeAttribute('data-scrolling'); };
   }, [c.nav]);
-  const langs = LANGS.filter((l) => langOn(c, l));
+  const langs = onLanguageChange ? LANGS : LANGS.filter((l) => langOn(c, l));
   return <LangContext.Provider value={lang}><div ref={rootRef} className={cx('aa-page', contained && 'aa-page--contained', lite && 'aa-lite')} data-theme="other" lang={lang}>
     <a className="aa-sr" href="#main">{tr(lang, 'skip')}</a>
-    <Header nav={c.nav} monogram={mono} theme={hdr} active={active} onNavigate={nav} solid={solid} langs={langs} />
+    <Header nav={c.nav} monogram={mono} theme={hdr} active={active} onNavigate={nav} onNavigateResources={onNavigateResources} solid={solid} langs={langs} onLanguageChange={onLanguageChange} />
     <main id="main">
       <Hero hero={c.hero} onNavigate={nav} />
       <About about={c.about} />
@@ -1466,7 +1666,7 @@ export function Landing({ content, contained = false, onSubmitLead, atmosphere =
     </main>
     <Footer footer={c.footer} monogram={mono} onNavigate={nav} />
     {atmosphere && <Atmosphere fixed scanlines={false} />}
-    <CookieNotice footer={c.footer} />
+    {!preview && <CookieNotice footer={c.footer} />}
   </div></LangContext.Provider>;
 }
 
