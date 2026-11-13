@@ -1,7 +1,4 @@
-# Пуш в main -> проверка сборки -> выкатка на прод (temak1n-portfolio.xyz).
-# Деплой: SSH на сервер ключом из секрета DEPLOY_SSH_KEY. На сервере этот ключ привязан к deploy/deploy.sh
-# (forced command в authorized_keys) - он только делает git pull и docker compose up -d --build, больше ничего.
-# Отпечаток сервера зашит ниже (known_hosts) - подменить сервер по дороге не выйдет.
+# Пуш в main -> проверка сборки -> выкатка через окружение production.
 name: Deploy
 
 on:
@@ -15,11 +12,17 @@ concurrency:
   group: deploy-prod
   cancel-in-progress: false
 
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -28,16 +31,39 @@ jobs:
       - run: npm run build
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 20
     steps:
       - name: Выкатка на сервер
+        shell: bash
         env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
-          chmod 600 ~/.ssh/deploy
-          echo "138.16.224.192 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICNqpytcBxfuLmAs11eLsu5euqsMLmjytB4ADQR+2EZX" > ~/.ssh/known_hosts
-          ssh -i ~/.ssh/deploy -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes root@138.16.224.192 deploy
+          : "${DEPLOY_HOST:?Set DEPLOY_HOST in the production environment}"
+          : "${DEPLOY_USER:?Set DEPLOY_USER in the production environment}"
+          : "${DEPLOY_SSH_KEY:?Set PROD_DEPLOY_SSH_KEY in the production environment}"
+          : "${DEPLOY_KNOWN_HOSTS:?Set DEPLOY_KNOWN_HOSTS in the production environment}"
+
+          umask 077
+          ssh_dir="$(mktemp -d)"
+          trap 'rm -rf -- "$ssh_dir"' EXIT
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          unset DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS
+          if ! ssh-keygen -F "$DEPLOY_HOST" -f "$ssh_dir/known_hosts" >/dev/null; then
+            echo "::error::DEPLOY_KNOWN_HOSTS has no entry for DEPLOY_HOST"
+            exit 1
+          fi
+
+          ssh -F /dev/null -T -i "$ssh_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityAgent=none \
+            -o PreferredAuthentications=publickey -o StrictHostKeyChecking=yes \
+            -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o UpdateHostKeys=no -o ClearAllForwardings=yes -o ConnectTimeout=15 \
+            -- "$DEPLOY_USER@$DEPLOY_HOST" deploy
