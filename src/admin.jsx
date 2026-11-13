@@ -188,6 +188,10 @@ const SECTIONS = {
     title: 'Ресурсы',
     fields: [{ k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' }],
   },
+  resourceBackground: {
+    title: 'Фон страницы ресурсов',
+    fields: [{ k: 'backgroundImage', label: 'Изображение фона', t: 'media', accept: 'image', clearLabel: 'Сбросить фон' }],
+  },
   page: {
     title: 'Страница и меню',
     fields: [
@@ -420,7 +424,7 @@ function Tools({ ed, list, id, index, kind, axis }) {
 }
 
 /* ============ поля панели ============ */
-function MediaField({ id, value, onChange, accept, link, openLibrary, purpose }) {
+function MediaField({ id, value, onChange, accept, link, openLibrary, purpose, clearLabel = 'Убрать' }) {
   const up = useUploader(onChange, accept, purpose); const [drag, setDrag] = useState(false);
   const vid = accept === 'video' || isVideoUrl(value);
   const yt = AA.youtubeId && AA.youtubeId(value);
@@ -435,7 +439,7 @@ function MediaField({ id, value, onChange, accept, link, openLibrary, purpose })
       {!busy && <div className="aa-ed-media__acts">
         <FilePick accept={accept} onFile={up.start} className="aa-ed-btn aa-ed-btn--sm">{value ? 'Заменить' : 'Загрузить'}</FilePick>
         <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openLibrary(accept, onChange)}>Из файлов</button>
-        {value && <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => onChange('')}>Убрать</button>}
+        {value && <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => onChange('')}>{clearLabel}</button>}
       </div>}
       {busy && <Fragment><span className="aa-ed-note aa-ed-note--tight" role="status">{upText(up)}</span><span className="aa-ed-slot__track"><i className="aa-ed-slot__bar" style={{ transform: `scaleX(${up.prog})` }}></i></span></Fragment>}
       {up.info && <span className="aa-ed-note aa-ed-note--tight">Сжато: {up.info}</span>}
@@ -485,7 +489,7 @@ function Field({ f, bp, d, td, content, ed, depth = 0 }) {
   }
   else if (t === 'select') { const opts = typeof f.options === 'function' ? f.options(content, ed.lang()) : f.options; ctl = <select id={id} className="aa-ed-input" value={v == null ? '' : v} onChange={(e) => ed.set(path, e.target.value, { snapshot: true, base: true })}>{opts.map(([val2, lab]) => <option key={val2} value={val2}>{lab}</option>)}{v && !opts.some((o) => o[0] === v) && <option value={v}>{v}</option>}</select>; }
   else if (t === 'media') ctl = <Fragment>
-    <MediaField key={en ? 'en' : 'ru'} id={id} value={val} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} onChange={(x) => ed.set(path, x, { snapshot: true, lang: en ? 'en' : 'ru' })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />
+    <MediaField key={en ? 'en' : 'ru'} id={id} value={val} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} clearLabel={f.clearLabel} onChange={(x) => ed.set(path, x, { snapshot: true, lang: en ? 'en' : 'ru' })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />
     {useTr && !hasText(tv) && v && <p className="aa-ed-note aa-ed-note--tight">Пусто - как в русской версии.</p>}
   </Fragment>;
   else if (t === 'strings' || t === 'list') {
@@ -1030,6 +1034,7 @@ function App() {
     scrollTarget.current = { id, focus };
     closePanel(false);
   };
+  const openResourceBackground = () => openPanel({ type: 'section', p: 'resources', kind: 'resourceBackground', back: { type: 'resources', back: { type: 'sections' } } });
   const goToSection = ({ kind, id }) => {
     scrollTarget.current = { id, focus: '.aa-ed-section' };
     setPreviewPage('home');
@@ -1079,6 +1084,7 @@ function App() {
         <div className="aa-ed-resource-jumps">
           <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost"
             onClick={() => goToResourceArea('resource-hero', '.aa-ed-text')}>К тексту страницы ↑</button>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={openResourceBackground}>Фон страницы</button>
           <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost"
             onClick={() => goToResourceArea('resource-filters', '.aa-ed-filter-rename, .aa-ed-filter-add')}>К фильтрам на странице ↓</button>
         </div>
@@ -1102,6 +1108,9 @@ function App() {
     <div ref={canvasRef} className="aa-ed-canvas">{previewPage === 'resources' ? <AA.ResourcesPage key={lang} content={view} lang={lang} onLanguageChange={setLang} preview
       selectedResource={editing && panel?.kind === 'resource' ? selectedItem : undefined}
       renderHeroText={editing ? ed.text : undefined}
+      heroActions={editing && <button type="button" className="aa-ed-section aa-ed-resource-bg aa-label" onClick={openResourceBackground}>
+        <span aria-hidden="true">✎</span> Фон
+      </button>}
       onEditItem={editing ? (id) => ed.openItem('resources.items', '@' + id, 'resource') : undefined}
       renderFilter={editing ? (kind, options, renderOption) => <ResourceFilterEditor content={content} ed={ed} kind={kind} options={options} renderOption={renderOption} /> : undefined}
       onNavigateHome={(id) => {
