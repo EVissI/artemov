@@ -106,6 +106,10 @@ const isVideoUrl = (u) => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(u || '');
 /* ============ схемы: какие поля у секций и элементов ============ */
 const TARGETS = [['contact', 'Связь'], ['works', 'Работы'], ['cases', 'Кейсы'], ['services', 'Услуги'], ['about', 'Обо мне'], ['top', 'Наверх']];
 const year = () => new Date().getFullYear();
+function resourceChoices(content, lang, kind) {
+  const translations = lang === 'en' ? content.en?.resources?.[kind] : null;
+  return Object.entries(content.resources?.[kind] || {}).map(([id, label]) => [id, translations?.[id]?.trim() || label]);
+}
 const KINDS = {
   work: {
     title: (d) => 'Работа · ' + (d.title || ''),
@@ -115,14 +119,16 @@ const KINDS = {
     },
     fields: [
       { k: 'published', label: 'Показывать на сайте', t: 'bool', hint: 'Выключено - черновик: виден только здесь' },
+      { group: 'Карточка' },
       { k: 'title', label: 'Название' },
       { k: 'category', label: 'Категория', t: 'select', options: (c) => (getIn(c, 'works.categories') || []).map((x) => [x.id, x.label]) },
       { k: 'format', label: 'Формат', t: 'select', options: [['16:9', '16:9 - горизонтальное'], ['9:16', '9:16 - вертикальное']] },
       { k: 'year', label: 'Год', t: 'number' },
-      { k: 'previewImage', label: 'Превью-картинка', t: 'media', accept: 'image' },
+      { k: 'description', label: 'Описание', t: 'textarea' },
+      { group: 'Медиа' },
+      { k: 'previewImage', label: 'Обложка', t: 'media', accept: 'image' },
       { k: 'previewVideo', label: 'Видео-превью: играет у выбранной работы (коротко, без звука)', t: 'media', accept: 'video' },
       { k: 'videoUrl', label: 'Ролик в плеере: ссылка YouTube или файл', t: 'media', accept: 'video', link: true },
-      { k: 'description', label: 'Описание', t: 'textarea' },
     ],
   },
   case: {
@@ -142,11 +148,46 @@ const KINDS = {
     make: () => ({ id: uid('s'), title: '[Новая услуга]', text: '[Описание]', timecode: '00:00' }),
     fields: [{ k: 'title', label: 'Название' }, { k: 'text', label: 'Описание', t: 'textarea' }, { k: 'timecode', label: 'Таймкод справа' }],
   },
+  resource: {
+    title: (d) => 'Ресурс · ' + (d.title || ''),
+    make: (c) => ({
+      id: uid('res'), title: 'Новый ресурс', type: Object.keys(c.resources?.types || {})[0] || '',
+      platforms: [], software: '', source: '', version: '', previewImage: '', description: '', details: '',
+      links: [{ id: uid('link'), label: '', url: '' }], published: false,
+    }),
+    fields: [
+      { k: 'published', label: 'Показывать на сайте', t: 'bool', default: true, hint: 'Выключено - карточка остаётся в админке' },
+      { k: 'title', label: 'Название' },
+      { k: 'previewImage', label: 'Обложка', t: 'media', accept: 'image' },
+      { k: 'type', label: 'Тип ресурса', t: 'select', options: (c, lang) => [['', 'Без типа'], ...resourceChoices(c, lang, 'types')] },
+      { k: 'platforms', label: 'Платформы', t: 'checks', options: (c, lang) => resourceChoices(c, lang, 'platforms') },
+      { k: 'software', label: 'Программа', half: true }, { k: 'version', label: 'Версия', half: true },
+      { k: 'source', label: 'Источник' },
+      { k: 'description', label: 'Краткое описание', t: 'textarea' },
+      { k: 'details', label: 'Подробности', t: 'textarea' },
+      { k: 'links', label: 'Ссылки', t: 'list', note: 'Первая заполненная ссылка становится главной кнопкой.',
+        make: () => ({ id: uid('link'), label: '', url: '' }),
+        of: [{ k: 'label', label: 'Подпись кнопки' }, { k: 'url', label: 'Адрес ссылки', t: 'url' }] },
+    ],
+  },
   paragraph: { make: () => '[Новый абзац]' },
   metric: { make: () => ({ label: '[Метрика]', before: '0', after: '0' }) },
 };
 const mediaType = (d) => (d && d.media && d.media.type === 'video' ? 'video' : 'image');
+const HOME_SECTIONS = [
+  { kind: 'hero', id: 'top', label: 'Первый экран' },
+  { kind: 'about', id: 'about', label: 'Обо мне' },
+  { kind: 'services', id: 'services', label: 'Услуги' },
+  { kind: 'works', id: 'works', label: 'Работы' },
+  { kind: 'cases', id: 'cases', label: 'Кейсы' },
+  { kind: 'contact', id: 'contact', label: 'Связь' },
+  { kind: 'footer', id: 'footer', label: 'Подвал' },
+];
 const SECTIONS = {
+  resources: {
+    title: 'Ресурсы',
+    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' }],
+  },
   page: {
     title: 'Страница и меню',
     fields: [
@@ -157,27 +198,35 @@ const SECTIONS = {
       { k: 'nav', label: 'Пункты меню', t: 'list', fixed: true, of: [{ k: 'label', label: 'Название' }] },
     ],
   },
+  rift: {
+    title: 'Переход между мирами',
+    fields: [{ k: 'title', label: 'Заголовок по строкам', t: 'strings' }],
+  },
   hero: {
-    title: 'Hero и фон',
+    title: 'Первый экран',
     fields: [
-      { k: 'titleLines', label: 'Имя текстом, по строкам (для поиска; на экране - если нет картинки-логотипа)', t: 'strings', max: 3 },
-      { k: 'role', label: 'Кто вы - строка под логотипом' },
-      { k: 'primaryCta.label', label: 'Главная кнопка', half: true }, { k: 'primaryCta.target', label: 'ведёт в', t: 'select', options: TARGETS, half: true },
-      { k: 'secondaryCta.label', label: 'Вторая кнопка', half: true }, { k: 'secondaryCta.target', label: 'ведёт в', t: 'select', options: TARGETS, half: true },
+      { group: 'Текст' },
+      { k: 'role', label: 'Подпись под именем' },
+      { k: 'titleLines', label: 'Имя для поиска и показа без логотипа', t: 'strings', max: 3 },
+      { group: 'Логотип' },
+      { k: 'logo', label: 'Логотип с именем', t: 'media', accept: 'image' },
       { group: 'Фон' },
       { k: 'media.type', label: 'Что на фоне', t: 'select', options: [['image', 'Картинка'], ['video', 'Видео (без звука, по кругу)']] },
       { k: 'media.src', label: 'Файл фона', t: 'media', accept: (d) => (mediaType(d) === 'video' ? 'video' : 'image') },
       { k: 'media.poster', label: 'Кадр до загрузки видео', t: 'media', accept: 'image', when: (d) => mediaType(d) === 'video' },
-      { k: 'media.alt', label: 'Описание картинки (для незрячих)', when: (d) => mediaType(d) === 'image' },
+      { k: 'media.alt', label: 'Описание фоновой картинки', when: (d) => mediaType(d) === 'image' },
+      { group: 'Кнопки' },
+      { k: 'primaryCta.label', label: 'Главная кнопка', half: true }, { k: 'primaryCta.target', label: 'ведёт в', t: 'select', options: TARGETS, half: true },
+      { k: 'secondaryCta.label', label: 'Вторая кнопка', half: true }, { k: 'secondaryCta.target', label: 'ведёт в', t: 'select', options: TARGETS, half: true },
     ],
   },
   about: {
     title: 'Обо мне и цифры',
     fields: [
-      { k: 'title', label: 'Заголовок' }, { k: 'noteTitle', label: 'Заголовок записки' },
+      { group: 'Текст' }, { k: 'title', label: 'Заголовок' }, { k: 'noteTitle', label: 'Заголовок записки' },
       { k: 'paragraphs', label: 'Абзацы', t: 'strings', area: true },
       { k: 'signature', label: 'Подпись' },
-      { k: 'stats', label: 'Счётчики', t: 'list', make: () => ({ id: uid('st'), value: 0, suffix: '', label: '[подпись]', placeholder: true }), of: [
+      { group: 'Цифры' }, { k: 'stats', label: 'Счётчики', t: 'list', make: () => ({ id: uid('st'), value: 0, suffix: '', label: '[подпись]', placeholder: true }), of: [
         { k: 'value', label: 'Число', t: 'number', nullable: true, half: true }, { k: 'suffix', label: 'После числа', half: true },
         { k: 'display', label: 'Знак вместо числа (если число пустое)', when: (s) => s.value == null }, { k: 'label', label: 'Подпись' },
         { k: 'placeholder', label: 'Цифра-плейсхолдер (не настоящая)', t: 'bool' }] },
@@ -185,18 +234,18 @@ const SECTIONS = {
   },
   services: {
     title: 'Услуги',
-    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' },
-      { k: 'items', label: 'Услуги', t: 'list', make: KINDS.service.make, of: KINDS.service.fields }],
+    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' }],
   },
   works: {
     title: 'Работы и категории',
-    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'allLabel', label: 'Вкладка «все»' },
+    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'allLabel', label: 'Вкладка «все»' }, { group: 'Категории' },
       { k: 'categories', label: 'Категории', t: 'list', make: () => ({ id: uid('cat'), label: '[Категория]' }), of: [{ k: 'label', label: 'Название', half: true }, { k: 'id', label: 'Код (латиница)', half: true, slug: true }] }],
   },
-  cases: { title: 'Кейсы', fields: [{ k: 'title', label: 'Заголовок' }, { k: 'items', label: 'Кейсы', t: 'list', make: KINDS.case.make, of: KINDS.case.fields.filter((f) => f.k !== 'metrics'), note: 'Метрики правь прямо в журнале' }] },
+  cases: { title: 'Кейсы', fields: [{ k: 'title', label: 'Заголовок' }] },
   contact: {
     title: 'Связь и форма',
     fields: [
+      { group: 'Вступление' },
       { k: 'title', label: 'Заголовок формы' }, { k: 'lead', label: 'Текст над формой', t: 'textarea' }, { k: 'frequency', label: 'Строка на дисплее' },
       { group: 'Поля формы' },
       { k: 'fields.name.label', label: 'Имя: метка', half: true }, { k: 'fields.name.placeholder', label: 'подсказка', half: true },
@@ -232,21 +281,40 @@ const SECTIONS = {
       { k: 'consent', label: 'Абзацы согласия', t: 'strings', area: true },
     ],
   },
-  footer: { title: 'Футер', fields: [{ k: 'copyright', label: 'Копирайт' }, { k: 'toTop', label: 'Ссылка наверх' }, { k: 'privacyLabel', label: 'Ссылка на политику', half: true }, { k: 'consentLabel', label: 'Ссылка на согласие', half: true },
+  footer: { title: 'Подвал', fields: [{ k: 'copyright', label: 'Копирайт' }, { k: 'toTop', label: 'Ссылка наверх' }, { k: 'privacyLabel', label: 'Ссылка на политику', half: true }, { k: 'consentLabel', label: 'Ссылка на согласие', half: true },
     { group: 'Плашка о cookie' }, { k: 'cookieText', label: 'Текст: {privacy:слово} - ссылка на политику (пусто - текст по умолчанию)', t: 'textarea' }, { k: 'cookieAccept', label: 'Кнопка «Принять»', half: true }, { k: 'cookieDecline', label: 'Кнопка «Отклонить»', half: true }] },
 };
 
 /* ============ хранилище черновика с отменой ============ */
 function useDraft() {
-  const [state, setState] = useState({ draft: null, saved: null, version: null });
+  const [state, setState] = useState({ draft: null, saved: null, version: null, past: [], future: [] });
   const ref = useRef(state); ref.current = state;
-  const past = useRef([]); const future = useRef([]); const [, bump] = useState(0);
-  const snap = useCallback(() => { const d = ref.current.draft; if (!d) return; if (past.current[past.current.length - 1] !== d) past.current.push(d); if (past.current.length > 150) past.current.shift(); future.current = []; bump((x) => x + 1); }, []);
-  const update = useCallback((fn, { snapshot = false } = {}) => { if (snapshot) snap(); setState((s) => ({ ...s, draft: fn(s.draft) })); }, [snap]);
-  const undo = useCallback(() => { const prev = past.current.pop(); if (!prev) return; future.current.push(ref.current.draft); setState((s) => ({ ...s, draft: prev })); bump((x) => x + 1); }, []);
-  const redo = useCallback(() => { const next = future.current.pop(); if (!next) return; past.current.push(ref.current.draft); setState((s) => ({ ...s, draft: next })); bump((x) => x + 1); }, []);
-  const load = useCallback((content, version) => { past.current = []; future.current = []; setState({ draft: content, saved: content, version }); }, []);
-  return { ...state, ref, snap, update, undo, redo, load, canUndo: past.current.length > 0, canRedo: future.current.length > 0 };
+  const editStart = useRef(false);
+  const snap = useCallback(() => { editStart.current = true; }, []);
+  const update = useCallback((fn, { snapshot = false } = {}) => {
+    const start = editStart.current;
+    editStart.current = false;
+    setState((s) => {
+      const draft = fn(s.draft);
+      if (draft === s.draft) return s;
+      const past = snapshot || start ? [...s.past.slice(-149), s.draft] : s.past;
+      return { ...s, draft, past, future: [] };
+    });
+  }, []);
+  const undo = useCallback(() => setState((s) => s.past.length ? {
+    ...s, draft: s.past.at(-1), past: s.past.slice(0, -1), future: [...s.future, s.draft],
+  } : s), []);
+  const redo = useCallback(() => setState((s) => s.future.length ? {
+    ...s, draft: s.future.at(-1), past: [...s.past, s.draft], future: s.future.slice(0, -1),
+  } : s), []);
+  const load = useCallback((content, version) => {
+    editStart.current = false;
+    setState({ draft: content, saved: content, version, past: [], future: [] });
+  }, []);
+  const markSaved = useCallback((submitted, content, version) => {
+    setState((s) => ({ ...s, draft: s.draft === submitted ? content : s.draft, saved: content, version }));
+  }, []);
+  return { ...state, ref, snap, update, undo, redo, load, markSaved, canUndo: state.past.length > 0, canRedo: state.future.length > 0 };
 }
 
 /* ============ редактируемый текст на странице ============ */
@@ -260,7 +328,11 @@ function EditText({ ed, p, v, ph }) {
     onClick={stop} onMouseDown={(e) => e.stopPropagation()}
     onFocus={() => ed.snap()}
     onInput={(e) => ed.set(p, e.currentTarget.textContent.replace(/\n+/g, ' '))}
-    onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.currentTarget.blur(); } }}
+    onKeyDown={(e) => {
+      if ((e.ctrlKey || e.metaKey) && ['s', 'ы'].includes(e.key.toLowerCase())) return;
+      e.stopPropagation();
+      if ((e.key === 'Enter' || e.key === 'Escape') && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.blur(); }
+    }}
     onKeyUp={(e) => e.stopPropagation()}
     onPaste={(e) => { e.preventDefault(); const t = e.clipboardData.getData('text/plain').replace(/\s+/g, ' '); document.execCommand('insertText', false, noDash(t)); }}
     onBlur={(e) => { const clean = noDash(e.currentTarget.textContent); if (clean !== e.currentTarget.textContent) e.currentTarget.textContent = clean; }} />;
@@ -294,7 +366,8 @@ function FilePick({ accept, onFile, children, className }) {
 
 /* Слот медиа прямо на странице: пустой - ярко подсвечен, заполненный - рамка и метка */
 function Slot({ ed, p, v, accept = 'image', label, compact, link }) {
-  const onDone = useCallback((url) => ed.set(p, url, { snapshot: true }), [p]);
+  const lang = ed.lang();
+  const onDone = useCallback((url) => ed.set(p, url, { snapshot: true, lang }), [ed, p, lang]);
   const up = useUploader(onDone, accept, purposeOf(p)); const [drag, setDrag] = useState(false);
   const filled = !!v;
   const drop = (e) => { e.preventDefault(); e.stopPropagation(); setDrag(false); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) up.start(f); };
@@ -339,7 +412,7 @@ function Tools({ ed, list, id, index, kind, axis }) {
   const name = typeof item === 'string' ? item.slice(0, 40) : (item.title || item.client || item.label || 'элемент');
   return <div className={cx('aa-ed-tools', draftWork && 'aa-ed-tools--pinned')} onClick={(e) => e.stopPropagation()}>
     {kind === 'work' && <button type="button" className={cx('aa-ed-tool aa-ed-tool--wide', draftWork && 'is-off')} onClick={stop(() => ed.set(list + '.' + key + '.published', draftWork, { snapshot: true }))} title="Показывать на сайте">{draftWork ? 'Черновик' : 'На сайте'}</button>}
-    {KINDS[kind] && KINDS[kind].fields && <button type="button" className="aa-ed-tool" onClick={stop(() => ed.openItem(list, key, kind))} title="Все поля" aria-label="Все поля">⚙</button>}
+    {KINDS[kind]?.fields && <button type="button" className="aa-ed-tool aa-ed-tool--wide" onClick={stop(() => ed.openItem(list, key, kind))} aria-label={'Править: ' + name}>Править</button>}
     <Fragment><button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, -1, kind))} title="Раньше" aria-label="Переместить раньше">{axis === 'x' ? '←' : '↑'}</button>
     <button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, 1, kind))} title="Позже" aria-label="Переместить позже">{axis === 'x' ? '→' : '↓'}</button>
     <button type="button" className="aa-ed-tool" onClick={stop(() => { if (confirm(`Удалить «${name}»?`)) ed.remove(list, key); })} title="Удалить" aria-label="Удалить">✕</button></Fragment>
@@ -347,26 +420,30 @@ function Tools({ ed, list, id, index, kind, axis }) {
 }
 
 /* ============ поля панели ============ */
-function MediaField({ value, onChange, accept, link, onFocus, openLibrary, purpose }) {
+function MediaField({ id, value, onChange, accept, link, openLibrary, purpose }) {
   const up = useUploader(onChange, accept, purpose); const [drag, setDrag] = useState(false);
   const vid = accept === 'video' || isVideoUrl(value);
   const yt = AA.youtubeId && AA.youtubeId(value);
-  return <div className={cx('aa-ed-media', drag && 'is-drag')} onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) up.start(f); }}>
+  const busy = up.prog != null;
+  return <div className={cx('aa-ed-media', drag && 'is-drag')} onDragOver={(e) => { e.preventDefault(); setDrag(!busy); }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); if (!busy) up.start(e.dataTransfer.files[0]); }}>
     <div className="aa-ed-media__pv">
       {!value ? <span className="aa-ed-media__empty">{accept === 'video' ? '▶ пусто' : '◼ пусто'}</span>
         : yt ? <img src={`https://i.ytimg.com/vi/${yt}/mqdefault.jpg`} alt="" />
           : vid ? <video src={value} muted playsInline preload="metadata"></video> : <img src={value} alt="" />}
     </div>
     <div className="aa-ed-media__side">
-      <div className="aa-ed-media__acts">
+      {!busy && <div className="aa-ed-media__acts">
         <FilePick accept={accept} onFile={up.start} className="aa-ed-btn aa-ed-btn--sm">{value ? 'Заменить' : 'Загрузить'}</FilePick>
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm" onClick={() => openLibrary(accept, onChange)}>Из загруженных</button>
-        {value && <button type="button" className="aa-ed-btn aa-ed-btn--sm" onClick={() => onChange('')}>Убрать</button>}
-      </div>
-      {up.prog != null && <Fragment><span className="aa-ed-note aa-ed-note--tight">{upText(up)}</span><span className="aa-ed-slot__track"><i className="aa-ed-slot__bar" style={{ transform: `scaleX(${up.prog})` }}></i></span></Fragment>}
+        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openLibrary(accept, onChange)}>Из файлов</button>
+        {value && <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => onChange('')}>Убрать</button>}
+      </div>}
+      {busy && <Fragment><span className="aa-ed-note aa-ed-note--tight" role="status">{upText(up)}</span><span className="aa-ed-slot__track"><i className="aa-ed-slot__bar" style={{ transform: `scaleX(${up.prog})` }}></i></span></Fragment>}
       {up.info && <span className="aa-ed-note aa-ed-note--tight">Сжато: {up.info}</span>}
-      {up.err && <span className="aa-ed-field__err">{up.err}</span>}
-      <input className="aa-ed-input aa-ed-input--sm" value={value || ''} placeholder={link ? 'https://youtu.be/… или /uploads/…' : '/uploads/… или https://…'} onFocus={onFocus} onChange={(e) => onChange(e.target.value.trim())} />
+      {up.err && <span className="aa-ed-field__err" role="alert">{up.err}</span>}
+      {!busy && <details className="aa-ed-media__url" open={link || undefined}>
+        <summary>Адрес файла</summary>
+        <input id={id} className="aa-ed-input aa-ed-input--sm" value={value || ''} placeholder={link ? 'https://youtu.be/… или /uploads/…' : '/uploads/… или https://…'} onChange={(e) => onChange(e.target.value.trim())} />
+      </details>}
     </div>
   </div>;
 }
@@ -394,10 +471,21 @@ function Field({ f, bp, d, td, content, ed, depth = 0 }) {
   else if (t === 'textarea') ctl = <textarea id={id} className="aa-ed-input" rows={3} value={val || ''} onFocus={onFocus} onChange={(e) => set(e.target.value)} placeholder={phRu} />;
   else if (t === 'number') ctl = <input id={id} className="aa-ed-input" type="number" value={v == null ? '' : v} onFocus={onFocus} onChange={(e) => ed.set(path, e.target.value === '' ? (f.nullable ? null : 0) : Number(e.target.value), { base: true })} />;
   else if (t === 'info') return <div className="aa-ed-field"><span className="aa-ed-field__l aa-label">{f.label}</span><p className="aa-ed-info">{v == null || v === '' ? '-' : String(v)}</p></div>;
-  else if (t === 'bool') return <label className="aa-ed-check"><input type="checkbox" checked={!!v} onChange={(e) => ed.set(path, e.target.checked, { snapshot: true })} /><span>{f.label}{f.hint && <small>{f.hint}</small>}</span></label>;
-  else if (t === 'select') { const opts = typeof f.options === 'function' ? f.options(content) : f.options; ctl = <select id={id} className="aa-ed-input" value={v == null ? '' : v} onChange={(e) => ed.set(path, e.target.value, { snapshot: true, base: true })}>{opts.map(([val2, lab]) => <option key={val2} value={val2}>{lab}</option>)}{v && !opts.some((o) => o[0] === v) && <option value={v}>{v}</option>}</select>; }
+  else if (t === 'bool') return <label className="aa-ed-check"><input type="checkbox" checked={Boolean(v ?? f.default)} onChange={(e) => ed.set(path, e.target.checked, { snapshot: true })} /><span>{f.label}{f.hint && <small>{f.hint}</small>}</span></label>;
+  else if (t === 'checks') {
+    const checked = Array.isArray(v) ? v : [];
+    return <fieldset className="aa-ed-list">
+      <legend className="aa-ed-field__l aa-label">{f.label}</legend>
+      {f.options(content, ed.lang()).map(([key, label]) => <label key={key} className="aa-ed-check">
+        <input type="checkbox" checked={checked.includes(key)} onChange={(e) => ed.set(path,
+          e.target.checked ? [...checked, key] : checked.filter((x) => x !== key), { snapshot: true, base: true })} />
+        <span>{label}</span>
+      </label>)}
+    </fieldset>;
+  }
+  else if (t === 'select') { const opts = typeof f.options === 'function' ? f.options(content, ed.lang()) : f.options; ctl = <select id={id} className="aa-ed-input" value={v == null ? '' : v} onChange={(e) => ed.set(path, e.target.value, { snapshot: true, base: true })}>{opts.map(([val2, lab]) => <option key={val2} value={val2}>{lab}</option>)}{v && !opts.some((o) => o[0] === v) && <option value={v}>{v}</option>}</select>; }
   else if (t === 'media') ctl = <Fragment>
-    <MediaField value={val} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} onFocus={onFocus} onChange={(x) => ed.set(path, x, { snapshot: true })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />
+    <MediaField key={en ? 'en' : 'ru'} id={id} value={val} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} onChange={(x) => ed.set(path, x, { snapshot: true, lang: en ? 'en' : 'ru' })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />
     {useTr && !hasText(tv) && v && <p className="aa-ed-note aa-ed-note--tight">Пусто - как в русской версии.</p>}
   </Fragment>;
   else if (t === 'strings' || t === 'list') {
@@ -418,7 +506,8 @@ function Field({ f, bp, d, td, content, ed, depth = 0 }) {
           {strings ? (() => {
             const sv = en ? (tarr[i] || '') : (item || ''); const ph = en ? item || '' : undefined;
             const ch = (e) => ed.set(path + '.' + i, e.target.value);
-            return f.area ? <textarea className="aa-ed-input" rows={3} value={sv} placeholder={ph} onFocus={onFocus} onChange={ch} /> : <input className="aa-ed-input" value={sv} placeholder={ph} onFocus={onFocus} onChange={ch} aria-label={f.label + ' ' + (i + 1)} />;
+            const props = { className: 'aa-ed-input', value: sv, placeholder: ph, onFocus, onChange: ch, 'aria-label': f.label + ' ' + (i + 1) };
+            return f.area ? <textarea {...props} rows={3} /> : <input {...props} />;
           })()
             : <div className="aa-ed-grid">{f.of.map((sf, k) => <div key={k} className={cx('aa-ed-cell', sf.half && 'aa-ed-cell--half')}><Field f={sf} bp={path + '.' + rowKey(item, i)} d={item} td={en ? trRow(item, i) : undefined} content={content} ed={ed} depth={depth + 1} /></div>)}</div>}
         </div>
@@ -439,15 +528,132 @@ function Field({ f, bp, d, td, content, ed, depth = 0 }) {
   </div>;
 }
 
-function FormPanel({ spec, ed, content }) {
+function FormPanel({ spec, ed, content, openGroup, collapsible = false }) {
   const d = spec.p ? getIn(content, spec.p) : content;
   if (d === undefined) return <p className="aa-ed-note">Элемент удалён.</p>;
   const en = ed.lang() === 'en';
   const td = en ? (spec.p ? getTr(content.en, content, segs(spec.p)) : content.en) : undefined;
-  return <Fragment>
-    {en && <p className="aa-ed-note aa-ed-note--en">Английская версия. Тексты и картинки здесь - только для английской: пустое поле - на сайте будет русский текст (он виден серым внутри поля). Состав списков, порядок, ссылки, категории, годы и галочки - общие для обеих версий.</p>}
-    <div className="aa-ed-grid">{spec.fields.map((f, i) => <div key={i} className={cx('aa-ed-cell', f.half && 'aa-ed-cell--half', f.group && 'aa-ed-cell--full')}><Field f={f} bp={spec.p} d={d} td={td} content={content} ed={ed} /></div>)}</div>
-  </Fragment>;
+  const groups = [{ name: '', fields: [] }];
+  for (const field of spec.fields) {
+    if (collapsible && field.group) groups.push({ name: field.group, fields: [] });
+    else groups.at(-1).fields.push(field);
+  }
+  const grid = (fields) => <div className="aa-ed-grid">{fields.map((f, i) => <div key={i} className={cx('aa-ed-cell', f.half && 'aa-ed-cell--half')}><Field f={f} bp={spec.p} d={d} td={td} content={content} ed={ed} /></div>)}</div>;
+  const initialGroup = openGroup || (!groups[0].fields.length && groups[1]?.name);
+  return <>
+    {en && <p className="aa-ed-note aa-ed-note--en">Пустое поле показывает русский текст. Порядок, категории, числа и переключатели общие для RU и EN.</p>}
+    {groups[0].fields.length > 0 && grid(groups[0].fields)}
+    {groups.slice(1).map(({ name, fields }) => <details className="aa-ed-form-group" key={name} open={name === initialGroup}>
+      <summary>{name}</summary>
+      {grid(fields)}
+    </details>)}
+  </>;
+}
+
+const ITEM_SECTIONS = {
+  works: { kind: 'work', addLabel: 'Добавить работу' },
+  cases: { kind: 'case', addLabel: 'Добавить кейс' },
+  services: { kind: 'service', addLabel: 'Добавить услугу' },
+  resources: { kind: 'resource', addLabel: 'Добавить ресурс' },
+};
+
+function CatalogItems({ section, items = [], ed }) {
+  const { kind, addLabel } = ITEM_SECTIONS[section];
+  const list = section + '.items';
+  const ordered = kind === 'work' ? items.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) : items;
+  return <section className="aa-ed-item-list" aria-label="Карточки">
+    <button type="button" className="aa-ed-btn aa-ed-btn--sm" onClick={() => ed.addItem(list, kind)}>+ {addLabel}</button>
+    <ul>
+      {ordered.map((item, index) => {
+        const key = '@' + item.id;
+        const title = item.title || item.client || 'Без названия';
+        return <li key={item.id} className="aa-ed-list__row">
+          <button type="button" className="aa-ed-btn aa-ed-resource-item" onClick={() => ed.openItem(list, key, kind)}>
+            {title}{item.published === false && <small>Черновик</small>}
+          </button>
+          <div className="aa-ed-list__acts">
+            <button type="button" className="aa-ed-tool" onClick={() => ed.move(list, key, -1, kind)} aria-label={'Выше: ' + title} disabled={index === 0}>↑</button>
+            <button type="button" className="aa-ed-tool" onClick={() => ed.move(list, key, 1, kind)} aria-label={'Ниже: ' + title} disabled={index === ordered.length - 1}>↓</button>
+            <button type="button" className="aa-ed-tool" onClick={() => { if (confirm(`Удалить «${title}»?`)) ed.remove(list, key); }} aria-label={'Удалить: ' + title}>✕</button>
+          </div>
+        </li>;
+      })}
+    </ul>
+  </section>;
+}
+
+const RESOURCE_OPTION_GROUPS = {
+  types: { addLabel: 'Добавить тип', placeholder: 'Название типа' },
+  platforms: { addLabel: 'Добавить платформу', placeholder: 'Название платформы' },
+};
+
+function ResourceFilterEditor({ content, ed, kind, options, renderOption }) {
+  const { addLabel, placeholder } = RESOURCE_OPTION_GROUPS[kind];
+  const path = 'resources.' + kind;
+  const original = getIn(content, path) || {};
+  const en = ed.lang() === 'en';
+  const [edit, setEdit] = useState(null);
+  const input = useRef(null);
+  const opener = useRef(null);
+  const addButton = useRef(null);
+  const activeId = edit?.id;
+  useLayoutEffect(() => {
+    if (activeId === undefined) return;
+    input.current?.focus();
+    input.current?.select();
+  }, [activeId]);
+  const start = (event, id) => {
+    opener.current = event.currentTarget;
+    const label = id ? (en ? getTr(content.en, content, segs(path + '.' + id)) || '' : original[id]) : '';
+    setEdit({ id, label });
+  };
+  const close = (deleted = false) => {
+    setEdit(null);
+    const target = deleted ? addButton.current : opener.current;
+    requestAnimationFrame(() => target?.focus({ preventScroll: true }));
+  };
+  const label = edit?.label.trim() || '';
+  const canApply = Boolean(label || (en && activeId));
+  const apply = () => {
+    if (!canApply) return;
+    if (activeId) ed.set(path + '.' + activeId, label, { snapshot: true });
+    else {
+      const id = uid(kind === 'types' ? 'type' : 'platform');
+      ed.set(path + '.' + id, label, { base: true, snapshot: true });
+    }
+    close();
+  };
+  const used = activeId && (content.resources?.items || []).some((item) => kind === 'types' ? item.type === activeId : item.platforms?.includes(activeId));
+  const editor = edit && <div className="aa-ed-filter-edit" onKeyDown={(event) => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
+  }}>
+    <input ref={input} className="aa-ed-input" aria-label={en ? (activeId ? 'Английское название' : 'Название на русском') : placeholder}
+      placeholder={en ? (activeId ? original[activeId] : 'Название на русском') : placeholder}
+      value={edit.label} onChange={(event) => setEdit({ ...edit, label: event.target.value })}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); apply(); }
+      }} />
+    <div className="aa-ed-filter-edit__actions">
+      <button type="button" className="aa-ed-filter-apply" disabled={!canApply} onClick={apply}>{activeId ? 'Готово' : 'Добавить'}</button>
+      <button type="button" onClick={() => close()}>Отмена</button>
+      {activeId && <button type="button" disabled={used} aria-label={'Удалить ' + original[activeId]}
+        title={used ? 'Сначала убери этот вариант из карточек' : undefined}
+        onClick={() => { ed.removeResourceOption(kind, activeId); close(true); }}>Удалить</button>}
+    </div>
+    {used && <small>Используется в карточках</small>}
+  </div>;
+  return <div className="aa-ed-resource-filter">
+    {Object.entries(options).map(([id, name]) => <div className="aa-ed-resource-filter__row" key={id}>
+      <div hidden={activeId === id} className="aa-ed-resource-filter__option">
+        {renderOption(id, name)}
+        <button type="button" className="aa-ed-filter-rename" aria-label={'Переименовать ' + name} title="Переименовать"
+          onClick={(event) => start(event, id)}>✎</button>
+      </div>
+      {activeId === id && editor}
+    </div>)}
+    {activeId === null && editor}
+    <button ref={addButton} type="button" className="aa-ed-filter-add" hidden={activeId === null} onClick={(event) => start(event, null)}>+ {addLabel}</button>
+  </div>;
 }
 
 /* ============ заявки ============ */
@@ -611,30 +817,75 @@ function App() {
   const [auth, setAuth] = useState('checking');
   const D = useDraft();
   const [editing, setEditing] = useState(true);
+  const [previewPage, setPreviewPage] = useState('home');
   const [panel, setPanel] = useState(null); // { type: 'section'|'item'|'leads'|'library'|'history', ... }
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 900px)').matches);
   const [newLeads, setNewLeads] = useState(0);
   const [status, setStatus] = useState(null); // { text, tone }
   const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
+  const scrollTarget = useRef(null);
   const [more, setMore] = useState(false); // меню «⋯» на пульте
   const [lang, setLang] = useState('ru'); const langRef = useRef('ru'); langRef.current = lang; // язык правки: ru - основа, en - перевод в content.en
-  const opener = useRef(null); const panelOpen = useRef(false); const panelRef = useRef(null);
+  const opener = useRef(null); const panelOpen = useRef(false); const panelRef = useRef(null); const panelBodyRef = useRef(null);
+  const appRef = useRef(null); const canvasRef = useRef(null); const dockRef = useRef(null); const sectionsRef = useRef(null);
+  const moreRef = useRef(null); const moreButton = useRef(null);
   panelOpen.current = !!panel;
   const remember = () => { if (!panelOpen.current) opener.current = document.activeElement; };
-  const openPanel = useCallback((next) => { remember(); setMore(false); setPanel(next); }, []);
-  const closePanel = useCallback(() => {
-    setPanel(null); const o = opener.current; opener.current = null;
-    if (o && o.focus && document.contains(o)) o.focus({ preventScroll: true });
+  const openPanel = useCallback((next) => {
+    remember(); setMore(false); setPanel(next);
   }, []);
-  // при открытии панели фокус уходит в неё
-  const hasPanel = !!panel;
-  useEffect(() => { if (hasPanel && panelRef.current && !panelRef.current.contains(document.activeElement)) panelRef.current.focus({ preventScroll: true }); }, [hasPanel]);
+  const closePanel = useCallback((restoreFocus = true) => {
+    setPanel(null); const o = opener.current; opener.current = null;
+    if (restoreFocus) requestAnimationFrame(() => {
+      if (!panelOpen.current) (o?.isConnected ? o : sectionsRef.current)?.focus({ preventScroll: true });
+    });
+  }, []);
+  useLayoutEffect(() => {
+    if (canvasRef.current) canvasRef.current.inert = narrow && Boolean(panel);
+  }, [auth, narrow, panel]);
+  useLayoutEffect(() => {
+    const target = scrollTarget.current;
+    scrollTarget.current = null;
+    if (target) {
+      const el = document.getElementById(target.id || target);
+      if (el && target.id === 'top') window.scrollTo({ top: 0, behavior: 'instant' });
+      else el?.scrollIntoView({ block: 'start', behavior: 'instant' });
+      if (target.focus) el?.querySelector(target.focus)?.focus({ preventScroll: true });
+    }
+    if (panelBodyRef.current) panelBodyRef.current.scrollTop = 0;
+    if (panelRef.current && !panelRef.current.contains(document.activeElement)) panelRef.current.focus({ preventScroll: true });
+  }, [panel, previewPage, editing]);
+  useEffect(() => {
+    const viewport = window.matchMedia('(max-width: 900px)');
+    const onChange = () => setNarrow(viewport.matches);
+    viewport.addEventListener('change', onChange);
+    return () => viewport.removeEventListener('change', onChange);
+  }, []);
+  useLayoutEffect(() => {
+    if (auth !== 'in' || !dockRef.current) return;
+    const dock = dockRef.current;
+    const measure = () => appRef.current?.style.setProperty('--editor-dock-height', `${dock.offsetHeight}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(dock);
+    return () => observer.disconnect();
+  }, [auth]);
   useEffect(() => {
     const onEsc = (e) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
-      if (more) { setMore(false); return; }
+      if (more) { setMore(false); moreButton.current?.focus(); return; }
       if (panelOpen.current) { e.preventDefault(); closePanel(); }
     };
-    window.addEventListener('keydown', onEsc); return () => window.removeEventListener('keydown', onEsc);
+    const dismissMore = (e) => { if (more && !moreRef.current?.contains(e.target)) setMore(false); };
+    window.addEventListener('keydown', onEsc);
+    window.addEventListener('pointerdown', dismissMore);
+    window.addEventListener('focusin', dismissMore);
+    return () => {
+      window.removeEventListener('keydown', onEsc);
+      window.removeEventListener('pointerdown', dismissMore);
+      window.removeEventListener('focusin', dismissMore);
+    };
   }, [more, closePanel]);
   const flash = useCallback((text, tone = 'ok') => { setStatus({ text, tone }); clearTimeout(flash.t); flash.t = setTimeout(() => setStatus(null), 4000); }, []);
 
@@ -648,17 +899,29 @@ function App() {
   useEffect(() => { if (auth !== 'in') return; const t = setInterval(() => call('GET', '/me').then((r) => setNewLeads(r.newLeads)).catch((e) => e.status === 401 && setAuth('out')), 60000); return () => clearInterval(t); }, [auth]);
 
   const dirty = D.draft !== D.saved;
-  const save = useCallback(async (force) => {
-    const s = D.ref.current; if (!s.draft || s.draft === s.saved) return;
+  const save = useCallback(async () => {
+    const s = D.ref.current;
+    if (savePending.current || !s.draft || s.draft === s.saved) return;
+    savePending.current = true;
     setSaving(true);
+    const publish = (force) => call('PUT', '/content', { content: s.draft, baseVersion: s.version, force });
     try {
-      const r = await call('PUT', '/content', { content: s.draft, baseVersion: s.version, force: !!force });
-      D.load(r.content, r.version); flash('Сохранено. Сайт обновлён.');
+      let result;
+      try { result = await publish(false); }
+      catch (e) {
+        if (e.status !== 409) throw e;
+        if (!confirm(e.message + '\n\nСохранить поверх?')) return;
+        result = await publish(true);
+      }
+      D.markSaved(s.draft, result.content, result.version);
+      flash('Сохранено. Сайт обновлён.');
     } catch (e) {
-      if (e.status === 409 && confirm(e.message + '\n\nСохранить поверх?')) { setSaving(false); return save(true); }
       if (e.status === 401) setAuth('out');
       flash(e.message, 'err');
-    } finally { setSaving(false); }
+    } finally {
+      savePending.current = false;
+      setSaving(false);
+    }
   }, []);
 
   // горячие клавиши: Ctrl+S, Ctrl+Z / Ctrl+Shift+Z (вне полей ввода)
@@ -681,7 +944,7 @@ function App() {
   const ed = useMemo(() => {
     // в режиме EN строки (тексты и адреса медиа) уходят в перевод content.en; выборы, числа, галочки и опция base - в основу
     const set = (p, v, opts = {}) => {
-      const toEn = langRef.current === 'en' && !opts.base && typeof v === 'string';
+      const toEn = (opts.lang || langRef.current) === 'en' && !opts.base && typeof v === 'string';
       D.update((d) => (toEn ? { ...d, en: setTr(d.en, d, segs(p), noDash(v)) } : setIn(d, p, noDash(v))), opts);
     };
     const api = {
@@ -709,13 +972,30 @@ function App() {
         D.update((d) => { const arr = getIn(d, list); if (!Array.isArray(arr)) return d; const i = idxOf(arr, key); return i < 0 ? d : setIn(withTrList(d, list, (t) => t.filter((_, k) => k !== i)), list, arr.filter((_, k) => k !== i)); }, { snapshot: true });
         setPanel((pn) => (pn && pn.type === 'item' && pn.p === list + '.' + key ? null : pn));
       },
+      removeResourceOption(kind, id) {
+        D.update((draft) => {
+          const path = 'resources.' + kind;
+          const options = getIn(draft, path) || {};
+          const inUse = (draft.resources?.items || []).some((item) => kind === 'types' ? item.type === id : item.platforms?.includes(id));
+          if (inUse || !Object.hasOwn(options, id)) return draft;
+          const next = { ...options };
+          const translations = { ...getIn(draft.en, path) };
+          delete next[id];
+          delete translations[id];
+          return setIn(setIn(draft, path, next), 'en.' + path, translations);
+        }, { snapshot: true });
+      },
       addItem(list, kind, extra) {
         const item = KINDS[kind].make(D.ref.current.draft, extra || {});
         D.update((d) => setIn(d, list, [...(getIn(d, list) || []), item]), { snapshot: true });
-        if (item && item.id && KINDS[kind].fields) openPanel({ type: 'item', p: list + '.@' + item.id, kind });
+        if (item && item.id && KINDS[kind].fields) api.openItem(list, '@' + item.id, kind);
       },
-      openItem: (list, key, kind) => openPanel({ type: 'item', p: list + '.' + key, kind }),
-      openSection: (p, kind) => openPanel({ type: 'section', p, kind }),
+      openItem: (list, key, kind) => {
+        const section = list.split('.')[0];
+        const back = kind === 'resource' ? { type: 'resources' } : { type: 'section', p: section, kind: section, back: { type: 'sections' } };
+        openPanel({ type: 'item', p: list + '.' + key, kind, back });
+      },
+      openSection: (p, kind, group) => openPanel({ type: 'section', p, kind, group, back: { type: 'sections' } }),
       openLibrary: (accept, pick) => { remember(); setPanel((prev) => ({ type: 'library', accept, pick, back: prev })); },
     };
     // фабрики элементов для aa.jsx
@@ -726,10 +1006,13 @@ function App() {
       const T = tag || 'div';
       return <T className={cx('aa-ed-add', 'aa-ed-add--' + kind)}><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); api.addItem(list, kind, extra); }}><span aria-hidden="true">+</span> {label}</button></T>;
     };
-    api.section = ({ p, kind, label }) => <button type="button" className="aa-ed-section aa-label" onClick={(e) => { e.preventDefault(); e.stopPropagation(); api.openSection(p, kind); }}>✎ {label}</button>;
+    api.section = ({ p, kind, label, group, className }) => <button type="button" className={cx('aa-ed-section', 'aa-label', className)} aria-label={'Настройки: ' + label} onClick={(e) => { e.stopPropagation(); api.openSection(p, kind, group); }}><span aria-hidden="true">✎</span> {label}</button>;
     return api;
   }, []);
 
+  const selectedItem = panel?.type === 'item' ? panel.p.split('.').at(-1).slice(1) : null;
+  const editContext = useMemo(() => ({ ...ed, selectedWork: panel?.kind === 'work' ? selectedItem : null,
+    selectedCase: panel?.kind === 'case' ? selectedItem : null }), [ed, panel?.kind, selectedItem]);
   if (auth === 'checking') return <div className="aa-page aa-ed-login" data-theme="other"><p className="aa-label">Настройка частоты…</p></div>;
   if (auth === 'out') return <Login onOk={loadAll} />;
   if (auth === 'error' || !D.draft) return <div className="aa-page aa-ed-login" data-theme="other"><p className="aa-label">Нет сигнала от сервера. <button type="button" className="aa-ed-btn" onClick={loadAll}>Повторить</button></p></div>;
@@ -737,67 +1020,138 @@ function App() {
   const content = D.draft;
   const view = lang === 'en' ? AA.localize(content, 'en') : content; // что видно на странице: в EN - перевод поверх русского
   const logout = async () => { if (dirty && !confirm('Есть несохранённые правки. Выйти?')) return; await call('POST', '/logout').catch(() => {}); D.load(null, null); setAuth('out'); };
-  let panelTitle = '', panelBody = null;
+  const openResources = () => {
+    scrollTarget.current = 'top';
+    setPreviewPage('resources');
+    setEditing(true);
+    openPanel({ type: 'resources', back: { type: 'sections' } });
+  };
+  const goToResourceFilters = () => {
+    scrollTarget.current = { id: 'resource-filters', focus: '.aa-ed-filter-rename, .aa-ed-filter-add' };
+    closePanel(false);
+  };
+  const goToSection = ({ kind, id }) => {
+    scrollTarget.current = { id, focus: '.aa-ed-section' };
+    setPreviewPage('home');
+    setEditing(true);
+    closePanel(false);
+  };
+  const openPageSettings = () => openPanel({ type: 'section', p: '', kind: 'page', back: { type: 'sections' } });
+  const changeMode = (next) => {
+    setEditing(next);
+    if (!next) closePanel(false);
+  };
+  const sections = content.rift?.enabled ? [...HOME_SECTIONS.slice(0, 3), { kind: 'rift', id: 'rift', label: 'Переход' }, ...HOME_SECTIONS.slice(3)] : HOME_SECTIONS;
+  let panelTitle = '', panelBody = null, panelContext = '';
   if (panel) {
-    if (panel.type === 'section') { const S = SECTIONS[panel.kind] || { title: 'Секция', fields: [] }; panelTitle = S.title + (lang === 'en' ? ' · EN' : ''); panelBody = <FormPanel spec={{ p: panel.p, fields: S.fields }} ed={ed} content={content} />; }
-    else if (panel.type === 'item') { const K = KINDS[panel.kind]; const d = getIn(content, panel.p) || {}; panelTitle = K.title ? K.title(d) : 'Элемент'; panelBody = <FormPanel spec={{ p: panel.p, fields: K.fields }} ed={ed} content={content} />; }
+    if (panel.type === 'sections') {
+      panelTitle = 'Разделы сайта';
+      panelBody = <nav className="aa-ed-sections" aria-label="Разделы сайта">
+        <h3>Главная</h3>
+        <ul>{sections.map((section) => <li key={section.kind}>
+          <button type="button" className="aa-ed-btn aa-ed-btn--ghost" onClick={() => goToSection(section)}>{section.label}<span aria-hidden="true">↓</span></button>
+        </li>)}</ul>
+        <h3>Страницы и настройки</h3>
+        <button type="button" className="aa-ed-btn aa-ed-btn--ghost" onClick={openResources}>Ресурсы<span aria-hidden="true">→</span></button>
+        <button type="button" className="aa-ed-btn aa-ed-btn--ghost" onClick={openPageSettings}>Настройки сайта и меню<span aria-hidden="true">→</span></button>
+      </nav>;
+    }
+    else if (panel.type === 'section') {
+      const spec = SECTIONS[panel.kind] || { title: 'Секция', fields: [] };
+      panelTitle = spec.title;
+      panelContext = sections.some(({ kind }) => kind === panel.kind) ? 'Главная' : '';
+      panelBody = <>
+        {ITEM_SECTIONS[panel.kind] && <CatalogItems section={panel.kind} items={view[panel.kind]?.items} ed={ed} />}
+        <FormPanel spec={{ p: panel.p, fields: spec.fields }} ed={ed} content={content} collapsible openGroup={panel.group} />
+      </>;
+    }
+    else if (panel.type === 'item') {
+      const spec = KINDS[panel.kind];
+      const d = getIn(view, panel.p) || {};
+      panelTitle = spec.title(d);
+      panelContext = SECTIONS[panel.p.split('.')[0]]?.title;
+      panelBody = <FormPanel spec={{ p: panel.p, fields: spec.fields }} ed={ed} content={content}
+        collapsible={panel.kind === 'work'} openGroup={panel.kind === 'work' ? 'Карточка' : undefined} />;
+    }
+    else if (panel.type === 'resources') {
+      panelTitle = SECTIONS.resources.title;
+      panelBody = <>
+        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-resource-options-link"
+          onClick={goToResourceFilters}>К фильтрам на странице ↓</button>
+        <CatalogItems section="resources" items={view.resources?.items} ed={ed} />
+        <FormPanel spec={{ p: 'resources', fields: SECTIONS.resources.fields }} ed={ed} content={content} />
+      </>;
+    }
     else if (panel.type === 'leads') { panelTitle = 'Заявки'; panelBody = <LeadsPanel onCount={setNewLeads} />; }
     else if (panel.type === 'history') { panelTitle = 'История версий'; panelBody = <HistoryPanel onRestore={(c) => { D.update(() => c, { snapshot: true }); flash('Версия в черновике. Сохрани, чтобы опубликовать.'); }} />; }
     else if (panel.type === 'library') { panelTitle = panel.pick ? 'Выбор файла' : 'Загруженные файлы'; panelBody = <LibraryPanel accept={panel.accept} onPick={panel.pick ? (url) => { panel.pick(url); if (panel.back) setPanel(panel.back); else closePanel(); } : null} />; }
   }
 
-  return <div className={cx('aa-ed-app', editing && 'is-editing', panel && 'has-panel')}>
-    {editing ? <AA.EditContext.Provider value={ed}><AA.Landing key={lang} content={view} lang={lang} onSubmitLead={() => Promise.reject(new Error('preview'))} /></AA.EditContext.Provider>
-      : <AA.Landing key={lang} content={view} lang={lang} onSubmitLead={() => new Promise((r) => setTimeout(r, 600))} />}
+  const saveMessage = saving ? 'Сохраняю…' : status?.tone === 'err' ? status.text
+    : dirty ? 'Есть правки' : status?.text || 'Всё сохранено';
+  const saveState = saving ? 'busy' : status?.tone === 'err' ? 'err' : dirty ? 'dirty' : 'ok';
+  const language = <div className="aa-ed-seg aa-ed-seg--lang" role="group" aria-label="Язык правки" title={AA.langOn(content, 'en') ? 'Английская версия включена (/en)' : 'Английская версия выключена на сайте'}>
+    <button type="button" aria-pressed={lang === 'ru'} onClick={() => setLang('ru')}>RU</button>
+    <button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
+  </div>;
+  return <div ref={appRef} className={cx('aa-ed-app', editing && 'is-editing', panel && 'has-panel')}>
+    <div ref={canvasRef} className="aa-ed-canvas">{previewPage === 'resources' ? <AA.ResourcesPage key={lang} content={view} lang={lang} onLanguageChange={setLang} preview
+      selectedResource={editing && panel?.kind === 'resource' ? selectedItem : undefined}
+      onEditItem={editing ? (id) => ed.openItem('resources.items', '@' + id, 'resource') : undefined}
+      renderFilter={editing ? (kind, options, renderOption) => <ResourceFilterEditor content={content} ed={ed} kind={kind} options={options} renderOption={renderOption} /> : undefined}
+      onNavigateHome={(id) => {
+      scrollTarget.current = id;
+      setPreviewPage('home');
+      closePanel(false);
+    }} />
+      : <AA.EditContext.Provider value={editing ? editContext : null}>
+          <AA.Landing key={lang} content={view} lang={lang} onLanguageChange={setLang} preview onNavigateResources={() => {
+            if (editing) openResources(); else { scrollTarget.current = 'top'; setPreviewPage('resources'); }
+          }} onSubmitLead={editing ? () => Promise.reject(new Error('preview')) : () => new Promise((r) => setTimeout(r, 600))} />
+        </AA.EditContext.Provider>}</div>
 
-    {panel && <aside className="aa-ed-panel" data-theme="other" aria-label={panelTitle} ref={panelRef} tabIndex={-1}>
+    {panel && <aside id="aa-editor-panel" className="aa-ed-panel" data-theme="other" aria-labelledby="aa-editor-title" ref={panelRef} tabIndex={-1}>
       <header className="aa-ed-panel__h">
         {panel.back ? <button type="button" className="aa-ed-tool" onClick={() => setPanel(panel.back)} aria-label="Назад">←</button> : null}
-        <h2 className="aa-label">{panelTitle}</h2>
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={closePanel} title="Esc">Закрыть ✕</button>
+        <div className="aa-ed-panel__heading">
+          {panelContext && <span>{panelContext}</span>}
+          <h2 id="aa-editor-title">{panelTitle}</h2>
+        </div>
+        <button type="button" className="aa-ed-tool" onClick={() => closePanel()} title="Закрыть (Esc)" aria-label="Закрыть панель">✕</button>
       </header>
-      <div className="aa-ed-panel__b">{panelBody}</div>
+      <div className="aa-ed-panel__b" ref={panelBodyRef} key={[panel.type, panel.kind, panel.p, panel.group].join(':')}>{panelBody}</div>
     </aside>}
 
-    <div className="aa-ed-dockwrap">
+    <div className="aa-ed-dockwrap" ref={dockRef}>
     <nav className="aa-ed-dock" data-theme="other" aria-label="Пульт">
-      <span className="aa-ed-sec2"><AA.Monogram variant="mark" /></span>
-      <div className="aa-ed-seg" role="group" aria-label="Режим">
-        <button type="button" aria-pressed={editing} onClick={() => setEditing(true)}>Правка</button>
-        <button type="button" aria-pressed={!editing} onClick={() => setEditing(false)}>Как на сайте</button>
+      <button ref={sectionsRef} type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-dock-sections" aria-expanded={panel?.type === 'sections'} aria-controls={panel ? 'aa-editor-panel' : undefined}
+        onClick={() => panel?.type === 'sections' ? closePanel() : openPanel({ type: 'sections' })}>Разделы</button>
+      <div className="aa-ed-seg aa-ed-dock-mode" role="group" aria-label="Режим">
+        <button type="button" aria-pressed={editing} onClick={() => changeMode(true)}>Правка</button>
+        <button type="button" aria-pressed={!editing} onClick={() => changeMode(false)}>Как на сайте</button>
       </div>
-      <div className="aa-ed-seg aa-ed-seg--lang" role="group" aria-label="Язык правки" title={AA.langOn(content, 'en') ? 'Английская версия включена (/en)' : 'Английская версия выключена: включить - «Страница»'}>
-        <button type="button" aria-pressed={lang === 'ru'} onClick={() => setLang('ru')}>RU</button>
-        <button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN{!AA.langOn(content, 'en') && <span className="aa-ed-off" aria-label="выключена"> ○</span>}</button>
-      </div>
+      <span className="aa-ed-dock-language">{language}</span>
       <span className="aa-ed-dock__grp aa-ed-sec">
         <button type="button" className="aa-ed-tool" onClick={D.undo} disabled={!D.canUndo} title="Отменить (Ctrl+Z)" aria-label="Отменить">↶</button>
         <button type="button" className="aa-ed-tool" onClick={D.redo} disabled={!D.canRedo} title="Вернуть (Ctrl+Shift+Z)" aria-label="Вернуть">↷</button>
       </span>
-      <span className="aa-ed-dock__grp">
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'section', p: '', kind: 'page' })}>Страница</button>
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'leads' })}>Заявки{newLeads > 0 && <b className="aa-ed-badge">{newLeads}</b>}</button>
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-sec" onClick={() => openPanel({ type: 'section', p: 'legal', kind: 'legal' })}>Документы</button>
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-sec" onClick={() => openPanel({ type: 'library' })}>Файлы</button>
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-sec" onClick={() => openPanel({ type: 'history' })}>История</button>
-      </span>
-      <span className={cx('aa-ed-status aa-micro', status && 'is-' + status.tone)} role="status" aria-live="polite" title={status ? status.text : undefined}>{status ? status.text : dirty ? 'Есть несохранённые правки' : 'Всё сохранено'}</span>
-      <span className="aa-ed-dock__grp">
-        {dirty && <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => { if (confirm('Сбросить все несохранённые правки?')) D.load(D.saved, D.version); }}>Сбросить</button>}
-        <AA.Button variant="siren" className="aa-ed-save" onClick={() => save()} disabled={!dirty || saving}>{saving ? 'Сохраняю…' : 'Сохранить'}</AA.Button>
-        <a className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-sec2" href="/" target="_blank" rel="noopener">Сайт ↗</a>
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-sec2" onClick={logout}>Выйти</button>
-      </span>
-      <span className="aa-ed-more">
-        <button type="button" className="aa-ed-tool" aria-haspopup="menu" aria-expanded={more} aria-label="Ещё" onClick={() => setMore(!more)}>⋯</button>
-        {more && <span className="aa-ed-more__menu" role="menu" onClick={() => setMore(false)}>
-          <button type="button" role="menuitem" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={D.undo} disabled={!D.canUndo}>↶ Отменить</button>
-          <button type="button" role="menuitem" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={D.redo} disabled={!D.canRedo}>↷ Вернуть</button>
-          <button type="button" role="menuitem" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'section', p: 'legal', kind: 'legal' })}>Документы</button>
-          <button type="button" role="menuitem" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'library' })}>Файлы</button>
-          <button type="button" role="menuitem" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'history' })}>История</button>
-          <a role="menuitem" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" href="/" target="_blank" rel="noopener">Сайт ↗</a>
-          <button type="button" role="menuitem" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={logout}>Выйти</button>
+      <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-dock-leads" onClick={() => openPanel({ type: 'leads' })}>Заявки{newLeads > 0 && <b className="aa-ed-badge">{newLeads}</b>}</button>
+      <div className="aa-ed-savebar">
+        <span className={cx('aa-ed-status', 'is-' + saveState)} role="status">{saveMessage}</span>
+        <AA.Button variant="siren" className="aa-ed-save" onClick={save} disabled={!dirty || saving}>Сохранить</AA.Button>
+      </div>
+      <span className="aa-ed-more" ref={moreRef}>
+        <button ref={moreButton} type="button" className="aa-ed-tool" aria-expanded={more} aria-controls={more ? 'aa-editor-more' : undefined} aria-label="Ещё" onClick={() => setMore(!more)}>⋯</button>
+        {more && <span id="aa-editor-more" className="aa-ed-more__menu" onClick={() => { setMore(false); moreButton.current?.focus({ preventScroll: true }); }}>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={D.undo} disabled={!D.canUndo}>↶ Отменить</button>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={D.redo} disabled={!D.canRedo}>↷ Вернуть</button>
+          {dirty && <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" disabled={saving} onClick={() => { if (confirm('Сбросить все несохранённые правки?')) D.load(D.saved, D.version); }}>Сбросить правки</button>}
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'leads' })}>Заявки{newLeads > 0 ? ' · ' + newLeads : ''}</button>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'section', p: 'legal', kind: 'legal' })}>Документы</button>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'library' })}>Файлы</button>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => openPanel({ type: 'history' })}>История</button>
+          <a className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" href="/" target="_blank" rel="noopener">Сайт ↗</a>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={logout}>Выйти</button>
         </span>}
       </span>
     </nav>

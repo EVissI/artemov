@@ -84,11 +84,15 @@ export function saveConfig(patch) {
 /* ============ контент ============ */
 let contentCache = null;
 /* новые разделы из content/content.json (например legal) добираются в живой контент, существующие правки не трогаются */
-function fillMissing(c, def) {
+function fillMissing(c, def, path = '') {
   let changed = false;
   for (const [k, v] of Object.entries(def || {})) {
     if (c[k] === undefined) { c[k] = v; changed = true; }
-    else if (v && typeof v === 'object' && !Array.isArray(v) && c[k] && typeof c[k] === 'object' && !Array.isArray(c[k])) changed = fillMissing(c[k], v) || changed;
+    else if (v && typeof v === 'object' && !Array.isArray(v) && c[k] && typeof c[k] === 'object' && !Array.isArray(c[k])) {
+      const child = path ? path + '.' + k : k;
+      // Каталог хранит справочники целиком, включая удаление исходных вариантов.
+      if (!/^(?:en\.)?resources\.(?:types|platforms)$/.test(child)) changed = fillMissing(c[k], v, child) || changed;
+    }
   }
   return changed;
 }
@@ -129,6 +133,14 @@ export function sanitizeContent(c) {
   for (const k of ['site', 'hero', 'about', 'services', 'works', 'cases', 'contact', 'footer']) if (!c[k] || typeof c[k] !== 'object') throw new Error(`Нет раздела «${k}»`);
   if (!Array.isArray(c.works.items)) throw new Error('works.items должен быть списком');
   if (!Array.isArray(c.cases.items)) throw new Error('cases.items должен быть списком');
+  if (c.resources != null && !Array.isArray(c.resources.items)) throw new Error('resources.items должен быть списком');
+  for (const kind of ['types', 'platforms']) {
+    const options = c.resources?.[kind];
+    if (options == null) continue;
+    if (typeof options !== 'object' || Array.isArray(options) || Object.values(options).some((label) => typeof label !== 'string' || !label.trim())) {
+      throw new Error(kind === 'types' ? 'Заполни названия всех типов ресурсов.' : 'Заполни названия всех платформ.');
+    }
+  }
   const size = Buffer.byteLength(JSON.stringify(c));
   if (size > 2 * 1024 * 1024) throw new Error('Контент больше 2 МБ');
   const walk = (v, key) => {
@@ -185,6 +197,14 @@ export const langOn = (c, lang) => lang === 'ru' || !!(c && c.i18n && c.i18n[lan
 /** Публичная версия: без черновиков работ и служебных полей */
 export function publicContent(c = getContent()) {
   const out = { ...c, works: { ...c.works, items: (c.works.items || []).filter((w) => w.published !== false) } };
+  if (c.resources) {
+    const items = (c.resources.items || []).filter((item) => item.published !== false);
+    out.resources = { ...c.resources, items };
+    if (Array.isArray(c.en?.resources?.items)) {
+      const published = new Set(items.map((item) => item.id));
+      out.en = { ...c.en, resources: { ...c.en.resources, items: c.en.resources.items.filter((item) => published.has(item.id)) } };
+    }
+  }
   return out;
 }
 
