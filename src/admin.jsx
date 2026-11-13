@@ -318,13 +318,13 @@ function useDraft() {
 }
 
 /* ============ редактируемый текст на странице ============ */
-function EditText({ ed, p, v, ph }) {
+function EditText({ ed, p, v, ph, label }) {
   const ref = useRef(null); const val = v == null ? '' : String(v);
   useLayoutEffect(() => { const el = ref.current; if (el && document.activeElement !== el && el.textContent !== val) el.textContent = val; }, [val]);
   const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
   const untr = ed.untranslated(p);
   return <span ref={ref} className={cx('aa-ed-text', isPh(val) && 'aa-ed-text--ph', untr && 'aa-ed-text--untr')} contentEditable="plaintext-only" suppressContentEditableWarning spellCheck
-    role="textbox" aria-label={ph || 'Текст'} data-ph={ph || 'Пусто'} title={untr ? 'Нет перевода: на английской версии сейчас русский текст' : isPh(val) ? 'Плейсхолдер - замени на настоящий текст' : undefined}
+    role="textbox" aria-label={label || ph || 'Текст'} data-ph={ph || 'Пусто'} title={untr ? 'Нет перевода: на английской версии сейчас русский текст' : isPh(val) ? 'Плейсхолдер - замени на настоящий текст' : undefined}
     onClick={stop} onMouseDown={(e) => e.stopPropagation()}
     onFocus={() => ed.snap()}
     onInput={(e) => ed.set(p, e.currentTarget.textContent.replace(/\n+/g, ' '))}
@@ -999,7 +999,7 @@ function App() {
       openLibrary: (accept, pick) => { remember(); setPanel((prev) => ({ type: 'library', accept, pick, back: prev })); },
     };
     // фабрики элементов для aa.jsx
-    api.text = ({ p, v, ph }) => <EditText ed={api} p={p} v={v} ph={ph} />;
+    api.text = (props) => <EditText ed={api} {...props} />;
     api.slot = (props) => <Slot ed={api} {...props} />;
     api.tools = (props) => <Tools ed={api} {...props} />;
     api.add = ({ list, kind, label, tag, extra }) => {
@@ -1026,8 +1026,8 @@ function App() {
     setEditing(true);
     openPanel({ type: 'resources', back: { type: 'sections' } });
   };
-  const goToResourceFilters = () => {
-    scrollTarget.current = { id: 'resource-filters', focus: '.aa-ed-filter-rename, .aa-ed-filter-add' };
+  const goToResourceArea = (id, focus) => {
+    scrollTarget.current = { id, focus };
     closePanel(false);
   };
   const goToSection = ({ kind, id }) => {
@@ -1076,8 +1076,12 @@ function App() {
     else if (panel.type === 'resources') {
       panelTitle = SECTIONS.resources.title;
       panelBody = <>
-        <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-resource-options-link"
-          onClick={goToResourceFilters}>К фильтрам на странице ↓</button>
+        <div className="aa-ed-resource-jumps">
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost"
+            onClick={() => goToResourceArea('resource-hero', '.aa-ed-text')}>К тексту страницы ↑</button>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost"
+            onClick={() => goToResourceArea('resource-filters', '.aa-ed-filter-rename, .aa-ed-filter-add')}>К фильтрам на странице ↓</button>
+        </div>
         <CatalogItems section="resources" items={view.resources?.items} ed={ed} />
         <FormPanel spec={{ p: 'resources', fields: SECTIONS.resources.fields }} ed={ed} content={content} />
       </>;
@@ -1097,6 +1101,7 @@ function App() {
   return <div ref={appRef} className={cx('aa-ed-app', editing && 'is-editing', panel && 'has-panel')}>
     <div ref={canvasRef} className="aa-ed-canvas">{previewPage === 'resources' ? <AA.ResourcesPage key={lang} content={view} lang={lang} onLanguageChange={setLang} preview
       selectedResource={editing && panel?.kind === 'resource' ? selectedItem : undefined}
+      renderHeroText={editing ? ed.text : undefined}
       onEditItem={editing ? (id) => ed.openItem('resources.items', '@' + id, 'resource') : undefined}
       renderFilter={editing ? (kind, options, renderOption) => <ResourceFilterEditor content={content} ed={ed} kind={kind} options={options} renderOption={renderOption} /> : undefined}
       onNavigateHome={(id) => {

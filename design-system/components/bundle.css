@@ -1016,7 +1016,7 @@
     linear-gradient(0deg, #0d0b0a, transparent 60%), url("tex/grime.webp") 58% 50%, url("tex/tiles.webp") center;
 }
 .aa-res__hero-wrap { position: relative; display: grid; align-items: center; min-height: 306px; padding-block: 46px 52px; }
-.aa-res__heading { position: relative; z-index: 1; }
+.aa-res__heading { position: relative; z-index: 1; min-width: 0; overflow-wrap: anywhere; }
 .aa-res__heading h1 {
   position: relative; display: inline-block; margin: 0 0 19px; padding-bottom: 15px;
   color: var(--res-paper); font: 600 clamp(48px, 8vw, 107px)/.91 "Cormorant", var(--font-serif);

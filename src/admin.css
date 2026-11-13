@@ -215,7 +215,8 @@
 .aa-ed-sections button { min-height: 40px; justify-content: space-between; text-align: left; }
 .aa-ed-item-list { margin-bottom: 20px; }
 .aa-ed-item-list ul { list-style: none; margin: 12px 0 0; padding: 0; }
-.aa-ed-resource-options-link { margin-bottom: 12px; }
+.aa-ed-resource-jumps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.aa-ed-resource-jumps button { min-height: 36px; text-align: left; }
 .aa-ed-app #resource-filters { scroll-margin-top: 16px; }
 .aa-res__filters--editing { gap: 18px; }
 .aa-res__filters--editing fieldset { display: grid; }
