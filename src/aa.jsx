@@ -1504,9 +1504,9 @@ function ResourceDialog({ item, platforms, type, T, onClose }) {
   </dialog>;
 }
 
-export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNavigateHome, onEditItem, selectedResource, renderFilter, renderHeroText, onLanguageChange }) {
+export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNavigateHome, onEditItem, selectedResource, renderFilter, renderHeroText, heroActions, onLanguageChange }) {
   const resources = content.resources || {};
-  const { title, intro, platforms = {}, types = {} } = resources;
+  const { title, intro, backgroundImage, platforms = {}, types = {} } = resources;
   const items = (resources.items || []).filter((item) => item.published !== false || (onEditItem && item.id === selectedResource));
   const T = (key, values) => tr(lang, key, values);
   const [filters, setFilters] = useState(() => preview ? EMPTY_RESOURCE_FILTERS : readResourceFilters());
@@ -1556,13 +1556,15 @@ export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNa
     <Header nav={content.nav} monogram={mono} langs={onLanguageChange ? LANGS : LANGS.filter((l) => langOn(content, l))} onLanguageChange={onLanguageChange} page="resources" fixed={false}
       onNavigate={onNavigateHome} onNavigateResources={preview ? () => window.scrollTo({ top: 0, behavior: 'instant' }) : undefined} />
     <main id="main">
-      <section id="resource-hero" className="aa-res__hero" aria-labelledby="aa-res-title">
+      <section id="resource-hero" className={cx('aa-res__hero', backgroundImage && 'aa-res__hero--custom')} aria-labelledby="aa-res-title">
+        {backgroundImage && <img className="aa-res__hero-image" src={backgroundImage} alt="" decoding="async" />}
         <div className="aa-res__hero-wrap aa-wrap">
+          {heroActions}
           <div className="aa-res__heading">
             <h1 id="aa-res-title">{renderHeroText ? renderHeroText({ p: 'resources.title', v: title, ph: T('resources'), label: 'Заголовок страницы' }) : title || T('resources')}</h1>
             <p>{renderHeroText ? renderHeroText({ p: 'resources.intro', v: intro, ph: 'Вступление', label: 'Вступление страницы' }) : intro}</p>
           </div>
-          <Monogram variant="watermark" text={mono} className="aa-res__mark" />
+          {!backgroundImage && <Monogram variant="watermark" text={mono} className="aa-res__mark" />}
         </div>
       </section>
       <div className="aa-res__body aa-wrap">

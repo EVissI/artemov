@@ -1015,7 +1015,14 @@
   background: linear-gradient(90deg, #0d0b0a 3%, #0d0b0af0 42%, #16100ec0 74%, #0d0b0aa0),
     linear-gradient(0deg, #0d0b0a, transparent 60%), url("tex/grime.webp") 58% 50%, url("tex/tiles.webp") center;
 }
+.aa-res__hero-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.aa-res__hero--custom::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(13,11,10,.86), rgba(13,11,10,.76) 48%, rgba(13,11,10,.24)),
+    linear-gradient(0deg, rgba(13,11,10,.62), transparent 65%);
+}
 .aa-res__hero-wrap { position: relative; display: grid; align-items: center; min-height: 306px; padding-block: 46px 52px; }
+.aa-res__hero--custom .aa-res__hero-wrap { z-index: 1; }
 .aa-res__heading { position: relative; z-index: 1; min-width: 0; overflow-wrap: anywhere; }
 .aa-res__heading h1 {
   position: relative; display: inline-block; margin: 0 0 19px; padding-bottom: 15px;

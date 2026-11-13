@@ -534,6 +534,11 @@ select.aa-ed-input { appearance: auto; }
 .aa-ed-section.aa-ed-hero-logo { inset: 8px auto auto 8px; }
 .aa-ed-section { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; color: var(--ui-hi); }
 .aa-ed-section > span { color: #dda199; }
+.aa-ed-section.aa-ed-resource-bg { inset: 10px var(--space-6) auto auto; }
+@media (max-width: 720px) {
+  .is-editing .aa-res__hero-wrap { padding-top: 56px; }
+  .aa-ed-section.aa-ed-resource-bg { right: var(--space-4); }
+}
 .is-editing .aa-jr__nav .aa-ed-tool { width: 40px; min-height: 40px; border: 1px solid var(--ui-rim2); background: #14110f; }
 .aa-footer > .aa-ed-section { top: 10px; }
 .is-editing .aa-footer { padding-top: max(var(--space-6), 54px); }
