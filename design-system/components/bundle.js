@@ -132,6 +132,13 @@ const UI = {
     closeX: "Закрыть ✕",
     noSignal: "Сигнал отсутствует",
     openYt: "Открыть на YouTube ↗",
+    highlights: "Лучшие моменты",
+    fullVideo: "Весь ролик",
+    highlightNumber: "Момент {number} из {total}",
+    replayHighlights: "Смотреть моменты снова",
+    highlightError: "Не удалось воспроизвести отрезки. Попробуй открыть весь ролик.",
+    previousHighlight: "Предыдущий момент",
+    nextHighlight: "Следующий момент",
     protocol: "Протокол №",
     task: "Задача",
     done: "Сделано",
@@ -215,6 +222,13 @@ const UI = {
     closeX: "Close ✕",
     noSignal: "No signal",
     openYt: "Open on YouTube ↗",
+    highlights: "Highlights",
+    fullVideo: "Full video",
+    highlightNumber: "Highlight {number} of {total}",
+    replayHighlights: "Replay highlights",
+    highlightError: "Could not play highlights. Try opening the full video.",
+    previousHighlight: "Previous highlight",
+    nextHighlight: "Next highlight",
     protocol: "Record No.",
     task: "Task",
     done: "Done",
@@ -287,9 +301,22 @@ function overlay(base, t) {
   return typeof t === "string" && (base == null || typeof base === "string") ? hasText(t) ? t : base : base;
 }
 function localize(content, lang) {
+  var _a, _b, _c;
   if (!content || lang !== "en") return content;
   const { en, ...base } = content;
-  return { ...overlay(base, en || {}), en };
+  const localized = overlay(base, en || {});
+  if (((_b = (_a = en == null ? void 0 : en.works) == null ? void 0 : _a.items) == null ? void 0 : _b.length) && ((_c = localized.works) == null ? void 0 : _c.items)) {
+    const originals = new Map(base.works.items.map((item) => [item.id, item]));
+    const translations = new Map(en.works.items.filter(Boolean).map((item) => [item.id, item]));
+    localized.works.items = localized.works.items.map((item) => {
+      var _a2;
+      const original = originals.get(item.id);
+      const translated = workVideoKey(item.videoUrl) !== workVideoKey(original == null ? void 0 : original.videoUrl);
+      const highlights = translated ? (_a2 = translations.get(item.id)) == null ? void 0 : _a2.highlights : original == null ? void 0 : original.highlights;
+      return { ...item, highlights };
+    });
+  }
+  return { ...localized, en };
 }
 const langOn = (content, lang) => lang === "ru" || !!(content && content.i18n && content.i18n[lang] && content.i18n[lang].enabled);
 const DEF_URLS = { home: { ru: "/", en: "/en" }, privacy: { ru: "/privacy", en: "/en/privacy" }, consent: { ru: "/consent", en: "/en/consent" }, resources: { ru: "/resources", en: "/en/resources" } };
@@ -971,10 +998,234 @@ function youtubeId(url) {
   const m = String(url).match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
+function workVideoKey(url) {
+  const id = youtubeId(url);
+  return id ? "youtube:" + id : (url == null ? void 0 : url.trim()) || "";
+}
+function videoTime(seconds) {
+  const elapsed = Math.floor(seconds || 0);
+  const minutes = Math.floor(elapsed / 60);
+  return minutes + ":" + pad(elapsed % 60);
+}
+let youtubeApi;
+function loadYouTubeApi() {
+  var _a;
+  if ((_a = window.YT) == null ? void 0 : _a.Player) return Promise.resolve(window.YT);
+  if (youtubeApi) return youtubeApi;
+  youtubeApi = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    const previous = window.onYouTubeIframeAPIReady;
+    const finish = (error) => {
+      clearTimeout(timeout);
+      window.onYouTubeIframeAPIReady = previous;
+      if (error) {
+        script.remove();
+        reject(error);
+      } else resolve(window.YT);
+    };
+    const timeout = setTimeout(() => finish(new Error("YouTube API timeout")), 12e3);
+    window.onYouTubeIframeAPIReady = () => {
+      finish();
+      previous == null ? void 0 : previous();
+    };
+    script.src = "https://www.youtube.com/iframe_api";
+    script.onerror = () => finish(new Error("YouTube API unavailable"));
+    document.head.appendChild(script);
+  }).catch((error) => {
+    youtubeApi = null;
+    throw error;
+  });
+  return youtubeApi;
+}
+function YouTubeWorkVideo({ id, title, request, onTime, onDuration, onClipEnd, onError }) {
+  const host = useRef(null);
+  const active = useRef(null);
+  const [player, setPlayer] = useState(null);
+  const callbacks = useRef(null);
+  callbacks.current = { onTime, onDuration, onClipEnd, onError };
+  useEffect(() => {
+    const container = host.current;
+    let instance;
+    let timer;
+    let stopped = false;
+    let ready = false;
+    loadYouTubeApi().then((YT) => {
+      if (stopped) return;
+      const frame = document.createElement("iframe");
+      const params = new URLSearchParams({ enablejsapi: "1", origin: location.origin, rel: "0", playsinline: "1" });
+      frame.src = "https://www.youtube-nocookie.com/embed/" + id + "?" + params;
+      frame.title = title;
+      frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+      frame.allowFullscreen = true;
+      container.appendChild(frame);
+      instance = new YT.Player(frame, { events: {
+        onReady: ({ target }) => {
+          if (stopped) return;
+          ready = true;
+          setPlayer(target);
+        },
+        onError: () => {
+          var _a, _b;
+          if (!stopped) (_b = (_a = callbacks.current).onError) == null ? void 0 : _b.call(_a);
+        },
+        onStateChange: ({ data }) => {
+          var _a, _b;
+          if (stopped || !active.current) return;
+          if (data === YT.PlayerState.PLAYING) active.current.played = true;
+          if (data === YT.PlayerState.ENDED && active.current.played && !active.current.ended) {
+            active.current.ended = true;
+            (_b = (_a = callbacks.current).onClipEnd) == null ? void 0 : _b.call(_a);
+          }
+        }
+      } });
+      timer = setInterval(() => {
+        var _a, _b, _c, _d, _e, _f;
+        if (!ready) return;
+        const duration = instance.getDuration();
+        const position = instance.getCurrentTime();
+        if (duration > 0) (_b = (_a = callbacks.current).onDuration) == null ? void 0 : _b.call(_a, duration);
+        if (Number.isFinite(position)) (_d = (_c = callbacks.current).onTime) == null ? void 0 : _d.call(_c, position);
+        const clip = active.current;
+        if (!clip || clip.ended) return;
+        if (duration > 0 && clip.start >= duration || clip.played && position >= clip.end) {
+          clip.ended = true;
+          instance.pauseVideo();
+          (_f = (_e = callbacks.current).onClipEnd) == null ? void 0 : _f.call(_e);
+        }
+      }, 200);
+    }).catch(() => {
+      var _a, _b;
+      if (!stopped) (_b = (_a = callbacks.current).onError) == null ? void 0 : _b.call(_a);
+    });
+    const readyTimeout = setTimeout(() => {
+      var _a, _b;
+      if (!ready && !stopped) (_b = (_a = callbacks.current).onError) == null ? void 0 : _b.call(_a);
+    }, 15e3);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      clearTimeout(readyTimeout);
+      instance == null ? void 0 : instance.destroy();
+      container.replaceChildren();
+    };
+  }, [id, title]);
+  useEffect(() => {
+    if (!player || !request) return;
+    const { start, end, play } = request;
+    active.current = end == null ? null : { start, end, played: false, ended: false };
+    if (play) {
+      const video = { videoId: id, startSeconds: start };
+      if (end != null) video.endSeconds = end;
+      player.loadVideoById(video);
+    } else {
+      player.pauseVideo();
+      player.seekTo(start, true);
+    }
+  }, [player, request, id]);
+  return /* @__PURE__ */ h("div", { ref: host, className: "aa-work-video__host" });
+}
+function FileWorkVideo({ url, poster, request, onTime, onDuration, onClipEnd, onError }) {
+  const video = useRef(null);
+  const [ready, setReady] = useState(false);
+  const ended = useRef(false);
+  useLayoutEffect(() => {
+    if (!ready || !request) return;
+    const el = video.current;
+    ended.current = false;
+    if (request.end != null && request.start >= el.duration) {
+      ended.current = true;
+      el.pause();
+      onClipEnd == null ? void 0 : onClipEnd();
+      return;
+    }
+    el.currentTime = Math.min(request.start, el.duration || request.start);
+    if (request.play) el.play().catch(() => {
+    });
+    else el.pause();
+  }, [ready, request]);
+  const finish = () => {
+    if ((request == null ? void 0 : request.end) == null || ended.current) return;
+    ended.current = true;
+    video.current.pause();
+    onClipEnd == null ? void 0 : onClipEnd();
+  };
+  return /* @__PURE__ */ h(
+    "video",
+    {
+      ref: video,
+      controls: true,
+      playsInline: true,
+      preload: "metadata",
+      poster: poster || void 0,
+      onLoadedMetadata: (e) => {
+        onDuration == null ? void 0 : onDuration(e.currentTarget.duration);
+        setReady(true);
+      },
+      onTimeUpdate: (e) => {
+        const { currentTime } = e.currentTarget;
+        onTime == null ? void 0 : onTime(currentTime);
+        if (currentTime >= (request == null ? void 0 : request.end)) finish();
+      },
+      onSeeking: (e) => {
+        const el = e.currentTarget;
+        if (!ended.current && (request == null ? void 0 : request.end) != null && el.currentTime < request.start) el.currentTime = request.start;
+      },
+      onPlay: (e) => {
+        const el = e.currentTarget;
+        if (!ended.current || (request == null ? void 0 : request.end) == null) return;
+        if (request.start >= el.duration) {
+          el.pause();
+          return;
+        }
+        ended.current = false;
+        el.currentTime = request.start;
+      },
+      onEnded: finish,
+      onError
+    },
+    videoSources(url)
+  );
+}
+function WorkVideo(props) {
+  const id = youtubeId(props.url);
+  return id ? /* @__PURE__ */ h(YouTubeWorkVideo, { key: id, ...props, id }) : /* @__PURE__ */ h(FileWorkVideo, { key: props.url, ...props });
+}
+function MomentsTrack({ moments, duration, time, activeIndex, onPick, label }) {
+  const scale = Number.isFinite(duration) && duration > 0 ? duration : Math.max(1, ...moments.map(({ end }) => end));
+  return /* @__PURE__ */ h("div", { className: "aa-moments-track", role: "group", "aria-label": label }, moments.map(({ start, end }, index) => {
+    const left = Math.min(start / scale, 1);
+    const width = Math.max(0, Math.min(end / scale, 1) - left);
+    if (!width) return null;
+    const time2 = videoTime(start) + " - " + videoTime(end);
+    const style = { left: left * 100 + "%", width: width * 100 + "%" };
+    return onPick ? /* @__PURE__ */ h("button", { key: index, type: "button", "aria-label": time2, title: time2, "aria-pressed": activeIndex === index, style, onClick: () => onPick(index) }) : /* @__PURE__ */ h("span", { key: index, title: time2, style });
+  }), Number.isFinite(time) && /* @__PURE__ */ h("i", { className: "aa-moments-track__position", "aria-hidden": "true", style: { left: clamp(time / scale) * 100 + "%" } }));
+}
 function VideoModal({ work, onClose, categoryLabel }) {
   const T = useT();
   const closeRef = useRef(null);
   const prev = useRef(null);
+  const moments = (work == null ? void 0 : work.videoUrl) && Array.isArray(work.highlights) ? work.highlights.filter((clip2) => clip2 && Number.isFinite(clip2.start) && Number.isFinite(clip2.end) && clip2.start >= 0 && clip2.end > clip2.start).sort((a, b) => a.start - b.start) : [];
+  const [index, setIndex] = useState(moments.length ? 0 : -1);
+  const [replay, setReplay] = useState(0);
+  const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [time, setTime] = useState(null);
+  const clip = moments[index];
+  const request = useMemo(() => {
+    var _a;
+    return { start: (_a = clip == null ? void 0 : clip.start) != null ? _a : 0, end: clip == null ? void 0 : clip.end, play: true };
+  }, [clip == null ? void 0 : clip.start, clip == null ? void 0 : clip.end, replay]);
+  const pick = (next) => {
+    setIndex(next);
+    setDone(false);
+    setReplay((value) => value + 1);
+  };
+  const advance = () => {
+    if (index + 1 < moments.length) pick(index + 1);
+    else setDone(true);
+  };
   useEffect(() => {
     prev.current = document.activeElement;
     closeRef.current && closeRef.current.focus();
@@ -1005,7 +1256,34 @@ function VideoModal({ work, onClose, categoryLabel }) {
   };
   return /* @__PURE__ */ h("div", { className: "aa-modal", "data-theme": "other", role: "dialog", "aria-modal": "true", "aria-labelledby": "aa-modal-t", onMouseDown: (e) => {
     if (e.target === e.currentTarget) onClose && onClose();
-  }, onKeyDown: trap }, /* @__PURE__ */ h("div", { className: cx("aa-modal__box", vertical && "aa-modal__box--v") }, /* @__PURE__ */ h("div", { className: "aa-modal__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted" }, categoryLabel || work.category, " · ", work.year, " · ", work.format), /* @__PURE__ */ h("h2", { className: "aa-h3", id: "aa-modal-t", style: { marginTop: 6 } }, work.title)), /* @__PURE__ */ h("button", { type: "button", ref: closeRef, className: "aa-modal__close aa-label", onClick: onClose }, T("closeX"))), /* @__PURE__ */ h("div", { className: "aa-modal__player", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, yt ? /* @__PURE__ */ h("iframe", { src: `https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&rel=0`, title: work.title, allow: "autoplay; encrypted-media; picture-in-picture; fullscreen", allowFullScreen: true, loading: "lazy" }) : work.videoUrl ? /* @__PURE__ */ h("video", { key: work.videoUrl, controls: true, autoPlay: true, playsInline: true, poster: work.previewImage || void 0 }, videoSources(work.videoUrl)) : /* @__PURE__ */ h("div", { className: "aa-modal__nosignal" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h(Monogram, { variant: "mark" }), /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, T("noSignal")), /* @__PURE__ */ h("p", { className: "aa-micro aa-muted", style: { marginTop: 8 } }, "Слот под видео: videoUrl (YouTube или файл)")))), yt && /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, /* @__PURE__ */ h("a", { href: `https://www.youtube.com/watch?v=${yt}`, target: "_blank", rel: "noopener" }, T("openYt"))), work.description && /* @__PURE__ */ h("p", { className: "aa-modal__desc" }, work.description)));
+  }, onKeyDown: trap }, /* @__PURE__ */ h("div", { className: cx("aa-modal__box", vertical && "aa-modal__box--v") }, /* @__PURE__ */ h("div", { className: "aa-modal__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted" }, categoryLabel || work.category, " · ", work.year, " · ", work.format), /* @__PURE__ */ h("h2", { className: "aa-h3", id: "aa-modal-t", style: { marginTop: 6 } }, work.title)), /* @__PURE__ */ h("button", { type: "button", ref: closeRef, className: "aa-modal__close aa-label", onClick: onClose }, T("closeX"))), moments.length > 0 && /* @__PURE__ */ h("div", { className: "aa-moments-modes", role: "group", "aria-label": T("highlights") }, /* @__PURE__ */ h(
+    "button",
+    {
+      type: "button",
+      "aria-pressed": index >= 0,
+      disabled: failed,
+      onClick: () => {
+        if (index < 0 || done) pick(0);
+      }
+    },
+    T("highlights")
+  ), /* @__PURE__ */ h("button", { type: "button", "aria-pressed": index < 0, onClick: () => {
+    if (index >= 0) pick(-1);
+  } }, T("fullVideo"))), /* @__PURE__ */ h("div", { className: "aa-modal__player", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, moments.length > 0 && !failed ? /* @__PURE__ */ h(
+    WorkVideo,
+    {
+      url: work.videoUrl,
+      title: work.title,
+      poster: work.previewImage,
+      request,
+      onDuration: setDuration,
+      onTime: setTime,
+      onClipEnd: advance,
+      onError: () => {
+        setFailed(true);
+      }
+    }
+  ) : yt ? /* @__PURE__ */ h("iframe", { src: `https://www.youtube-nocookie.com/embed/${yt}?autoplay=${index < 0 || !failed ? 1 : 0}&rel=0&playsinline=1`, title: work.title, allow: "autoplay; encrypted-media; picture-in-picture; fullscreen", allowFullScreen: true, loading: "lazy" }) : work.videoUrl ? /* @__PURE__ */ h("video", { key: work.videoUrl, controls: true, autoPlay: true, playsInline: true, poster: work.previewImage || void 0 }, videoSources(work.videoUrl)) : /* @__PURE__ */ h("div", { className: "aa-modal__nosignal" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h(Monogram, { variant: "mark" }), /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, T("noSignal")), /* @__PURE__ */ h("p", { className: "aa-micro aa-muted", style: { marginTop: 8 } }, "Слот под видео: videoUrl (YouTube или файл)")))), moments.length > 0 && !failed && /* @__PURE__ */ h("div", { className: "aa-moments" }, /* @__PURE__ */ h(MomentsTrack, { moments, duration, time, activeIndex: index, onPick: pick, label: T("highlights") }), clip && /* @__PURE__ */ h("div", { className: "aa-moments__caption" }, /* @__PURE__ */ h("span", { "aria-live": "polite" }, T("highlightNumber", { number: index + 1, total: moments.length }), " · ", videoTime(clip.start), " - ", videoTime(clip.end)), done && /* @__PURE__ */ h("button", { type: "button", onClick: () => pick(0) }, T("replayHighlights")), moments.length > 1 && /* @__PURE__ */ h("div", { className: "aa-moments__arrows" }, /* @__PURE__ */ h("button", { type: "button", "aria-label": T("previousHighlight"), disabled: index === 0, onClick: () => pick(index - 1) }, "←"), /* @__PURE__ */ h("button", { type: "button", "aria-label": T("nextHighlight"), disabled: index === moments.length - 1, onClick: () => pick(index + 1) }, "→")))), failed && index >= 0 && /* @__PURE__ */ h("p", { className: "aa-moments__caption", role: "status" }, T("highlightError")), yt && /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, /* @__PURE__ */ h("a", { href: `https://www.youtube.com/watch?v=${yt}`, target: "_blank", rel: "noopener" }, T("openYt"))), work.description && /* @__PURE__ */ h("p", { className: "aa-modal__desc" }, work.description)));
 }
 const INV_COLS = 4, INV_MIN = 12;
 function Works({ works = {}, id = "works" }) {
@@ -1026,13 +1304,13 @@ function Works({ works = {}, id = "works" }) {
     var _a2, _b;
     return ((_a2 = a.order) != null ? _a2 : 0) - ((_b = b.order) != null ? _b : 0);
   }), [works.items, ed]);
-  const selectedWork = ed == null ? void 0 : ed.selectedWork;
-  const selectedCategory = (_a = items.find((work) => work.id === selectedWork)) == null ? void 0 : _a.category;
+  const selection = ed == null ? void 0 : ed.workSelection;
+  const selectedCategory = (_a = items.find((work) => work.id === (selection == null ? void 0 : selection.id))) == null ? void 0 : _a.category;
   useEffect(() => {
-    if (!selectedWork) return;
+    if (!selection || selectedCategory === void 0) return;
     setFilter((current) => current === selectedCategory ? current : "all");
-    setSel(selectedWork);
-  }, [selectedWork, selectedCategory]);
+    setSel(selection.id);
+  }, [selection, selectedCategory]);
   const cats = works.categories || [];
   const catLabel = (cid) => (cats.find((c) => c.id === cid) || {}).label || cid;
   const shown = filter === "all" ? items : items.filter((w) => w.category === filter);
@@ -1100,12 +1378,15 @@ function Works({ works = {}, id = "works" }) {
         role: "option",
         "aria-selected": on,
         tabIndex: on ? 0 : -1,
+        "aria-haspopup": ed ? "dialog" : void 0,
         className: cx("aa-inv__slot", on && "is-on", ed && w.published === false && "aa-ed-draft"),
         onMouseEnter: ed ? void 0 : () => hoverPick(w),
         onFocus: () => pick(w),
         onClick: () => {
-          if (ed) ed.openItem("works.items", "@" + w.id, "work");
-          else if (on) setOpen(w);
+          if (ed) {
+            pick(w);
+            ed.openItem("works.items", "@" + w.id, "work");
+          } else if (on) setOpen(w);
           else pick(w);
         },
         "aria-label": `${w.title}, ${catLabel(w.category)}, ${w.year}`
@@ -1122,7 +1403,6 @@ function Works({ works = {}, id = "works" }) {
 function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
   const ed = useEd();
   const T = useT();
-  const p = "works.items.@" + work.id;
   const vertical = work.format === "9:16";
   const [vid, setVid] = useState(false);
   useEffect(() => {
@@ -1130,7 +1410,7 @@ function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
     const t = setTimeout(() => setVid(true), 220);
     return () => clearTimeout(t);
   }, [work.previewVideo, reduced, ed]);
-  return /* @__PURE__ */ h("div", { className: "aa-inv__detail" }, edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }), /* @__PURE__ */ h("div", { className: cx("aa-inv__view", vertical && "aa-inv__view--v") }, /* @__PURE__ */ h("div", { className: "aa-inv__frame", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: `${T("still")} «${work.title}»`, decoding: "async" }), vid && /* @__PURE__ */ h("video", { key: work.previewVideo, muted: true, loop: true, playsInline: true, autoPlay: true, preload: "none", "aria-hidden": "true" }, videoSources(work.previewVideo)), !work.previewImage && !vid && /* @__PURE__ */ h("span", { className: "aa-inv__ph", "aria-hidden": "true" }, /* @__PURE__ */ h(Monogram, { variant: "watermark" })), edEl(ed, "slot", { p: p + ".previewImage", v: work.previewImage, accept: "image", label: "Превью " + work.format }))), edEl(ed, "slot", { p: p + ".previewVideo", v: work.previewVideo, accept: "video", label: "Видео-превью (у выбранной)", compact: true }), edEl(ed, "slot", { p: p + ".videoUrl", v: work.videoUrl, accept: "video", label: "Ролик в плеере", compact: true, link: true }), /* @__PURE__ */ h("p", { className: "aa-inv__meta aa-micro" }, "№ ", pad(index + 1), " · ", categoryLabel, " · ", work.format, " · ", work.year), /* @__PURE__ */ h("h3", { className: "aa-inv__title" }, /* @__PURE__ */ h(E, { p: p + ".title", v: work.title, ph: "Название" })), (work.description || ed) && /* @__PURE__ */ h("p", { className: "aa-inv__desc" }, /* @__PURE__ */ h(E, { p: p + ".description", v: work.description, ph: "Описание" })), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-inv__play", onClick: () => onOpen && onOpen(work) }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "▶"), " ", T("watch")));
+  return /* @__PURE__ */ h("div", { className: "aa-inv__detail" }, edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }), /* @__PURE__ */ h("div", { className: cx("aa-inv__view", vertical && "aa-inv__view--v") }, /* @__PURE__ */ h("div", { className: "aa-inv__frame", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: `${T("still")} «${work.title}»`, decoding: "async" }), vid && /* @__PURE__ */ h("video", { key: work.previewVideo, muted: true, loop: true, playsInline: true, autoPlay: true, preload: "none", "aria-hidden": "true" }, videoSources(work.previewVideo)), !work.previewImage && !vid && /* @__PURE__ */ h("span", { className: "aa-inv__ph", "aria-hidden": "true" }, /* @__PURE__ */ h(Monogram, { variant: "watermark" })))), /* @__PURE__ */ h("p", { className: "aa-inv__meta aa-micro" }, "№ ", pad(index + 1), " · ", categoryLabel, " · ", work.format, " · ", work.year), /* @__PURE__ */ h("h3", { className: "aa-inv__title" }, work.title), work.description && /* @__PURE__ */ h("p", { className: "aa-inv__desc" }, work.description), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-inv__play", onClick: () => onOpen && onOpen(work) }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "▶"), " ", T("watch")));
 }
 function CaseTag({ item, index = 0, p }) {
   const ed = useEd();
@@ -2047,5 +2327,5 @@ const api = {
   }
 };
 
-window.AA = Object.assign(window.AA || {}, { videoSources, scrollToId, E, localize, siteUrl, Monogram, Button, Rec, Chip, Barcode, Atmosphere, Header, Hero, Counter, About, Tracklist, Services, WorldRift, PosterCard, youtubeId, VideoModal, Works, CaseTag, reviewSourceUrl, Cases, validateLead, Transmitter, Contact, Otherworld, Footer, CookieNotice, legalText, LegalPage, ResourcesPage, Landing, EditContext, LANGS, LangContext, langOn, api });
+window.AA = Object.assign(window.AA || {}, { videoSources, scrollToId, E, localize, siteUrl, Monogram, Button, Rec, Chip, Barcode, Atmosphere, Header, Hero, Counter, About, Tracklist, Services, WorldRift, PosterCard, youtubeId, workVideoKey, videoTime, WorkVideo, MomentsTrack, VideoModal, Works, CaseTag, reviewSourceUrl, Cases, validateLead, Transmitter, Contact, Otherworld, Footer, CookieNotice, legalText, LegalPage, ResourcesPage, Landing, EditContext, LANGS, LangContext, langOn, api });
 })();

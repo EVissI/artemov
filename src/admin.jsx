@@ -112,23 +112,19 @@ function resourceChoices(content, lang, kind) {
 }
 const KINDS = {
   work: {
-    title: (d) => 'Работа · ' + (d.title || ''),
     make: (c, extra = {}) => {
       const items = getIn(c, 'works.items') || []; const cats = getIn(c, 'works.categories') || [];
-      return { id: uid('w'), title: '[Новая работа]', category: extra.category || (cats[0] && cats[0].id) || 'youtube', format: '16:9', year: year(), previewImage: '', previewVideo: '', videoUrl: '', description: '', order: items.reduce((m, w) => Math.max(m, w.order || 0), 0) + 1, published: false };
+      return { id: uid('w'), title: '', category: extra.category || cats[0]?.id || 'youtube', format: '16:9', year: year(), previewImage: '', previewVideo: '', videoUrl: '', description: '', order: items.reduce((m, w) => Math.max(m, w.order || 0), 0) + 1, published: false };
     },
     fields: [
-      { k: 'published', label: 'Показывать на сайте', t: 'bool', hint: 'Выключено - черновик: виден только здесь' },
-      { group: 'Карточка' },
-      { k: 'title', label: 'Название' },
-      { k: 'category', label: 'Категория', t: 'select', options: (c) => (getIn(c, 'works.categories') || []).map((x) => [x.id, x.label]) },
-      { k: 'format', label: 'Формат', t: 'select', options: [['16:9', '16:9 - горизонтальное'], ['9:16', '9:16 - вертикальное']] },
-      { k: 'year', label: 'Год', t: 'number' },
+      { k: 'title', label: 'Название', required: true },
+      { k: 'category', label: 'Категория', t: 'select', half: true, options: (c) => c.works.categories?.map(({ id, label }) => [id, label]) || [] },
+      { k: 'format', label: 'Формат', t: 'select', half: true, options: [['16:9', '16:9 · Горизонтальный'], ['9:16', '9:16 · Вертикальный']] },
+      { k: 'year', label: 'Год', t: 'number', half: true },
       { k: 'description', label: 'Описание', t: 'textarea' },
-      { group: 'Медиа' },
-      { k: 'previewImage', label: 'Обложка', t: 'media', accept: 'image' },
-      { k: 'previewVideo', label: 'Видео-превью: играет у выбранной работы (коротко, без звука)', t: 'media', accept: 'video' },
-      { k: 'videoUrl', label: 'Ролик в плеере: ссылка YouTube или файл', t: 'media', accept: 'video', link: true },
+      { k: 'videoUrl', label: 'Основной ролик', hint: 'Открывается в плеере по кнопке «Смотреть».', t: 'media', accept: 'video', link: true, urlLabel: 'Ссылка на YouTube или видео' },
+      { k: 'previewImage', label: 'Обложка карточки', t: 'media', accept: 'image' },
+      { k: 'previewVideo', label: 'Короткое превью', hint: 'Играет без звука у выбранной работы.', t: 'media', accept: 'video' },
     ],
   },
   case: {
@@ -405,11 +401,16 @@ function Tools({ ed, list, id, index, kind, axis }) {
   const key = id != null ? '@' + id : String(index);
   const item = getIn(ed.draft(), list + '.' + key);
   if (item === undefined) return null;
-  const draftWork = kind === 'work' && item.published === false;
   const stop = (fn) => (e) => { e.preventDefault(); e.stopPropagation(); fn(); };
   const name = typeof item === 'string' ? item.slice(0, 40) : (item.title || item.client || item.label || 'элемент');
-  return <div className={cx('aa-ed-tools', draftWork && 'aa-ed-tools--pinned')} onClick={(e) => e.stopPropagation()}>
-    {kind === 'work' && <button type="button" className={cx('aa-ed-tool aa-ed-tool--wide', draftWork && 'is-off')} onClick={stop(() => ed.set(list + '.' + key + '.published', draftWork, { snapshot: true }))} title="Показывать на сайте">{draftWork ? 'Черновик' : 'На сайте'}</button>}
+  if (kind === 'work') return <div className="aa-ed-workbar" onClick={(e) => e.stopPropagation()}>
+    <button type="button" className="aa-ed-btn aa-ed-btn--sm" aria-haspopup="dialog"
+      aria-label={'Редактировать работу: ' + name} onClick={stop(() => ed.openItem(list, key, kind))}>✎ Редактировать</button>
+    <button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, -1, kind))} title="Раньше" aria-label="Переместить раньше">←</button>
+    <button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, 1, kind))} title="Позже" aria-label="Переместить позже">→</button>
+    <span className="aa-ed-note aa-ed-note--tight">{item.published === false ? 'Черновик' : 'На сайте'}</span>
+  </div>;
+  return <div className="aa-ed-tools" onClick={(e) => e.stopPropagation()}>
     {KINDS[kind]?.fields && <button type="button" className="aa-ed-tool aa-ed-tool--wide" onClick={stop(() => ed.openItem(list, key, kind))} aria-label={'Править: ' + name}>Править</button>}
     <Fragment><button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, -1, kind))} title="Раньше" aria-label="Переместить раньше">{axis === 'x' ? '←' : '↑'}</button>
     <button type="button" className="aa-ed-tool" onClick={stop(() => ed.move(list, key, 1, kind))} title="Позже" aria-label="Переместить позже">{axis === 'x' ? '→' : '↓'}</button>
@@ -418,7 +419,7 @@ function Tools({ ed, list, id, index, kind, axis }) {
 }
 
 /* ============ поля панели ============ */
-function MediaField({ id, value, onChange, accept, link, openLibrary, purpose, clearLabel = 'Убрать' }) {
+function MediaField({ id, value, onChange, accept, link, urlLabel, openLibrary, purpose, clearLabel = 'Убрать' }) {
   const up = useUploader(onChange, accept, purpose); const [drag, setDrag] = useState(false);
   const vid = accept === 'video' || isVideoUrl(value);
   const yt = AA.youtubeId && AA.youtubeId(value);
@@ -438,10 +439,13 @@ function MediaField({ id, value, onChange, accept, link, openLibrary, purpose, c
       {busy && <Fragment><span className="aa-ed-note aa-ed-note--tight" role="status">{upText(up)}</span><span className="aa-ed-slot__track"><i className="aa-ed-slot__bar" style={{ transform: `scaleX(${up.prog})` }}></i></span></Fragment>}
       {up.info && <span className="aa-ed-note aa-ed-note--tight">Сжато: {up.info}</span>}
       {up.err && <span className="aa-ed-field__err" role="alert">{up.err}</span>}
-      {!busy && <details className="aa-ed-media__url" open={link || undefined}>
-        <summary>Адрес файла</summary>
-        <input id={id} className="aa-ed-input aa-ed-input--sm" value={value || ''} placeholder={link ? 'https://youtu.be/… или /uploads/…' : '/uploads/… или https://…'} onChange={(e) => onChange(e.target.value.trim())} />
-      </details>}
+      {!busy && (urlLabel
+        ? <input id={id} aria-label={urlLabel} className="aa-ed-input aa-ed-input--sm" value={value || ''}
+            placeholder="Вставить ссылку на YouTube или видео" onChange={(e) => onChange(e.target.value.trim())} />
+        : <details className="aa-ed-media__url" open={link || undefined}>
+          <summary>Адрес файла</summary>
+          <input id={id} className="aa-ed-input aa-ed-input--sm" value={value || ''} placeholder={link ? 'https://youtu.be/… или /uploads/…' : '/uploads/… или https://…'} onChange={(e) => onChange(e.target.value.trim())} />
+        </details>)}
     </div>
   </div>;
 }
@@ -483,7 +487,8 @@ function Field({ f, bp, d, td, content, ed, depth = 0 }) {
   }
   else if (t === 'select') { const opts = typeof f.options === 'function' ? f.options(content, ed.lang()) : f.options; ctl = <select id={id} className="aa-ed-input" value={v == null ? '' : v} onChange={(e) => ed.set(path, e.target.value, { snapshot: true, base: true })}>{opts.map(([val2, lab]) => <option key={val2} value={val2}>{lab}</option>)}{v && !opts.some((o) => o[0] === v) && <option value={v}>{v}</option>}</select>; }
   else if (t === 'media') ctl = <Fragment>
-    <MediaField key={en ? 'en' : 'ru'} id={id} value={val} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} clearLabel={f.clearLabel} onChange={(x) => ed.set(path, x, { snapshot: true, lang: en ? 'en' : 'ru' })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />
+    {f.hint && <p className="aa-ed-note aa-ed-note--tight">{f.hint}</p>}
+    <MediaField key={en ? 'en' : 'ru'} id={id} value={val} accept={typeof f.accept === 'function' ? f.accept(d) : f.accept} link={f.link} urlLabel={f.urlLabel} clearLabel={f.clearLabel} onChange={(x) => ed.set(path, x, { snapshot: true, lang: en ? 'en' : 'ru' })} openLibrary={ed.openLibrary} purpose={purposeOf(path)} />
     {useTr && !hasText(tv) && v && <p className="aa-ed-note aa-ed-note--tight">Пусто - как в русской версии.</p>}
   </Fragment>;
   else if (t === 'strings' || t === 'list') {
@@ -559,19 +564,19 @@ function CatalogItems({ section, items = [], ed }) {
   const list = section + '.items';
   const ordered = kind === 'work' ? items.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) : items;
   return <section className="aa-ed-item-list" aria-label="Карточки">
-    <button type="button" className="aa-ed-btn aa-ed-btn--sm" onClick={() => ed.addItem(list, kind)}>+ {addLabel}</button>
+    <button type="button" className="aa-ed-btn aa-ed-btn--sm" aria-haspopup={kind === 'work' ? 'dialog' : undefined} onClick={() => ed.addItem(list, kind)}>+ {addLabel}</button>
     <ul>
       {ordered.map((item, index) => {
         const key = '@' + item.id;
         const title = item.title || item.client || 'Без названия';
         return <li key={item.id} className="aa-ed-list__row">
-          <button type="button" className="aa-ed-btn aa-ed-resource-item" onClick={() => ed.openItem(list, key, kind)}>
+          <button type="button" className="aa-ed-btn aa-ed-resource-item" aria-haspopup={kind === 'work' ? 'dialog' : undefined} onClick={() => ed.openItem(list, key, kind)}>
             {title}{item.published === false && <small>Черновик</small>}
           </button>
           <div className="aa-ed-list__acts">
             <button type="button" className="aa-ed-tool" onClick={() => ed.move(list, key, -1, kind)} aria-label={'Выше: ' + title} disabled={index === 0}>↑</button>
             <button type="button" className="aa-ed-tool" onClick={() => ed.move(list, key, 1, kind)} aria-label={'Ниже: ' + title} disabled={index === ordered.length - 1}>↓</button>
-            <button type="button" className="aa-ed-tool" onClick={() => { if (confirm(`Удалить «${title}»?`)) ed.remove(list, key); }} aria-label={'Удалить: ' + title}>✕</button>
+            {kind !== 'work' && <button type="button" className="aa-ed-tool" onClick={() => { if (confirm(`Удалить «${title}»?`)) ed.remove(list, key); }} aria-label={'Удалить: ' + title}>✕</button>}
           </div>
         </li>;
       })}
@@ -777,7 +782,7 @@ function LibraryPanel({ accept, onPick }) {
   </div>;
 }
 
-function EditDialog({ title, onClose, children, initialFocus }) {
+function EditDialog({ title, onClose, children, initialFocus, className }) {
   const dialog = useRef(null);
   const [library, setLibrary] = useState(null);
   const libraryOpener = useRef(null);
@@ -802,9 +807,10 @@ function EditDialog({ title, onClose, children, initialFocus }) {
     libraryOpener.current = document.activeElement;
     setLibrary({ accept, pick });
   };
-  return <dialog ref={dialog} className="aa-ed-modal" data-theme="other" aria-labelledby="aa-ed-modal-title"
+  return <dialog ref={dialog} className={cx('aa-ed-modal', className)} data-theme="other" aria-labelledby="aa-ed-modal-title"
     onCancel={(e) => { e.preventDefault(); if (library) setLibrary(null); else onClose(); }}
     onKeyDown={(e) => {
+      if (e.key === 'Escape') e.stopPropagation();
       if (!(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();
       if (['z', 'я', 'y', 'н'].includes(key)) e.stopPropagation();
@@ -815,7 +821,7 @@ function EditDialog({ title, onClose, children, initialFocus }) {
     }}>
     <header className="aa-ed-modal__header">
       {library && <button type="button" className="aa-ed-tool aa-ed-modal__back" aria-label="Назад к форме" onClick={() => setLibrary(null)}>←</button>}
-      <h2 id="aa-ed-modal-title">{library ? 'Выбрать изображение' : title}</h2>
+      <h2 id="aa-ed-modal-title">{library ? (library.accept === 'video' ? 'Выбрать видео' : 'Выбрать изображение') : title}</h2>
       <button type="button" className="aa-ed-tool" aria-label="Закрыть" onClick={onClose}>✕</button>
     </header>
     <div className="aa-ed-modal__view" hidden={Boolean(library)}>{children(openLibrary)}</div>
@@ -826,11 +832,202 @@ function EditDialog({ title, onClose, children, initialFocus }) {
   </dialog>;
 }
 
-function ResourceModalLanguage({ lang, setLang }) {
+function ModalLanguage({ lang, setLang }) {
   return <div className="aa-ed-seg aa-ed-seg--lang" role="group" aria-label="Язык">
     <button type="button" aria-pressed={lang === 'ru'} onClick={() => setLang('ru')}>RU</button>
     <button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
   </div>;
+}
+
+function parseMomentTime(value) {
+  const text = String(value).trim().replace(',', '.');
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text);
+  if (!/^\d+:[0-5]\d(?:\.\d+)?$/.test(text)) return NaN;
+  const [minutes, seconds] = text.split(':').map(Number);
+  return minutes * 60 + seconds;
+}
+
+function editableMoments(clips) {
+  return (clips || []).map(({ start, end }) => ({ id: uid('clip'), start: String(start), end: String(end) }));
+}
+
+function readMoments(rows, url, duration) {
+  if (!rows.length) return { clips: [] };
+  if (!url?.trim()) return { error: 'Добавь основной ролик для отмеченных моментов.' };
+  const clips = rows.map(({ start, end }) => ({ start: parseMomentTime(start), end: parseMomentTime(end) }));
+  if (clips.some(({ start, end }) => !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start)) {
+    return { error: 'Укажи начало и конец каждого отрезка. Конец должен быть позже начала.' };
+  }
+  if (duration && clips.some(({ start, end }) => start >= duration || end > duration + 0.05)) {
+    return { error: 'Проверь время отрезков: оно выходит за пределы ролика.' };
+  }
+  clips.sort((a, b) => a.start - b.start);
+  if (clips.some(({ start }, i) => i > 0 && start < clips[i - 1].end)) return { error: 'Отрезки не должны пересекаться.' };
+  return { clips };
+}
+
+function WorkMomentsEditor({ url, rows, onChange, onDuration }) {
+  const [preview, setPreview] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [request, setRequest] = useState(null);
+  const [time, setTime] = useState(null);
+  const [duration, setDuration] = useState(0);
+  const marks = rows.map((row) => ({ ...row, start: parseMomentTime(row.start), end: parseMomentTime(row.end) }))
+    .filter(({ start, end }) => Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start);
+  const update = (id, field, value) => onChange((items) => items.map((row) => row.id === id ? { ...row, [field]: value } : row));
+  const seek = (index) => { setPreview(true); setRequest({ start: marks[index].start, play: false }); };
+  const stamp = time == null ? null : String(Math.round(time * 10) / 10);
+  return <section className="aa-ed-work-moments" aria-labelledby="aa-ed-moments-title">
+    <div className="aa-ed-work-moments__head">
+      <div>
+        <h3 id="aa-ed-moments-title">Лучшие моменты</h3>
+        <p className="aa-ed-note">Укажи время в секундах или в формате 1:24. Если есть отрезки, зритель сначала увидит их.</p>
+      </div>
+      {url && !preview && <button type="button" className="aa-ed-btn aa-ed-btn--sm" onClick={() => setPreview(true)}>Открыть видео для разметки</button>}
+    </div>
+    {preview && !failed && <div className="aa-ed-work-moments__video aa-modal__player">
+      <AA.WorkVideo url={url} title="Видео для разметки" request={request} onTime={setTime} onDuration={(seconds) => {
+        if (!Number.isFinite(seconds) || seconds <= 0) return;
+        setDuration(seconds);
+        onDuration(seconds);
+      }} onError={() => { setFailed(true); setTime(null); }} />
+    </div>}
+    {failed && <p className="aa-ed-note" role="status">Видео не открылось. Время можно ввести вручную.</p>}
+    {marks.length > 0 && <AA.MomentsTrack moments={marks} duration={duration} time={time} onPick={url && !failed ? seek : undefined} label="Отмеченные отрезки" />}
+    {rows.length > 0 && <div className="aa-ed-work-moments__rows">
+      {rows.map((row, index) => <div key={row.id} className="aa-ed-work-moment" role="group" aria-label={'Отрезок ' + (index + 1)}>
+        <span className="aa-ed-work-moment__number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+        {[['start', 'Начало'], ['end', 'Конец']].map(([field, label]) => <div className="aa-ed-work-moment__time" key={field}>
+          <label>{label}<input className="aa-ed-input" value={row[field]} placeholder="0:00" onChange={(e) => update(row.id, field, e.target.value)} /></label>
+          {stamp != null && <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost"
+            aria-label={label + ' по текущему времени, отрезок ' + (index + 1)} onClick={() => update(row.id, field, stamp)}>Текущая позиция</button>}
+        </div>)}
+        <button type="button" className="aa-ed-tool" aria-label={'Убрать отрезок ' + (index + 1)}
+          onClick={() => onChange((items) => items.filter(({ id }) => id !== row.id))}>×</button>
+      </div>)}
+    </div>}
+    <button type="button" className="aa-ed-btn aa-ed-btn--sm" disabled={!url || rows.length >= 20}
+      onClick={() => onChange((items) => [...items, { id: uid('clip'), start: stamp || '', end: '' }])}>+ Добавить отрезок</button>
+    {!url && <p className="aa-ed-note aa-ed-note--tight">Сначала укажи основной ролик.</p>}
+  </section>;
+}
+
+function WorkEditor({ content, item, category, lang: pageLang, onApply, onRemove, onClose }) {
+  const [lang, setLang] = useState(item ? pageLang : 'ru');
+  const [nameError, setNameError] = useState(false);
+  const [removePrompt, setRemovePrompt] = useState(false);
+  const [form, setForm] = useState(() => {
+    const work = item || KINDS.work.make(content, { category });
+    const translation = content.en?.works?.items?.find((row) => row?.id === work.id);
+    return {
+      works: { categories: content.works.categories, items: [work] },
+      en: { works: { items: translation ? [translation] : [] } },
+    };
+  });
+  const work = form.works.items[0];
+  const translation = form.en.works.items[0];
+  const separateVideo = AA.workVideoKey(translation?.videoUrl) && AA.workVideoKey(translation.videoUrl) !== AA.workVideoKey(work.videoUrl);
+  const momentLang = lang === 'en' && separateVideo ? 'en' : 'ru';
+  const momentUrl = momentLang === 'en' ? translation.videoUrl : work.videoUrl;
+  const [moments, setMoments] = useState(() => ({
+    ru: editableMoments(item?.highlights), en: editableMoments(translation?.highlights),
+  }));
+  const [momentsError, setMomentsError] = useState('');
+  const durations = useRef(new Map());
+  const path = 'works.items.@' + work.id;
+  const formRef = useRef(null);
+  const busy = () => formRef.current?.querySelector('[aria-busy="true"]');
+  const submit = (e) => {
+    e.preventDefault();
+    if (busy()) return;
+    const title = work.title?.trim();
+    if (!title) {
+      setLang('ru');
+      setNameError(true);
+      requestAnimationFrame(() => formRef.current?.querySelector('input[required]')?.focus());
+      return;
+    }
+    const ru = readMoments(moments.ru, work.videoUrl, durations.current.get(AA.workVideoKey(work.videoUrl)));
+    const en = separateVideo
+      ? readMoments(moments.en, translation.videoUrl, durations.current.get(AA.workVideoKey(translation.videoUrl)))
+      : { clips: [] };
+    const errorLang = ru.error ? 'ru' : en.error ? 'en' : null;
+    if (errorLang) {
+      setLang(errorLang);
+      setMomentsError((errorLang === 'ru' ? ru : en).error);
+      requestAnimationFrame(() => formRef.current?.querySelector('.aa-ed-work-moments-error')?.focus());
+      return;
+    }
+    const next = { ...work, title };
+    if (ru.clips.length || work.highlights) next.highlights = ru.clips;
+    const localized = translation && { ...translation };
+    if (localized) {
+      if (separateVideo && en.clips.length) localized.highlights = en.clips;
+      else delete localized.highlights;
+    }
+    onApply(next, localized);
+  };
+  return <EditDialog title={item ? 'Редактировать работу' : 'Новая работа'} className="aa-ed-work-modal"
+    onClose={onClose} initialFocus=".aa-ed-work-fields input">
+    {(openLibrary) => {
+      const localEd = {
+        lang: () => lang,
+        snap: () => {},
+        openLibrary,
+        set(p, value, options = {}) {
+          const translated = (options.lang || lang) === 'en' && !options.base && typeof value === 'string';
+          const clean = noDash(value);
+          setForm((d) => translated ? { ...d, en: setTr(d.en, d, segs(p), clean) } : setIn(d, p, clean));
+          if (p === path + '.title' && !translated) setNameError(false);
+        },
+      };
+      const fields = (type) => KINDS.work.fields.filter((f) => (f.t === 'media') === (type === 'media')).map((f) =>
+        <div className={cx('aa-ed-cell', f.half && 'aa-ed-cell--half')} key={f.k}>
+          <Field f={f} bp={path} d={work} td={translation} content={form} ed={localEd} />
+        </div>);
+      return <form ref={formRef} className="aa-ed-modal__form" onSubmit={submit} noValidate>
+        <div className="aa-ed-modal__body">
+          <div className="aa-ed-modal__options aa-ed-work-options">
+            <ModalLanguage lang={lang} setLang={(next) => { if (!busy()) { setLang(next); setMomentsError(''); } }} />
+            <label className="aa-ed-check">
+              <input type="checkbox" checked={work.published !== false} onChange={(e) => localEd.set(path + '.published', e.target.checked)} />
+              <span>Показывать на сайте<small>Черновик виден только в админке.</small></span>
+            </label>
+          </div>
+          {lang === 'en' && <p className="aa-ed-note">Пустые поля берутся из русской версии. Категория, формат, год и видимость общие.</p>}
+          {nameError && <p className="aa-ed-modal__error" role="alert">Введи название на русском.</p>}
+          <div className="aa-ed-work-layout">
+            <section className="aa-ed-work-fields" aria-labelledby="aa-ed-work-details">
+              <h3 id="aa-ed-work-details">Карточка</h3>
+              <div className="aa-ed-grid">{fields('details')}</div>
+            </section>
+            <section className="aa-ed-work-fields" aria-labelledby="aa-ed-work-media">
+              <h3 id="aa-ed-work-media">Видео и обложка</h3>
+              <div className="aa-ed-grid">{fields('media')}</div>
+            </section>
+          </div>
+          {momentsError && <p className="aa-ed-modal__error aa-ed-work-moments-error" role="alert" tabIndex={-1}>{momentsError}</p>}
+          <WorkMomentsEditor key={momentLang + ':' + AA.workVideoKey(momentUrl)} url={momentUrl} rows={moments[momentLang]}
+            onChange={(update) => {
+              setMoments((current) => ({ ...current, [momentLang]: update(current[momentLang]) }));
+              setMomentsError('');
+            }}
+            onDuration={(duration) => durations.current.set(AA.workVideoKey(momentUrl), duration)} />
+        </div>
+        <footer className="aa-ed-modal__footer">
+          {item && (removePrompt ? <div className="aa-ed-modal__remove">
+            <span>Удалить работу?</span>
+            <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--danger" onClick={onRemove}>Удалить</button>
+            <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => setRemovePrompt(false)}>Нет</button>
+          </div> : <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-modal__delete" onClick={() => setRemovePrompt(true)}>Удалить работу</button>)}
+          <div className="aa-ed-modal__buttons">
+            <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={onClose}>Отмена</button>
+            <button type="submit" className="aa-ed-btn aa-ed-btn--sm aa-ed-modal__apply">{item ? 'Применить' : 'Добавить работу'}</button>
+          </div>
+        </footer>
+      </form>;
+    }}
+  </EditDialog>;
 }
 
 function ResourceItemEditor({ content, item, lang: pageLang, onApply, onRemove, onClose }) {
@@ -890,7 +1087,7 @@ function ResourceItemEditor({ content, item, lang: pageLang, onApply, onRemove, 
       return <form className="aa-ed-modal__form" onSubmit={submit} noValidate>
         <div className="aa-ed-modal__body">
           <div className="aa-ed-modal__options">
-            <ResourceModalLanguage lang={lang} setLang={setLang} />
+            <ModalLanguage lang={lang} setLang={setLang} />
             <label className="aa-ed-check">
               <input type="checkbox" checked={resource.published !== false} onChange={(e) => localEd.set(path + '.published', e.target.checked)} />
               <span>Показывать на сайте</span>
@@ -1052,6 +1249,8 @@ function App() {
   const [panel, setPanel] = useState(null); // { type: 'section'|'item'|'leads'|'library'|'history', ... }
   const [resourceEditor, setResourceEditor] = useState(null);
   const [reviewEditor, setReviewEditor] = useState(null);
+  const [workEditor, setWorkEditor] = useState(null);
+  const [workSelection, setWorkSelection] = useState(null);
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 900px)').matches);
   const [newLeads, setNewLeads] = useState(0);
   const [status, setStatus] = useState(null); // { text, tone }
@@ -1219,11 +1418,19 @@ function App() {
         }, { snapshot: true });
       },
       addItem(list, kind, extra) {
+        if (kind === 'work') {
+          setWorkEditor({ category: extra?.category });
+          return;
+        }
         const item = KINDS[kind].make(D.ref.current.draft, extra || {});
         D.update((d) => setIn(d, list, [...(getIn(d, list) || []), item]), { snapshot: true });
         if (item && item.id && KINDS[kind].fields) api.openItem(list, '@' + item.id, kind);
       },
       openItem: (list, key, kind) => {
+        if (kind === 'work') {
+          setWorkEditor({ id: key.slice(1) });
+          return;
+        }
         const section = list.split('.')[0];
         const back = { type: 'section', p: section, kind: section, back: { type: 'sections' } };
         openPanel({ type: 'item', p: list + '.' + key, kind, back });
@@ -1237,24 +1444,51 @@ function App() {
     api.tools = (props) => <Tools ed={api} {...props} />;
     api.add = ({ list, kind, label, tag, extra }) => {
       const T = tag || 'div';
-      return <T className={cx('aa-ed-add', 'aa-ed-add--' + kind)}><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); api.addItem(list, kind, extra); }}><span aria-hidden="true">+</span> {label}</button></T>;
+      return <T className={cx('aa-ed-add', 'aa-ed-add--' + kind)}><button type="button" aria-label={kind === 'work' ? 'Добавить работу' : undefined}
+        aria-haspopup={kind === 'work' ? 'dialog' : undefined} onClick={(e) => { e.preventDefault(); e.stopPropagation(); api.addItem(list, kind, extra); }}><span aria-hidden="true">+</span> {label}</button></T>;
     };
     api.section = ({ p, kind, label, group, className }) => <button type="button" className={cx('aa-ed-section', 'aa-label', className)} aria-label={'Настройки: ' + label} onClick={(e) => { e.stopPropagation(); api.openSection(p, kind, group); }}><span aria-hidden="true">✎</span> {label}</button>;
     return api;
   }, []);
 
   const selectedItem = panel?.type === 'item' ? panel.p.split('.').at(-1).slice(1) : null;
-  const editContext = useMemo(() => ({ ...ed, selectedWork: panel?.kind === 'work' ? selectedItem : null,
+  const editContext = useMemo(() => ({ ...ed, workSelection,
     selectedCase: panel?.kind === 'case' ? selectedItem : null,
     addReview: () => setReviewEditor({}),
     editReview: (id) => setReviewEditor({ id }),
-  }), [ed, panel?.kind, selectedItem]);
+  }), [ed, workSelection, panel?.kind, selectedItem]);
   if (auth === 'checking') return <div className="aa-page aa-ed-login" data-theme="other"><p className="aa-label">Настройка частоты…</p></div>;
   if (auth === 'out') return <Login onOk={loadAll} />;
   if (auth === 'error' || !D.draft) return <div className="aa-page aa-ed-login" data-theme="other"><p className="aa-label">Нет сигнала от сервера. <button type="button" className="aa-ed-btn" onClick={loadAll}>Повторить</button></p></div>;
 
   const content = D.draft;
   const view = lang === 'en' ? AA.localize(content, 'en') : content; // что видно на странице: в EN - перевод поверх русского
+  const workToEdit = content.works.items.find(({ id }) => id === workEditor?.id);
+  const closeWorkEditor = () => setWorkEditor(null);
+  const applyWork = (work, translation) => {
+    D.update((draft) => {
+      const rows = draft.works.items;
+      const previous = rows.find(({ id }) => id === work.id);
+      if (workEditor.id && !previous) return draft;
+      const next = previous
+        ? setIn(draft, 'works.items.@' + work.id, { ...work, order: previous.order })
+        : setIn(draft, 'works.items', [...rows, {
+          ...work, order: rows.reduce((max, row) => Math.max(max, row.order || 0), 0) + 1,
+        }]);
+      return translation ? { ...next, en: setTr(next.en, next, ['works', 'items', '@' + work.id], translation) } : next;
+    }, { snapshot: true });
+    setWorkSelection({ id: work.id });
+    closeWorkEditor();
+  };
+  const removeWork = () => {
+    const id = workEditor.id;
+    D.update((draft) => {
+      const next = setIn(draft, 'works.items', draft.works.items.filter((work) => work.id !== id));
+      const translations = draft.en?.works?.items;
+      return Array.isArray(translations) ? setIn(next, 'en.works.items', translations.filter((row) => row?.id !== id)) : next;
+    }, { snapshot: true });
+    closeWorkEditor();
+  };
   const reviewToEdit = content.reviews?.items?.find(({ id }) => id === reviewEditor?.id);
   const closeReviewEditor = () => setReviewEditor(null);
   const applyReview = (values) => {
@@ -1352,8 +1586,7 @@ function App() {
       const d = getIn(view, panel.p) || {};
       panelTitle = spec.title(d);
       panelContext = SECTIONS[panel.p.split('.')[0]]?.title;
-      panelBody = <FormPanel spec={{ p: panel.p, fields: spec.fields }} ed={ed} content={content}
-        collapsible={panel.kind === 'work'} openGroup={panel.kind === 'work' ? 'Карточка' : undefined} />;
+      panelBody = <FormPanel spec={{ p: panel.p, fields: spec.fields }} ed={ed} content={content} />;
     }
     else if (panel.type === 'leads') { panelTitle = 'Заявки'; panelBody = <LeadsPanel onCount={setNewLeads} />; }
     else if (panel.type === 'history') { panelTitle = 'История версий'; panelBody = <HistoryPanel onRestore={(c) => { D.update(() => c, { snapshot: true }); flash('Версия в черновике. Сохрани, чтобы опубликовать.'); }} />; }
@@ -1388,6 +1621,8 @@ function App() {
           }} onSubmitLead={editing ? () => Promise.reject(new Error('preview')) : () => new Promise((r) => setTimeout(r, 600))} />
         </AA.EditContext.Provider>}</div>
 
+    {workEditor && (!workEditor.id || workToEdit) && <WorkEditor content={content} item={workToEdit}
+      category={workEditor.category} lang={lang} onClose={closeWorkEditor} onApply={applyWork} onRemove={removeWork} />}
     {resourceEditor?.type === 'background' && <ResourceBackgroundEditor content={content} lang={lang}
       onClose={closeResourceEditor} onApply={applyResourceBackground} />}
     {(resourceEditor?.type === 'add' || resourceToEdit) && <ResourceItemEditor content={content}

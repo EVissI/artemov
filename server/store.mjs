@@ -132,6 +132,15 @@ export function sanitizeContent(c) {
   if (!c || typeof c !== 'object' || Array.isArray(c)) throw new Error('Контент должен быть объектом');
   for (const k of ['site', 'hero', 'about', 'services', 'works', 'cases', 'contact', 'footer']) if (!c[k] || typeof c[k] !== 'object') throw new Error(`Нет раздела «${k}»`);
   if (!Array.isArray(c.works.items)) throw new Error('works.items должен быть списком');
+  for (const item of [...c.works.items, ...(Array.isArray(c.en?.works?.items) ? c.en.works.items : [])]) {
+    const clips = item?.highlights;
+    if (clips == null) continue;
+    if (!Array.isArray(clips) || clips.length > 20 || clips.some((clip) =>
+      !clip || !Number.isFinite(clip.start) || !Number.isFinite(clip.end) || clip.start < 0 || clip.end <= clip.start
+    )) throw new Error('Проверь начало и конец отрезков в работах.');
+    const sorted = clips.slice().sort((a, b) => a.start - b.start);
+    if (sorted.some(({ start }, i) => i > 0 && start < sorted[i - 1].end)) throw new Error('Отрезки в работе не должны пересекаться.');
+  }
   if (!Array.isArray(c.cases.items)) throw new Error('cases.items должен быть списком');
   if (c.reviews != null && !Array.isArray(c.reviews.items)) throw new Error('Отзывы должны быть списком.');
   for (const review of c.reviews?.items || []) {
