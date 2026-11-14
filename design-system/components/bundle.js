@@ -95,6 +95,13 @@ const LangContext = React.createContext("ru");
 const useLang = () => React.useContext(LangContext);
 const UI = {
   ru: {
+    reviews: "Отзывы",
+    reviewsList: "Отзывы клиентов",
+    reviewPrev: "Предыдущие отзывы",
+    reviewNext: "Следующие отзывы",
+    reviewSource: "Оригинал отзыва",
+    reviewRead: "Читать отзыв",
+    reviewReadFull: "Читать целиком",
     skip: "К содержимому",
     home: "Артем Артемов - на главную",
     sections: "Разделы",
@@ -171,6 +178,13 @@ const UI = {
     cookieSettings: "Cookie"
   },
   en: {
+    reviews: "Reviews",
+    reviewsList: "Client reviews",
+    reviewPrev: "Previous reviews",
+    reviewNext: "Next reviews",
+    reviewSource: "Original review",
+    reviewRead: "Read review",
+    reviewReadFull: "Read full review",
     skip: "Skip to content",
     home: "Artem Artemov - home",
     sections: "Sections",
@@ -1143,6 +1157,137 @@ function CasePage({ item, index, side }) {
     return /* @__PURE__ */ h("div", { className: "aa-jr__metric aa-ed-host", key: i }, /* @__PURE__ */ h("span", { className: "aa-jr__mlabel" }, /* @__PURE__ */ h(E, { p: mp + ".label", v: m.label, ph: "Метрика" })), /* @__PURE__ */ h("s", { className: "aa-jr__before", "aria-label": T("before") + " " + m.before }, /* @__PURE__ */ h(E, { p: mp + ".before", v: m.before, ph: "0" })), /* @__PURE__ */ h("span", { className: "aa-jr__after", "aria-label": T("after") + " " + m.after }, /* @__PURE__ */ h(E, { p: mp + ".after", v: m.after, ph: "0" }), /* @__PURE__ */ h("svg", { viewBox: "0 0 100 50", preserveAspectRatio: "none", "aria-hidden": "true" }, /* @__PURE__ */ h("path", { d: "M8 28 C 6 8, 70 2, 92 18 C 104 30, 70 48, 34 46 C 10 44, 2 34, 14 20" }))), edEl(ed, "tools", { list: p + ".metrics", index: i, kind: "metric" }));
   }), edEl(ed, "add", { list: p + ".metrics", kind: "metric", label: "Метрика" })), item.link ? /* @__PURE__ */ h("a", { className: "aa-jr__link", href: item.link, target: "_blank", rel: "noopener" }, T("watchWork")) : null, /* @__PURE__ */ h("span", { className: "aa-jr__num", "aria-hidden": "true" }, index * 2 + 2));
 }
+function reviewSourceUrl(value) {
+  const address = typeof value === "string" ? value.trim() : "";
+  if (!address || /\s/.test(address)) return "";
+  const url = /^(?:www\.)?(?:t\.me|telegram\.me)\//i.test(address) ? "https://" + address : address;
+  if (!/^https?:\/\//i.test(url)) return "";
+  try {
+    return new URL(url).href;
+  } catch {
+    return "";
+  }
+}
+const REVIEW_PREVIEW_LIMIT = 160;
+const reviewSegmenter = typeof Intl.Segmenter === "function" ? new Intl.Segmenter() : null;
+function reviewExcerpt(text) {
+  const preview = text.trim().replace(/\s+/g, " ");
+  if (preview.length <= REVIEW_PREVIEW_LIMIT) return { text: preview, truncated: false };
+  const chars = reviewSegmenter ? Array.from(reviewSegmenter.segment(preview), ({ segment }) => segment) : Array.from(preview);
+  if (chars.length <= REVIEW_PREVIEW_LIMIT) return { text: preview, truncated: false };
+  const cut = chars.slice(0, REVIEW_PREVIEW_LIMIT - 1).join("");
+  const lastSpace = cut.lastIndexOf(" ");
+  const excerpt = lastSpace > cut.length - 24 ? cut.slice(0, lastSpace) : cut.trimEnd();
+  return { text: excerpt + "…", truncated: true };
+}
+function reviewPaper(index) {
+  const reverse = index % 2 !== 0;
+  return {
+    className: cx("aa-review-paper", reverse && "aa-review-paper--reverse"),
+    style: { "--review-paper-pos": paperPos(index, reverse ? "R" : "L") }
+  };
+}
+function ReviewSource({ item }) {
+  const T = useT();
+  const source = reviewSourceUrl(item.sourceUrl);
+  return source && /* @__PURE__ */ h("a", { className: "aa-review-source", href: source, target: "_blank", rel: "noopener noreferrer" }, T("reviewSource"), " ", /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "↗"));
+}
+function ReviewDialog({ item, index, opener, onClose }) {
+  const T = useT();
+  const dialog = useRef(null);
+  const close = useRef(null);
+  useLayoutEffect(() => {
+    var _a;
+    const el = dialog.current;
+    el.showModal();
+    (_a = close.current) == null ? void 0 : _a.focus({ preventScroll: true });
+    return () => {
+      el.close();
+      if (opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [opener]);
+  const paper = reviewPaper(index);
+  return /* @__PURE__ */ h(
+    "dialog",
+    {
+      ref: dialog,
+      className: "aa-review-dialog",
+      "aria-labelledby": "aa-review-title",
+      onCancel: (e) => {
+        e.preventDefault();
+        onClose();
+      },
+      onClick: (e) => {
+        if (e.target === e.currentTarget) onClose();
+      }
+    },
+    /* @__PURE__ */ h("div", { className: cx("aa-review-note", paper.className), style: paper.style }, /* @__PURE__ */ h("header", { className: "aa-review-note__head" }, /* @__PURE__ */ h("h2", { id: "aa-review-title" }, item.author), /* @__PURE__ */ h("button", { ref: close, type: "button", className: "aa-review-note__close", "aria-label": T("close"), onClick: onClose }, "×")), /* @__PURE__ */ h("div", { className: "aa-review-note__body", tabIndex: 0 }, /* @__PURE__ */ h("blockquote", null, /* @__PURE__ */ h("p", null, item.text)), /* @__PURE__ */ h(ReviewSource, { item })))
+  );
+}
+function Reviews({ reviews = {} }) {
+  const ed = useEd();
+  const T = useT();
+  const items = reviews.items || [];
+  const rail = useRef(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const [openReview, setOpenReview] = useState(null);
+  const measure = useCallback(() => {
+    const el = rail.current;
+    if (!el) return;
+    const left = el.scrollLeft > 2;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setEdges((prev) => prev.left === left && prev.right === right ? prev : { left, right });
+  }, []);
+  useLayoutEffect(() => {
+    const el = rail.current;
+    if (!el) return;
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [measure, items.length]);
+  if (!items.length && !(ed == null ? void 0 : ed.addReview)) return null;
+  const empty = items.length === 0;
+  const scrollable = !empty && (edges.left || edges.right);
+  const step = (direction) => {
+    const el = rail.current;
+    const card = el == null ? void 0 : el.firstElementChild;
+    if (!card) return;
+    const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
+    const width = card.getBoundingClientRect().width + gap;
+    const current = Math.round(el.scrollLeft / width);
+    el.scrollTo({ left: (current + direction) * width, behavior: "auto" });
+  };
+  return /* @__PURE__ */ h("section", { id: "reviews", className: cx("aa-section aa-reviews", empty && "aa-reviews--empty"), "data-theme": "other", "data-header": "other", "aria-labelledby": "reviews-h" }, /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-reviews__head" }, /* @__PURE__ */ h("div", { className: "aa-reviews__heading" }, /* @__PURE__ */ h("h2", { id: "reviews-h" }, T("reviews")), empty && /* @__PURE__ */ h("p", null, "Пока нет отзывов. Добавьте первый, чтобы показать блок на сайте.")), /* @__PURE__ */ h("div", { className: "aa-reviews__actions" }, (ed == null ? void 0 : ed.addReview) && /* @__PURE__ */ h("button", { type: "button", className: "aa-ed-btn aa-ed-btn--ghost aa-ed-review-add", "aria-haspopup": "dialog", onClick: ed.addReview }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "+"), " ", empty ? "Добавить первый отзыв" : "Добавить отзыв"), scrollable && /* @__PURE__ */ h("div", { className: "aa-reviews__nav" }, /* @__PURE__ */ h("button", { type: "button", "aria-label": T("reviewPrev"), "aria-controls": "reviews-list", "aria-disabled": !edges.left, onClick: () => edges.left && step(-1) }, "←"), /* @__PURE__ */ h("button", { type: "button", "aria-label": T("reviewNext"), "aria-controls": "reviews-list", "aria-disabled": !edges.right, onClick: () => edges.right && step(1) }, "→")))), !empty && /* @__PURE__ */ h("div", { className: cx("aa-reviews__frame", edges.left && "has-left", edges.right && "has-right") }, /* @__PURE__ */ h("ul", { ref: rail, id: "reviews-list", className: "aa-reviews__rail", "aria-label": T("reviewsList"), tabIndex: scrollable ? 0 : void 0, onScroll: measure }, items.map((item, index) => {
+    const excerpt = reviewExcerpt(item.text);
+    const read = T(excerpt.truncated ? "reviewReadFull" : "reviewRead");
+    const paper = reviewPaper(index);
+    return /* @__PURE__ */ h("li", { key: item.id, className: cx("aa-review", paper.className), style: paper.style }, /* @__PURE__ */ h("figure", { className: "aa-review__sheet" }, /* @__PURE__ */ h("blockquote", null, /* @__PURE__ */ h("p", null, excerpt.text)), /* @__PURE__ */ h("figcaption", null, /* @__PURE__ */ h("span", { className: "aa-review__author" }, item.author), /* @__PURE__ */ h("div", { className: "aa-review__links" }, /* @__PURE__ */ h(
+      "button",
+      {
+        type: "button",
+        className: "aa-review__read",
+        "aria-haspopup": "dialog",
+        "aria-label": read + ": " + item.author,
+        onClick: (e) => setOpenReview({ item, index, opener: e.currentTarget })
+      },
+      read,
+      " ",
+      /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "→")
+    ), /* @__PURE__ */ h(ReviewSource, { item })))), (ed == null ? void 0 : ed.editReview) && /* @__PURE__ */ h(
+      "button",
+      {
+        type: "button",
+        className: "aa-ed-tool aa-ed-review-edit",
+        "aria-haspopup": "dialog",
+        "aria-label": "Редактировать отзыв: " + item.author,
+        onClick: () => ed.editReview(item.id)
+      },
+      "✎"
+    ));
+  })))), openReview && /* @__PURE__ */ h(ReviewDialog, { ...openReview, onClose: () => setOpenReview(null) }));
+}
 function Cases({ cases = {}, id = "cases" }) {
   const ed = useEd();
   const reduced = useReducedMotion();
@@ -1874,7 +2019,7 @@ function Landing({ content, contained = false, onSubmitLead, onNavigateResources
     };
   }, [c.nav]);
   const langs = onLanguageChange ? LANGS : LANGS.filter((l) => langOn(c, l));
-  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { ref: rootRef, className: cx("aa-page", contained && "aa-page--contained", lite && "aa-lite"), "data-theme": "other", lang }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, tr(lang, "skip")), /* @__PURE__ */ h(Header, { nav: c.nav, monogram: mono, theme: hdr, active, onNavigate: nav, onNavigateResources, solid, langs, onLanguageChange }), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h(Hero, { hero: c.hero, onNavigate: nav }), /* @__PURE__ */ h(About, { about: c.about }), /* @__PURE__ */ h(Services, { services: c.services }), c.rift && c.rift.enabled === true && /* @__PURE__ */ h(WorldRift, { rift: c.rift }), /* @__PURE__ */ h(Otherworld, { seam: !(c.rift && c.rift.enabled === true) }, /* @__PURE__ */ h(Works, { works: c.works }), /* @__PURE__ */ h(Cases, { cases: c.cases }), /* @__PURE__ */ h(Contact, { contact: c.contact, onSubmit: onSubmitLead || api.submitLead }))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono, onNavigate: nav }), atmosphere && /* @__PURE__ */ h(Atmosphere, { fixed: true, scanlines: false }), !preview && /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
+  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { ref: rootRef, className: cx("aa-page", contained && "aa-page--contained", lite && "aa-lite"), "data-theme": "other", lang }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, tr(lang, "skip")), /* @__PURE__ */ h(Header, { nav: c.nav, monogram: mono, theme: hdr, active, onNavigate: nav, onNavigateResources, solid, langs, onLanguageChange }), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h(Hero, { hero: c.hero, onNavigate: nav }), /* @__PURE__ */ h(About, { about: c.about }), /* @__PURE__ */ h(Services, { services: c.services }), c.rift && c.rift.enabled === true && /* @__PURE__ */ h(WorldRift, { rift: c.rift }), /* @__PURE__ */ h(Otherworld, { seam: !(c.rift && c.rift.enabled === true) }, /* @__PURE__ */ h(Works, { works: c.works }), /* @__PURE__ */ h(Reviews, { reviews: c.reviews }), /* @__PURE__ */ h(Cases, { cases: c.cases }), /* @__PURE__ */ h(Contact, { contact: c.contact, onSubmit: onSubmitLead || api.submitLead }))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono, onNavigate: nav }), atmosphere && /* @__PURE__ */ h(Atmosphere, { fixed: true, scanlines: false }), !preview && /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
 }
 const api = {
   /** Контент страницы. Сейчас - локальный объект, позже GET {endpoint}. */
@@ -1902,5 +2047,5 @@ const api = {
   }
 };
 
-window.AA = Object.assign(window.AA || {}, { videoSources, scrollToId, E, localize, siteUrl, Monogram, Button, Rec, Chip, Barcode, Atmosphere, Header, Hero, Counter, About, Tracklist, Services, WorldRift, PosterCard, youtubeId, VideoModal, Works, CaseTag, Cases, validateLead, Transmitter, Contact, Otherworld, Footer, CookieNotice, legalText, LegalPage, ResourcesPage, Landing, EditContext, LANGS, LangContext, langOn, api });
+window.AA = Object.assign(window.AA || {}, { videoSources, scrollToId, E, localize, siteUrl, Monogram, Button, Rec, Chip, Barcode, Atmosphere, Header, Hero, Counter, About, Tracklist, Services, WorldRift, PosterCard, youtubeId, VideoModal, Works, CaseTag, reviewSourceUrl, Cases, validateLead, Transmitter, Contact, Otherworld, Footer, CookieNotice, legalText, LegalPage, ResourcesPage, Landing, EditContext, LANGS, LangContext, langOn, api });
 })();

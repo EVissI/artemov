@@ -133,6 +133,15 @@ export function sanitizeContent(c) {
   for (const k of ['site', 'hero', 'about', 'services', 'works', 'cases', 'contact', 'footer']) if (!c[k] || typeof c[k] !== 'object') throw new Error(`Нет раздела «${k}»`);
   if (!Array.isArray(c.works.items)) throw new Error('works.items должен быть списком');
   if (!Array.isArray(c.cases.items)) throw new Error('cases.items должен быть списком');
+  if (c.reviews != null && !Array.isArray(c.reviews.items)) throw new Error('Отзывы должны быть списком.');
+  for (const review of c.reviews?.items || []) {
+    if (!review || typeof review.id !== 'string' || !review.id
+      || typeof review.author !== 'string' || !review.author.trim() || review.author.length > 120
+      || typeof review.text !== 'string' || !review.text.trim() || review.text.length > 4000
+      || (review.sourceUrl != null && (typeof review.sourceUrl !== 'string' || review.sourceUrl.length > 2048))) {
+      throw new Error('Проверь автора, текст и ссылку в отзывах.');
+    }
+  }
   if (c.resources != null && !Array.isArray(c.resources.items)) throw new Error('resources.items должен быть списком');
   for (const kind of ['types', 'platforms']) {
     const options = c.resources?.[kind];
