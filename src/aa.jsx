@@ -72,6 +72,8 @@ export const LangContext = React.createContext('ru');
 const useLang = () => React.useContext(LangContext);
 const UI = {
   ru: {
+    reviews: 'Отзывы', reviewsList: 'Отзывы клиентов', reviewPrev: 'Предыдущие отзывы', reviewNext: 'Следующие отзывы', reviewSource: 'Оригинал отзыва',
+    reviewRead: 'Читать отзыв', reviewReadFull: 'Читать целиком',
     skip: 'К содержимому', home: 'Артем Артемов - на главную', sections: 'Разделы', menu: 'Меню', close: 'Закрыть', lang: 'Язык сайта',
     resources: 'Ресурсы', resourceSearch: 'Поиск ресурсов', resourcePlaceholder: 'Название, программа или тема', platform: 'Платформа', resourceType: 'Тип ресурса',
     allPlatforms: 'Все платформы', allTypes: 'Все типы', resourceCount: 'Найдено: {n} из {m}', resourceEmpty: 'Ресурсы не найдены', resourceHint: 'Попробуй другой запрос или сбрось фильтры.', resourceReset: 'Сбросить', resourceSoftware: 'Программа', resourceSource: 'Источник',
@@ -90,6 +92,8 @@ const UI = {
     cookieText: 'Сайт может сохранить одну техническую cookie - чтобы запомнить выбранный язык. Аналитики, рекламы и слежки нет. Подробнее - в {privacy:политике}.', cookieAccept: 'Принять', cookieDecline: 'Отклонить', cookieLabel: 'Cookie', cookieSettings: 'Cookie',
   },
   en: {
+    reviews: 'Reviews', reviewsList: 'Client reviews', reviewPrev: 'Previous reviews', reviewNext: 'Next reviews', reviewSource: 'Original review',
+    reviewRead: 'Read review', reviewReadFull: 'Read full review',
     skip: 'Skip to content', home: 'Artem Artemov - home', sections: 'Sections', menu: 'Menu', close: 'Close', lang: 'Site language',
     resources: 'Resources', resourceSearch: 'Search resources', resourcePlaceholder: 'Name, software or topic', platform: 'Platform', resourceType: 'Resource type',
     allPlatforms: 'All platforms', allTypes: 'All types', resourceCount: 'Showing {n} of {m}', resourceEmpty: 'No resources found', resourceHint: 'Try a different search or reset the filters.', resourceReset: 'Reset', resourceSoftware: 'Software', resourceSource: 'Source',
@@ -973,6 +977,161 @@ function CasePage({ item, index, side }) {
     <span className="aa-jr__num" aria-hidden="true">{index * 2 + 2}</span>
   </div>;
 }
+export function reviewSourceUrl(value) {
+  const address = typeof value === 'string' ? value.trim() : '';
+  if (!address || /\s/.test(address)) return '';
+  const url = /^(?:www\.)?(?:t\.me|telegram\.me)\//i.test(address) ? 'https://' + address : address;
+  if (!/^https?:\/\//i.test(url)) return '';
+  try {
+    return new URL(url).href;
+  } catch {
+    return '';
+  }
+}
+
+const REVIEW_PREVIEW_LIMIT = 160;
+const reviewSegmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter() : null;
+
+function reviewExcerpt(text) {
+  const preview = text.trim().replace(/\s+/g, ' ');
+  if (preview.length <= REVIEW_PREVIEW_LIMIT) return { text: preview, truncated: false };
+  const chars = reviewSegmenter
+    ? Array.from(reviewSegmenter.segment(preview), ({ segment }) => segment)
+    : Array.from(preview);
+  if (chars.length <= REVIEW_PREVIEW_LIMIT) return { text: preview, truncated: false };
+  const cut = chars.slice(0, REVIEW_PREVIEW_LIMIT - 1).join('');
+  const lastSpace = cut.lastIndexOf(' ');
+  const excerpt = lastSpace > cut.length - 24 ? cut.slice(0, lastSpace) : cut.trimEnd();
+  return { text: excerpt + '…', truncated: true };
+}
+
+function reviewPaper(index) {
+  const reverse = index % 2 !== 0;
+  return {
+    className: cx('aa-review-paper', reverse && 'aa-review-paper--reverse'),
+    style: { '--review-paper-pos': paperPos(index, reverse ? 'R' : 'L') },
+  };
+}
+
+function ReviewSource({ item }) {
+  const T = useT();
+  const source = reviewSourceUrl(item.sourceUrl);
+  return source && <a className="aa-review-source" href={source} target="_blank" rel="noopener noreferrer">
+    {T('reviewSource')} <span aria-hidden="true">↗</span>
+  </a>;
+}
+
+function ReviewDialog({ item, index, opener, onClose }) {
+  const T = useT();
+  const dialog = useRef(null);
+  const close = useRef(null);
+  useLayoutEffect(() => {
+    const el = dialog.current;
+    el.showModal();
+    close.current?.focus({ preventScroll: true });
+    return () => {
+      el.close();
+      if (opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [opener]);
+  const paper = reviewPaper(index);
+  return <dialog ref={dialog} className="aa-review-dialog" aria-labelledby="aa-review-title"
+    onCancel={(e) => { e.preventDefault(); onClose(); }}
+    onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className={cx('aa-review-note', paper.className)} style={paper.style}>
+      <header className="aa-review-note__head">
+        <h2 id="aa-review-title">{item.author}</h2>
+        <button ref={close} type="button" className="aa-review-note__close" aria-label={T('close')} onClick={onClose}>×</button>
+      </header>
+      <div className="aa-review-note__body" tabIndex={0}>
+        <blockquote><p>{item.text}</p></blockquote>
+        <ReviewSource item={item} />
+      </div>
+    </div>
+  </dialog>;
+}
+
+function Reviews({ reviews = {} }) {
+  const ed = useEd();
+  const T = useT();
+  const items = reviews.items || [];
+  const rail = useRef(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const [openReview, setOpenReview] = useState(null);
+  const measure = useCallback(() => {
+    const el = rail.current;
+    if (!el) return;
+    const left = el.scrollLeft > 2;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setEdges((prev) => prev.left === left && prev.right === right ? prev : { left, right });
+  }, []);
+  useLayoutEffect(() => {
+    const el = rail.current;
+    if (!el) return;
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [measure, items.length]);
+  if (!items.length && !ed?.addReview) return null;
+  const empty = items.length === 0;
+  const scrollable = !empty && (edges.left || edges.right);
+  const step = (direction) => {
+    const el = rail.current;
+    const card = el?.firstElementChild;
+    if (!card) return;
+    const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
+    const width = card.getBoundingClientRect().width + gap;
+    const current = Math.round(el.scrollLeft / width);
+    el.scrollTo({ left: (current + direction) * width, behavior: 'auto' });
+  };
+  return <section id="reviews" className={cx('aa-section aa-reviews', empty && 'aa-reviews--empty')} data-theme="other" data-header="other" aria-labelledby="reviews-h">
+    <div className="aa-wrap">
+      <div className="aa-reviews__head">
+        <div className="aa-reviews__heading">
+          <h2 id="reviews-h">{T('reviews')}</h2>
+          {empty && <p>Пока нет отзывов. Добавьте первый, чтобы показать блок на сайте.</p>}
+        </div>
+        <div className="aa-reviews__actions">
+          {ed?.addReview && <button type="button" className="aa-ed-btn aa-ed-btn--ghost aa-ed-review-add" aria-haspopup="dialog" onClick={ed.addReview}>
+            <span aria-hidden="true">+</span> {empty ? 'Добавить первый отзыв' : 'Добавить отзыв'}
+          </button>}
+          {scrollable && <div className="aa-reviews__nav">
+            <button type="button" aria-label={T('reviewPrev')} aria-controls="reviews-list" aria-disabled={!edges.left} onClick={() => edges.left && step(-1)}>←</button>
+            <button type="button" aria-label={T('reviewNext')} aria-controls="reviews-list" aria-disabled={!edges.right} onClick={() => edges.right && step(1)}>→</button>
+          </div>}
+        </div>
+      </div>
+      {!empty && <div className={cx('aa-reviews__frame', edges.left && 'has-left', edges.right && 'has-right')}>
+        <ul ref={rail} id="reviews-list" className="aa-reviews__rail" aria-label={T('reviewsList')} tabIndex={scrollable ? 0 : undefined} onScroll={measure}>
+          {items.map((item, index) => {
+            const excerpt = reviewExcerpt(item.text);
+            const read = T(excerpt.truncated ? 'reviewReadFull' : 'reviewRead');
+            const paper = reviewPaper(index);
+            return <li key={item.id} className={cx('aa-review', paper.className)} style={paper.style}>
+              <figure className="aa-review__sheet">
+                <blockquote><p>{excerpt.text}</p></blockquote>
+                <figcaption>
+                  <span className="aa-review__author">{item.author}</span>
+                  <div className="aa-review__links">
+                    <button type="button" className="aa-review__read" aria-haspopup="dialog" aria-label={read + ': ' + item.author}
+                      onClick={(e) => setOpenReview({ item, index, opener: e.currentTarget })}>{read} <span aria-hidden="true">→</span></button>
+                    <ReviewSource item={item} />
+                  </div>
+                </figcaption>
+              </figure>
+              {ed?.editReview && <button type="button" className="aa-ed-tool aa-ed-review-edit" aria-haspopup="dialog"
+                aria-label={'Редактировать отзыв: ' + item.author} onClick={() => ed.editReview(item.id)}>✎</button>}
+            </li>;
+          })}
+        </ul>
+      </div>}
+    </div>
+    {openReview && <ReviewDialog {...openReview} onClose={() => setOpenReview(null)} />}
+  </section>;
+}
+
 export function Cases({ cases = {}, id = 'cases' }) {
   const ed = useEd(); const reduced = useReducedMotion(); const T = useT();
   const items = cases.items || [];
@@ -1669,6 +1828,7 @@ export function Landing({ content, contained = false, onSubmitLead, onNavigateRe
       {c.rift && c.rift.enabled === true && <WorldRift rift={c.rift} />}
       <Otherworld seam={!(c.rift && c.rift.enabled === true)}>
         <Works works={c.works} />
+        <Reviews reviews={c.reviews} />
         <Cases cases={c.cases} />
         <Contact contact={c.contact} onSubmit={onSubmitLead || api.submitLead} />
       </Otherworld>

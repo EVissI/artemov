@@ -586,6 +586,14 @@ html:has(.aa-ed-modal[open]) { overflow: hidden; }
 .aa-ed-modal__apply:hover { background: #874839; border-color: #c58270; }
 .aa-ed-modal__form:has([aria-busy="true"]) .aa-ed-modal__apply { opacity: .5; cursor: wait; }
 .aa-ed-modal__delete { color: #e0a595; }
+.aa-ed-review-add { min-height: 42px; }
+.aa-ed-review-add span { color: #e0a595; }
+.aa-ed-review-edit {
+  position: absolute; top: 10px; right: 12px; z-index: 3; width: 36px; height: 36px;
+  background: #d9c6a8; border-color: #82614e; color: #4c271b; font-size: 18px;
+}
+.aa-ed-review-edit:hover { background: #e8d6b9; border-color: #762b22; color: #4f1912; }
+.aa-review:has(.aa-ed-review-edit) blockquote::before { content: ""; float: right; width: 34px; height: 26px; }
 @media (max-width: 540px) {
   .aa-ed-modal { width: calc(100% - 16px); max-height: calc(100dvh - 16px); }
   .aa-ed-modal__header, .aa-ed-modal__body, .aa-ed-modal__footer { padding-inline: 14px; }

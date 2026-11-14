@@ -180,6 +180,7 @@ const HOME_SECTIONS = [
   { kind: 'about', id: 'about', label: 'Обо мне' },
   { kind: 'services', id: 'services', label: 'Услуги' },
   { kind: 'works', id: 'works', label: 'Работы' },
+  { kind: 'reviews', id: 'reviews', label: 'Отзывы', focus: '.aa-ed-review-add' },
   { kind: 'cases', id: 'cases', label: 'Кейсы' },
   { kind: 'contact', id: 'contact', label: 'Связь' },
   { kind: 'footer', id: 'footer', label: 'Подвал' },
@@ -776,7 +777,7 @@ function LibraryPanel({ accept, onPick }) {
   </div>;
 }
 
-function ResourceEditDialog({ title, onClose, children, initialFocus }) {
+function EditDialog({ title, onClose, children, initialFocus }) {
   const dialog = useRef(null);
   const [library, setLibrary] = useState(null);
   const libraryOpener = useRef(null);
@@ -801,7 +802,7 @@ function ResourceEditDialog({ title, onClose, children, initialFocus }) {
     libraryOpener.current = document.activeElement;
     setLibrary({ accept, pick });
   };
-  return <dialog ref={dialog} className="aa-ed-modal" data-theme="other" aria-labelledby="aa-ed-resource-modal-title"
+  return <dialog ref={dialog} className="aa-ed-modal" data-theme="other" aria-labelledby="aa-ed-modal-title"
     onCancel={(e) => { e.preventDefault(); if (library) setLibrary(null); else onClose(); }}
     onKeyDown={(e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -814,7 +815,7 @@ function ResourceEditDialog({ title, onClose, children, initialFocus }) {
     }}>
     <header className="aa-ed-modal__header">
       {library && <button type="button" className="aa-ed-tool aa-ed-modal__back" aria-label="Назад к форме" onClick={() => setLibrary(null)}>←</button>}
-      <h2 id="aa-ed-resource-modal-title">{library ? 'Выбрать изображение' : title}</h2>
+      <h2 id="aa-ed-modal-title">{library ? 'Выбрать изображение' : title}</h2>
       <button type="button" className="aa-ed-tool" aria-label="Закрыть" onClick={onClose}>✕</button>
     </header>
     <div className="aa-ed-modal__view" hidden={Boolean(library)}>{children(openLibrary)}</div>
@@ -862,7 +863,7 @@ function ResourceItemEditor({ content, item, lang: pageLang, onApply, onRemove, 
       : translation;
     onApply({ ...resource, title }, localized, position);
   };
-  return <ResourceEditDialog title={creating ? 'Новый ресурс' : 'Редактировать ресурс'} onClose={onClose} initialFocus="input[required]">
+  return <EditDialog title={creating ? 'Новый ресурс' : 'Редактировать ресурс'} onClose={onClose} initialFocus="input[required]">
     {(openLibrary) => {
       const localEd = {
         lang: () => lang,
@@ -917,7 +918,7 @@ function ResourceItemEditor({ content, item, lang: pageLang, onApply, onRemove, 
         </footer>
       </form>;
     }}
-  </ResourceEditDialog>;
+  </EditDialog>;
 }
 
 function ResourceBackgroundEditor({ content, lang: pageLang, onApply, onClose }) {
@@ -926,7 +927,7 @@ function ResourceBackgroundEditor({ content, lang: pageLang, onApply, onClose })
     ru: content.resources?.backgroundImage || '',
     en: content.en?.resources?.backgroundImage || '',
   }));
-  return <ResourceEditDialog title="Фон страницы ресурсов" onClose={onClose}>
+  return <EditDialog title="Фон страницы ресурсов" onClose={onClose}>
     {(openLibrary) => <form className="aa-ed-modal__form" onSubmit={(e) => {
       e.preventDefault();
       if (!e.currentTarget.querySelector('[aria-busy="true"]')) onApply(images);
@@ -945,7 +946,69 @@ function ResourceBackgroundEditor({ content, lang: pageLang, onApply, onClose })
         </div>
       </footer>
     </form>}
-  </ResourceEditDialog>;
+  </EditDialog>;
+}
+
+function ReviewEditor({ item, onApply, onRemove, onClose }) {
+  const [draft, setDraft] = useState(() => item || { author: '', text: '', sourceUrl: '' });
+  const [error, setError] = useState(null);
+  const [removePrompt, setRemovePrompt] = useState(false);
+  const change = (key, e) => {
+    const value = noDash(e.target.value);
+    setDraft((prev) => ({ ...prev, [key]: value }));
+    if (error?.key === key) setError(null);
+  };
+  const submit = (e) => {
+    e.preventDefault();
+    const author = draft.author.trim();
+    const text = draft.text.trim();
+    const sourceUrl = AA.reviewSourceUrl(draft.sourceUrl);
+    const issue = !author ? { key: 'author', message: 'Укажи имя автора.' }
+      : !text ? { key: 'text', message: 'Введи текст отзыва.' }
+      : draft.sourceUrl.trim() && !sourceUrl ? { key: 'sourceUrl', message: 'Укажи ссылку на пост в Telegram или адрес с https://.' }
+      : null;
+    if (issue) {
+      setError(issue);
+      e.currentTarget.elements.namedItem(issue.key)?.focus();
+      return;
+    }
+    onApply({ id: item?.id, author, text, sourceUrl });
+  };
+  const field = (key) => ({
+    name: key, id: 'review-' + key, className: 'aa-ed-input', value: draft[key] || '',
+    onChange: (e) => change(key, e), 'aria-invalid': error?.key === key || undefined,
+    'aria-describedby': error?.key === key ? 'review-error' : undefined,
+  });
+  return <EditDialog title={item ? 'Редактировать отзыв' : 'Новый отзыв'} onClose={onClose} initialFocus="#review-author">
+    {() => <form className="aa-ed-modal__form" onSubmit={submit} noValidate>
+      <div className="aa-ed-modal__body">
+        <div className="aa-ed-field">
+          <label className="aa-ed-field__l" htmlFor="review-author">Автор</label>
+          <input {...field('author')} required maxLength={120} />
+        </div>
+        <div className="aa-ed-field">
+          <label className="aa-ed-field__l" htmlFor="review-text">Текст отзыва</label>
+          <textarea {...field('text')} required maxLength={4000} rows={6} />
+        </div>
+        <div className="aa-ed-field">
+          <label className="aa-ed-field__l" htmlFor="review-sourceUrl">Ссылка на оригинал <small className="aa-ed-note">· необязательно</small></label>
+          <input {...field('sourceUrl')} inputMode="url" maxLength={2048} placeholder="t.me/канал/123 или https://…" />
+        </div>
+        {error && <p id="review-error" className="aa-ed-modal__error" role="alert">{error.message}</p>}
+      </div>
+      <footer className="aa-ed-modal__footer">
+        {item && (removePrompt ? <div className="aa-ed-modal__remove">
+          <span>Удалить отзыв?</span>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--danger" onClick={onRemove}>Удалить</button>
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => setRemovePrompt(false)}>Нет</button>
+        </div> : <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-modal__delete" onClick={() => setRemovePrompt(true)}>Удалить отзыв</button>)}
+        <div className="aa-ed-modal__buttons">
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={onClose}>Отмена</button>
+          <button type="submit" className="aa-ed-btn aa-ed-btn--sm aa-ed-modal__apply">{item ? 'Применить' : 'Добавить'}</button>
+        </div>
+      </footer>
+    </form>}
+  </EditDialog>;
 }
 
 /* ============ история версий ============ */
@@ -988,6 +1051,7 @@ function App() {
   const [previewPage, setPreviewPage] = useState('home');
   const [panel, setPanel] = useState(null); // { type: 'section'|'item'|'leads'|'library'|'history', ... }
   const [resourceEditor, setResourceEditor] = useState(null);
+  const [reviewEditor, setReviewEditor] = useState(null);
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 900px)').matches);
   const [newLeads, setNewLeads] = useState(0);
   const [status, setStatus] = useState(null); // { text, tone }
@@ -1181,13 +1245,33 @@ function App() {
 
   const selectedItem = panel?.type === 'item' ? panel.p.split('.').at(-1).slice(1) : null;
   const editContext = useMemo(() => ({ ...ed, selectedWork: panel?.kind === 'work' ? selectedItem : null,
-    selectedCase: panel?.kind === 'case' ? selectedItem : null }), [ed, panel?.kind, selectedItem]);
+    selectedCase: panel?.kind === 'case' ? selectedItem : null,
+    addReview: () => setReviewEditor({}),
+    editReview: (id) => setReviewEditor({ id }),
+  }), [ed, panel?.kind, selectedItem]);
   if (auth === 'checking') return <div className="aa-page aa-ed-login" data-theme="other"><p className="aa-label">Настройка частоты…</p></div>;
   if (auth === 'out') return <Login onOk={loadAll} />;
   if (auth === 'error' || !D.draft) return <div className="aa-page aa-ed-login" data-theme="other"><p className="aa-label">Нет сигнала от сервера. <button type="button" className="aa-ed-btn" onClick={loadAll}>Повторить</button></p></div>;
 
   const content = D.draft;
   const view = lang === 'en' ? AA.localize(content, 'en') : content; // что видно на странице: в EN - перевод поверх русского
+  const reviewToEdit = content.reviews?.items?.find(({ id }) => id === reviewEditor?.id);
+  const closeReviewEditor = () => setReviewEditor(null);
+  const applyReview = (values) => {
+    const item = { ...values, id: values.id || uid('rev') };
+    D.update((draft) => {
+      const items = draft.reviews?.items || [];
+      if (!values.id) return setIn(draft, 'reviews.items', [...items, item]);
+      if (!items.some(({ id }) => id === item.id)) return draft;
+      return setIn(draft, 'reviews.items', items.map((review) => review.id === item.id ? item : review));
+    }, { snapshot: true });
+    closeReviewEditor();
+  };
+  const removeReview = () => {
+    const id = reviewToEdit.id;
+    ed.remove('reviews.items', '@' + id);
+    closeReviewEditor();
+  };
   const logout = async () => { if (dirty && !confirm('Есть несохранённые правки. Выйти?')) return; await call('POST', '/logout').catch(() => {}); D.load(null, null); setAuth('out'); };
   const openResources = () => {
     scrollTarget.current = 'top';
@@ -1228,8 +1312,8 @@ function App() {
     }, { snapshot: true });
     closeResourceEditor();
   };
-  const goToSection = ({ kind, id }) => {
-    scrollTarget.current = { id, focus: '.aa-ed-section' };
+  const goToSection = ({ id, focus = '.aa-ed-section' }) => {
+    scrollTarget.current = { id, focus };
     setPreviewPage('home');
     setEditing(true);
     closePanel(false);
@@ -1309,6 +1393,8 @@ function App() {
     {(resourceEditor?.type === 'add' || resourceToEdit) && <ResourceItemEditor content={content}
       item={resourceToEdit} lang={lang}
       onClose={closeResourceEditor} onApply={applyResource} onRemove={removeResource} />}
+    {reviewEditor && (!reviewEditor.id || reviewToEdit) && <ReviewEditor item={reviewToEdit}
+      onApply={applyReview} onRemove={removeReview} onClose={closeReviewEditor} />}
 
     {panel && <aside id="aa-editor-panel" className="aa-ed-panel" data-theme="other" aria-labelledby="aa-editor-title" ref={panelRef} tabIndex={-1}>
       <header className="aa-ed-panel__h">

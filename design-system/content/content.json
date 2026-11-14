@@ -415,6 +415,9 @@
       }
     ]
   },
+  "reviews": {
+    "items": []
+  },
   "cases": {
     "kicker": "Протоколы",
     "title": "Кейсы",
