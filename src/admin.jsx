@@ -40,8 +40,8 @@ function uploadFile(file, onProgress, { purpose } = {}) {
     }
   });
 }
-/* куда идёт медиа - по пути в контенте: превью на наведение и фон hero без звука */
-const purposeOf = (p) => (/\.previewVideo$/.test(p || '') ? 'preview' : p === 'hero.media.src' ? 'bg' : '');
+/* фон hero загружается без звука */
+const purposeOf = (p) => p === 'hero.media.src' ? 'bg' : '';
 const upText = (up) => `${up.phase === 'convert' ? 'Сжатие' : 'Загрузка'} ${Math.round((up.prog || 0) * 100)}%`;
 
 /* ============ пути в контенте: "works.items.@w-01.title", "about.paragraphs.0" ============ */
@@ -114,17 +114,15 @@ const KINDS = {
   work: {
     make: (c, extra = {}) => {
       const items = getIn(c, 'works.items') || []; const cats = getIn(c, 'works.categories') || [];
-      return { id: uid('w'), title: '', category: extra.category || cats[0]?.id || 'youtube', format: '16:9', year: year(), previewImage: '', previewVideo: '', videoUrl: '', description: '', order: items.reduce((m, w) => Math.max(m, w.order || 0), 0) + 1, published: false };
+      return { id: uid('w'), title: '', category: extra.category || cats[0]?.id || '', format: '16:9', year: year(), previewImage: '', videoUrl: '', description: '', order: items.reduce((m, w) => Math.max(m, w.order || 0), 0) + 1, published: false };
     },
     fields: [
       { k: 'title', label: 'Название', required: true },
-      { k: 'category', label: 'Категория', t: 'select', half: true, options: (c) => c.works.categories?.map(({ id, label }) => [id, label]) || [] },
       { k: 'format', label: 'Формат', t: 'select', half: true, options: [['16:9', '16:9 · Горизонтальный'], ['9:16', '9:16 · Вертикальный']] },
       { k: 'year', label: 'Год', t: 'number', half: true },
       { k: 'description', label: 'Описание', t: 'textarea' },
       { k: 'videoUrl', label: 'Основной ролик', hint: 'Открывается в плеере по кнопке «Смотреть».', t: 'media', accept: 'video', link: true, urlLabel: 'Ссылка на YouTube или видео' },
       { k: 'previewImage', label: 'Обложка карточки', t: 'media', accept: 'image' },
-      { k: 'previewVideo', label: 'Короткое превью', hint: 'Играет без звука у выбранной работы.', t: 'media', accept: 'video' },
     ],
   },
   case: {
@@ -231,9 +229,8 @@ const SECTIONS = {
     fields: [{ k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' }],
   },
   works: {
-    title: 'Работы и категории',
-    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'allLabel', label: 'Вкладка «все»' }, { group: 'Категории' },
-      { k: 'categories', label: 'Категории', t: 'list', make: () => ({ id: uid('cat'), label: '[Категория]' }), of: [{ k: 'label', label: 'Название', half: true }, { k: 'id', label: 'Код (латиница)', half: true, slug: true }] }],
+    title: 'Работы',
+    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'allLabel', label: 'Вкладка «все»' }],
   },
   cases: { title: 'Кейсы', fields: [{ k: 'title', label: 'Заголовок' }] },
   contact: {
@@ -783,6 +780,7 @@ function LibraryPanel({ accept, onPick }) {
 }
 
 function EditDialog({ title, onClose, children, initialFocus, className }) {
+  const titleId = React.useId();
   const dialog = useRef(null);
   const [library, setLibrary] = useState(null);
   const libraryOpener = useRef(null);
@@ -807,7 +805,7 @@ function EditDialog({ title, onClose, children, initialFocus, className }) {
     libraryOpener.current = document.activeElement;
     setLibrary({ accept, pick });
   };
-  return <dialog ref={dialog} className={cx('aa-ed-modal', className)} data-theme="other" aria-labelledby="aa-ed-modal-title"
+  return <dialog ref={dialog} className={cx('aa-ed-modal', className)} data-theme="other" aria-labelledby={titleId}
     onCancel={(e) => { e.preventDefault(); if (library) setLibrary(null); else onClose(); }}
     onKeyDown={(e) => {
       if (e.key === 'Escape') e.stopPropagation();
@@ -821,7 +819,7 @@ function EditDialog({ title, onClose, children, initialFocus, className }) {
     }}>
     <header className="aa-ed-modal__header">
       {library && <button type="button" className="aa-ed-tool aa-ed-modal__back" aria-label="Назад к форме" onClick={() => setLibrary(null)}>←</button>}
-      <h2 id="aa-ed-modal-title">{library ? (library.accept === 'video' ? 'Выбрать видео' : 'Выбрать изображение') : title}</h2>
+      <h2 id={titleId}>{library ? (library.accept === 'video' ? 'Выбрать видео' : 'Выбрать изображение') : title}</h2>
       <button type="button" className="aa-ed-tool" aria-label="Закрыть" onClick={onClose}>✕</button>
     </header>
     <div className="aa-ed-modal__view" hidden={Boolean(library)}>{children(openLibrary)}</div>
@@ -837,6 +835,105 @@ function ModalLanguage({ lang, setLang }) {
     <button type="button" aria-pressed={lang === 'ru'} onClick={() => setLang('ru')}>RU</button>
     <button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
   </div>;
+}
+
+function WorkCategoriesEditor({ content, onApply, onClose }) {
+  const initial = () => (content.works.categories || []).map((category) => ({
+    ...category,
+    english: content.en?.works?.categories?.find((row) => row?.id === category.id)?.label || '',
+  }));
+  const [rows, setRows] = useState(initial);
+  const [edit, setEdit] = useState(null);
+  const [added, setAdded] = useState(null);
+  const [error, setError] = useState('');
+  const opener = useRef(null);
+  const name = useRef(null);
+  const add = useRef(null);
+  const counts = new Map();
+  for (const { category } of content.works.items) counts.set(category, (counts.get(category) || 0) + 1);
+  const editId = edit?.id;
+  useLayoutEffect(() => {
+    if (editId === undefined) return;
+    name.current?.focus();
+    name.current?.select();
+  }, [editId]);
+  const start = (e, row) => {
+    opener.current = e.currentTarget;
+    setError('');
+    setEdit(row || { id: '', label: '', english: '' });
+  };
+  const leave = () => {
+    setEdit(null);
+    setError('');
+    requestAnimationFrame(() => (opener.current?.isConnected ? opener.current : add.current)?.focus({ preventScroll: true }));
+  };
+  const move = (index, step) => setRows((current) => {
+    const next = current.slice();
+    [next[index], next[index + step]] = [next[index + step], next[index]];
+    return next;
+  });
+  const submit = (e) => {
+    e.preventDefault();
+    if (!edit) {
+      onApply(rows, added);
+      return;
+    }
+    const label = edit.label.trim();
+    if (!label || rows.some((row) => row.id !== edit.id && row.label.trim().toLowerCase() === label.toLowerCase())) {
+      setError(label ? 'Категория с таким названием уже есть.' : 'Введи название категории на русском.');
+      name.current?.focus();
+      return;
+    }
+    const next = { ...edit, id: edit.id || ('cat-' + window.crypto.randomUUID()), label, english: edit.english.trim() };
+    setRows((current) => edit.id ? current.map((row) => row.id === edit.id ? next : row) : [...current, next]);
+    if (!edit.id) setAdded(next.id);
+    leave();
+  };
+  return <EditDialog title="Категории работ" className="aa-ed-category-modal" onClose={edit ? leave : onClose} initialFocus=".aa-ed-category-add">
+    {() => <form className="aa-ed-modal__form" onSubmit={submit} noValidate>
+      <div className="aa-ed-modal__body">
+        {edit ? <div className="aa-ed-category-edit">
+          <h3>{edit.id ? 'Переименовать категорию' : 'Новая категория'}</h3>
+          <label>Название на русском<input ref={name} className="aa-ed-input" required maxLength={80} value={edit.label}
+            aria-invalid={Boolean(error)} onChange={(e) => { setEdit({ ...edit, label: noDash(e.target.value) }); setError(''); }} /></label>
+          <label>Название на английском<input className="aa-ed-input" maxLength={80} value={edit.english}
+            placeholder="Как в русской версии" onChange={(e) => setEdit({ ...edit, english: noDash(e.target.value) })} /></label>
+          {error && <p className="aa-ed-modal__error" role="alert">{error}</p>}
+        </div> : <>
+          <div className="aa-ed-category-head">
+            <p className="aa-ed-note">Порядок списка задаёт порядок вкладок в работах.</p>
+            <button ref={add} type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-category-add" onClick={start}>+ Добавить категорию</button>
+          </div>
+          {rows.length ? <ul className="aa-ed-category-list">
+            {rows.map((row, index) => {
+              const count = counts.get(row.id) || 0;
+              return <li key={row.id} className="aa-ed-category-row">
+                <div className="aa-ed-category-name">
+                  <strong>{row.label}</strong>
+                  {row.english && <small lang="en">{row.english}</small>}
+                </div>
+                <span className="aa-ed-category-count">{count ? 'Работ: ' + count : 'Пустая'}</span>
+                <div className="aa-ed-category-actions">
+                  <button type="button" className="aa-ed-btn aa-ed-btn--sm" aria-label={'Переименовать ' + row.label} onClick={(e) => start(e, row)}>Изменить</button>
+                  <button type="button" className="aa-ed-tool" aria-label={'Выше: ' + row.label} disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
+                  <button type="button" className="aa-ed-tool" aria-label={'Ниже: ' + row.label} disabled={index === rows.length - 1} onClick={() => move(index, 1)}>↓</button>
+                  <button type="button" className="aa-ed-tool aa-ed-category-delete" aria-label={'Удалить ' + row.label}
+                    disabled={count > 0} title={count ? 'Сначала перенеси работы в другую категорию' : 'Удалить категорию'}
+                    onClick={() => { setRows((current) => current.filter(({ id }) => id !== row.id)); add.current?.focus(); }}>×</button>
+                </div>
+              </li>;
+            })}
+          </ul> : <p className="aa-ed-note">Категорий пока нет.</p>}
+        </>}
+      </div>
+      <footer className="aa-ed-modal__footer">
+        <div className="aa-ed-modal__buttons">
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={edit ? leave : onClose}>Отмена</button>
+          <button type="submit" className="aa-ed-btn aa-ed-btn--sm aa-ed-modal__apply">{edit ? (edit.id ? 'Применить' : 'Добавить') : 'Применить категории'}</button>
+        </div>
+      </footer>
+    </form>}
+  </EditDialog>;
 }
 
 function parseMomentTime(value) {
@@ -881,7 +978,7 @@ function WorkMomentsEditor({ url, rows, onChange, onDuration }) {
     <div className="aa-ed-work-moments__head">
       <div>
         <h3 id="aa-ed-moments-title">Лучшие моменты</h3>
-        <p className="aa-ed-note">Укажи время в секундах или в формате 1:24. Если есть отрезки, зритель сначала увидит их.</p>
+        <p className="aa-ed-note">Укажи время в секундах или в формате 1:24. Отрезки играют без звука при наведении и первыми открываются в плеере.</p>
       </div>
       {url && !preview && <button type="button" className="aa-ed-btn aa-ed-btn--sm" onClick={() => setPreview(true)}>Открыть видео для разметки</button>}
     </div>
@@ -912,7 +1009,7 @@ function WorkMomentsEditor({ url, rows, onChange, onDuration }) {
   </section>;
 }
 
-function WorkEditor({ content, item, category, lang: pageLang, onApply, onRemove, onClose }) {
+function WorkEditor({ content, item, category, lang: pageLang, onApply, onRemove, onClose, onOpenCategories }) {
   const [lang, setLang] = useState(item ? pageLang : 'ru');
   const [nameError, setNameError] = useState(false);
   const [removePrompt, setRemovePrompt] = useState(false);
@@ -920,11 +1017,13 @@ function WorkEditor({ content, item, category, lang: pageLang, onApply, onRemove
     const work = item || KINDS.work.make(content, { category });
     const translation = content.en?.works?.items?.find((row) => row?.id === work.id);
     return {
-      works: { categories: content.works.categories, items: [work] },
+      works: { items: [work] },
       en: { works: { items: translation ? [translation] : [] } },
     };
   });
   const work = form.works.items[0];
+  const categories = content.works.categories || [];
+  const englishCategories = lang === 'en' ? content.en?.works?.categories || [] : [];
   const translation = form.en.works.items[0];
   const separateVideo = AA.workVideoKey(translation?.videoUrl) && AA.workVideoKey(translation.videoUrl) !== AA.workVideoKey(work.videoUrl);
   const momentLang = lang === 'en' && separateVideo ? 'en' : 'ru';
@@ -981,10 +1080,11 @@ function WorkEditor({ content, item, category, lang: pageLang, onApply, onRemove
           if (p === path + '.title' && !translated) setNameError(false);
         },
       };
-      const fields = (type) => KINDS.work.fields.filter((f) => (f.t === 'media') === (type === 'media')).map((f) =>
+      const field = (f) =>
         <div className={cx('aa-ed-cell', f.half && 'aa-ed-cell--half')} key={f.k}>
-          <Field f={f} bp={path} d={work} td={translation} content={form} ed={localEd} />
-        </div>);
+          <Field f={f} bp={path} d={work} td={translation} content={content} ed={localEd} />
+        </div>;
+      const [title, ...details] = KINDS.work.fields.filter((f) => f.t !== 'media');
       return <form ref={formRef} className="aa-ed-modal__form" onSubmit={submit} noValidate>
         <div className="aa-ed-modal__body">
           <div className="aa-ed-modal__options aa-ed-work-options">
@@ -999,11 +1099,31 @@ function WorkEditor({ content, item, category, lang: pageLang, onApply, onRemove
           <div className="aa-ed-work-layout">
             <section className="aa-ed-work-fields" aria-labelledby="aa-ed-work-details">
               <h3 id="aa-ed-work-details">Карточка</h3>
-              <div className="aa-ed-grid">{fields('details')}</div>
+              <div className="aa-ed-grid">{field(title)}
+                <div className="aa-ed-cell aa-ed-category-field">
+                  <div className="aa-ed-category-field__head">
+                    <label className="aa-ed-field__l" htmlFor="aa-ed-work-category">Категория</label>
+                    <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" aria-haspopup="dialog"
+                      onClick={() => onOpenCategories((rows, added) => {
+                        setForm((current) => setIn(current, path + '.category', (selected) => {
+                          if (added && rows.some(({ id }) => id === added)) return added;
+                          return categories.some(({ id }) => id === selected) && !rows.some(({ id }) => id === selected) ? '' : selected;
+                        }));
+                      })}>Управлять категориями</button>
+                  </div>
+                  <select id="aa-ed-work-category" className="aa-ed-input" value={work.category || ''}
+                    onChange={(e) => localEd.set(path + '.category', e.target.value, { base: true })}>
+                    <option value="">Без категории</option>
+                    {categories.map(({ id, label }) => <option key={id} value={id}>{englishCategories.find((row) => row?.id === id)?.label || label}</option>)}
+                    {work.category && !categories.some(({ id }) => id === work.category) && <option value={work.category}>{work.category}</option>}
+                  </select>
+                </div>
+                {details.map(field)}
+              </div>
             </section>
             <section className="aa-ed-work-fields" aria-labelledby="aa-ed-work-media">
               <h3 id="aa-ed-work-media">Видео и обложка</h3>
-              <div className="aa-ed-grid">{fields('media')}</div>
+              <div className="aa-ed-grid">{KINDS.work.fields.filter((f) => f.t === 'media').map(field)}</div>
             </section>
           </div>
           {momentsError && <p className="aa-ed-modal__error aa-ed-work-moments-error" role="alert" tabIndex={-1}>{momentsError}</p>}
@@ -1250,6 +1370,7 @@ function App() {
   const [resourceEditor, setResourceEditor] = useState(null);
   const [reviewEditor, setReviewEditor] = useState(null);
   const [workEditor, setWorkEditor] = useState(null);
+  const [workCategoriesEditor, setWorkCategoriesEditor] = useState(null);
   const [workSelection, setWorkSelection] = useState(null);
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 900px)').matches);
   const [newLeads, setNewLeads] = useState(0);
@@ -1453,6 +1574,7 @@ function App() {
 
   const selectedItem = panel?.type === 'item' ? panel.p.split('.').at(-1).slice(1) : null;
   const editContext = useMemo(() => ({ ...ed, workSelection,
+    openWorkCategories: () => setWorkCategoriesEditor({}),
     selectedCase: panel?.kind === 'case' ? selectedItem : null,
     addReview: () => setReviewEditor({}),
     editReview: (id) => setReviewEditor({ id }),
@@ -1465,6 +1587,23 @@ function App() {
   const view = lang === 'en' ? AA.localize(content, 'en') : content; // что видно на странице: в EN - перевод поверх русского
   const workToEdit = content.works.items.find(({ id }) => id === workEditor?.id);
   const closeWorkEditor = () => setWorkEditor(null);
+  const closeWorkCategories = () => setWorkCategoriesEditor(null);
+  const applyWorkCategories = (rows, added) => {
+    const categories = rows.map(({ english, ...category }) => category);
+    const translations = rows.filter(({ english }) => english).map(({ id, english }) => ({ id, label: english }));
+    D.update((draft) => {
+      const ids = new Set(categories.map(({ id }) => id));
+      const removed = (draft.works.categories || []).filter(({ id }) => !ids.has(id));
+      if (removed.some(({ id }) => draft.works.items.some(({ category }) => category === id))) return draft;
+      const old = draft.works.categories || [];
+      const oldTranslations = draft.en?.works?.categories || [];
+      if (JSON.stringify(old) === JSON.stringify(categories) && JSON.stringify(oldTranslations) === JSON.stringify(translations)) return draft;
+      const next = setIn(draft, 'works.categories', categories);
+      return oldTranslations.length || translations.length ? setIn(next, 'en.works.categories', translations) : next;
+    }, { snapshot: true });
+    workCategoriesEditor.afterApply?.(categories, added);
+    closeWorkCategories();
+  };
   const applyWork = (work, translation) => {
     D.update((draft) => {
       const rows = draft.works.items;
@@ -1622,7 +1761,9 @@ function App() {
         </AA.EditContext.Provider>}</div>
 
     {workEditor && (!workEditor.id || workToEdit) && <WorkEditor content={content} item={workToEdit}
-      category={workEditor.category} lang={lang} onClose={closeWorkEditor} onApply={applyWork} onRemove={removeWork} />}
+      category={workEditor.category} lang={lang} onClose={closeWorkEditor} onApply={applyWork} onRemove={removeWork}
+      onOpenCategories={(afterApply) => setWorkCategoriesEditor({ afterApply })} />}
+    {workCategoriesEditor && <WorkCategoriesEditor content={content} onApply={applyWorkCategories} onClose={closeWorkCategories} />}
     {resourceEditor?.type === 'background' && <ResourceBackgroundEditor content={content} lang={lang}
       onClose={closeResourceEditor} onApply={applyResourceBackground} />}
     {(resourceEditor?.type === 'add' || resourceToEdit) && <ResourceItemEditor content={content}

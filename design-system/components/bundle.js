@@ -413,6 +413,16 @@ function Barcode({ seed = "AA", className, bars = 34 }) {
 function Atmosphere({ fixed = true, grain = true, scanlines = true, vignette = true }) {
   return /* @__PURE__ */ h("div", { className: cx("aa-atmos", fixed && "aa-atmos--fixed"), "aria-hidden": "true" }, grain && /* @__PURE__ */ h("div", { className: "aa-atmos__grain" }), scanlines && /* @__PURE__ */ h("div", { className: "aa-atmos__scan" }), vignette && /* @__PURE__ */ h("div", { className: "aa-atmos__vignette" }));
 }
+function headerNav(content, lang) {
+  var _a, _b;
+  const nav = content.nav || [];
+  const configured = nav.some(({ id }) => id === "reviews");
+  if (!((_b = (_a = content.reviews) == null ? void 0 : _a.items) == null ? void 0 : _b.length)) return configured ? nav.filter(({ id }) => id !== "reviews") : nav;
+  if (configured) return nav;
+  const works = nav.findIndex(({ id }) => id === "works");
+  const at = works < 0 ? nav.length : works + 1;
+  return [...nav.slice(0, at), { id: "reviews", label: tr(lang, "reviews") }, ...nav.slice(at)];
+}
 function Header({ nav = [], monogram = "AA", theme = "other", active, onNavigate, onNavigateResources, fixed = true, solid = false, langs = [], onLanguageChange, page = "home" }) {
   const [open, setOpen] = useState(false);
   const lang = useLang();
@@ -967,31 +977,31 @@ function WorldRift({ rift = {}, progress, strips: stripCount, id = "rift" }) {
 function PosterCard({ work, index = 0, categoryLabel, onOpen, p }) {
   const ed = useEd();
   p = p || "works.items.@" + work.id;
-  const vRef = useRef(null);
-  const [vidOn, setVidOn] = useState(false);
   const reduced = useReducedMotion();
-  const intent = useRef(0);
+  const hover = useWorkHover();
+  const moments = useMemo(() => workMoments(work), [work]);
+  const preview = !ed && !reduced && hover.id === work.id && moments.length > 0;
   const vertical = work.format === "9:16";
-  const play = () => {
-    setVidOn(true);
-    requestAnimationFrame(() => {
-      const v = vRef.current;
-      v && v.play && v.play().catch(() => {
-      });
-    });
-  };
-  const enter = () => {
-    if (!work.previewVideo || reduced) return;
-    clearTimeout(intent.current);
-    intent.current = setTimeout(play, 220);
-  };
-  const leave = () => {
-    clearTimeout(intent.current);
-    const v = vRef.current;
-    v && v.pause && v.pause();
-  };
-  useEffect(() => () => clearTimeout(intent.current), []);
-  return /* @__PURE__ */ h("article", { className: cx("aa-poster", ed && work.published === false && "aa-ed-draft"), onMouseEnter: enter, onMouseLeave: leave, onFocus: ed ? void 0 : enter, onBlur: ed ? void 0 : leave }, edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }), /* @__PURE__ */ h("div", { className: "aa-poster__top aa-micro", "aria-hidden": "true" }, /* @__PURE__ */ h("span", null, "№ ", pad(index + 1)), /* @__PURE__ */ h(Monogram, { variant: "mark" }), /* @__PURE__ */ h("span", null, work.year)), /* @__PURE__ */ h("div", { className: cx("aa-poster__frame", vertical && "aa-poster__frame--v"), style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage || vidOn ? /* @__PURE__ */ h("div", { className: "aa-poster__media" }, work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: `Кадр из работы «${work.title}»`, loading: "lazy", decoding: "async" }), vidOn && /* @__PURE__ */ h("video", { key: work.previewVideo, ref: vRef, muted: true, loop: true, playsInline: true, preload: "none", "aria-hidden": "true", style: { position: "absolute", inset: 0 } }, videoSources(work.previewVideo))) : /* @__PURE__ */ h("div", { className: "aa-poster__ph", role: "img", "aria-label": `Слот под превью ${work.format}` }, /* @__PURE__ */ h(Monogram, { variant: "watermark" }), /* @__PURE__ */ h("span", { className: "aa-micro" }, "Слот · превью ", work.format)), /* @__PURE__ */ h("div", { className: "aa-poster__vhs", "aria-hidden": "true" }), /* @__PURE__ */ h(Rec, { className: "aa-poster__rec", label: "PLAY" }), edEl(ed, "slot", { p: p + ".previewImage", v: work.previewImage, accept: "image", label: "Превью " + work.format })), edEl(ed, "slot", { p: p + ".previewVideo", v: work.previewVideo, accept: "video", label: "Видео-превью на наведение", compact: true }), edEl(ed, "slot", { p: p + ".videoUrl", v: work.videoUrl, accept: "video", label: "Ролик в плеере", compact: true, link: true }), /* @__PURE__ */ h("h3", { className: "aa-h3 aa-poster__title" }, /* @__PURE__ */ h(E, { p: p + ".title", v: work.title, ph: "Название" })), /* @__PURE__ */ h("div", { className: "aa-poster__row" }, /* @__PURE__ */ h("span", { className: "aa-micro" }, categoryLabel || work.category, " · ", work.format), /* @__PURE__ */ h(Barcode, { seed: work.id, className: "aa-poster__code" })), /* @__PURE__ */ h("div", { className: "aa-poster__plate aa-label", "aria-hidden": "true" }, /* @__PURE__ */ h("span", null, categoryLabel || work.category), /* @__PURE__ */ h("span", null, "▶ Смотреть")), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-poster__hit", onClick: () => onOpen && onOpen(work), "aria-label": `Смотреть: ${work.title}, ${categoryLabel || work.category}, ${work.year}` }));
+  return /* @__PURE__ */ h(
+    "article",
+    {
+      className: cx("aa-poster", ed && work.published === false && "aa-ed-draft"),
+      onPointerEnter: !ed && !reduced && moments.length ? (event) => hover.enter(event, work.id) : void 0,
+      onPointerLeave: hover.clear,
+      onPointerCancel: hover.clear
+    },
+    edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }),
+    /* @__PURE__ */ h("div", { className: "aa-poster__top aa-micro", "aria-hidden": "true" }, /* @__PURE__ */ h("span", null, "№ ", pad(index + 1)), /* @__PURE__ */ h(Monogram, { variant: "mark" }), /* @__PURE__ */ h("span", null, work.year)),
+    /* @__PURE__ */ h("div", { className: cx("aa-poster__frame", vertical && "aa-poster__frame--v"), style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage ? /* @__PURE__ */ h("div", { className: "aa-poster__media" }, /* @__PURE__ */ h("img", { src: work.previewImage, alt: `Кадр из работы «${work.title}»`, loading: "lazy", decoding: "async" })) : /* @__PURE__ */ h("div", { className: "aa-poster__ph", role: "img", "aria-label": `Слот под превью ${work.format}` }, /* @__PURE__ */ h(Monogram, { variant: "watermark" }), /* @__PURE__ */ h("span", { className: "aa-micro" }, "Слот · превью ", work.format)), /* @__PURE__ */ h("div", { className: "aa-poster__vhs", "aria-hidden": "true" }), /* @__PURE__ */ h(Rec, { className: "aa-poster__rec", label: "PLAY" }), preview && /* @__PURE__ */ h(HoverHighlights, { work, moments }), edEl(ed, "slot", { p: p + ".previewImage", v: work.previewImage, accept: "image", label: "Превью " + work.format })),
+    edEl(ed, "slot", { p: p + ".videoUrl", v: work.videoUrl, accept: "video", label: "Ролик в плеере", compact: true, link: true }),
+    /* @__PURE__ */ h("h3", { className: "aa-h3 aa-poster__title" }, /* @__PURE__ */ h(E, { p: p + ".title", v: work.title, ph: "Название" })),
+    /* @__PURE__ */ h("div", { className: "aa-poster__row" }, /* @__PURE__ */ h("span", { className: "aa-micro" }, categoryLabel || work.category, " · ", work.format), /* @__PURE__ */ h(Barcode, { seed: work.id, className: "aa-poster__code" })),
+    /* @__PURE__ */ h("div", { className: "aa-poster__plate aa-label", "aria-hidden": "true" }, /* @__PURE__ */ h("span", null, categoryLabel || work.category), /* @__PURE__ */ h("span", null, "▶ Смотреть")),
+    !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-poster__hit", onClick: () => {
+      hover.clear();
+      onOpen == null ? void 0 : onOpen(work);
+    }, "aria-label": `Смотреть: ${work.title}, ${categoryLabel || work.category}, ${work.year}` })
+  );
 }
 function youtubeId(url) {
   if (!url) return null;
@@ -1037,22 +1047,27 @@ function loadYouTubeApi() {
   });
   return youtubeApi;
 }
-function YouTubeWorkVideo({ id, title, request, onTime, onDuration, onClipEnd, onError }) {
+function YouTubeWorkVideo({ id, title, request, preview = false, onTime, onDuration, onClipEnd, onError, onPlaying }) {
   const host = useRef(null);
   const active = useRef(null);
   const [player, setPlayer] = useState(null);
   const callbacks = useRef(null);
-  callbacks.current = { onTime, onDuration, onClipEnd, onError };
+  callbacks.current = { onTime, onDuration, onClipEnd, onError, onPlaying };
   useEffect(() => {
     const container = host.current;
     let instance;
     let timer;
     let stopped = false;
     let ready = false;
+    let playing = false;
     loadYouTubeApi().then((YT) => {
       if (stopped) return;
       const frame = document.createElement("iframe");
       const params = new URLSearchParams({ enablejsapi: "1", origin: location.origin, rel: "0", playsinline: "1" });
+      if (preview) {
+        params.set("controls", "0");
+        frame.tabIndex = -1;
+      }
       frame.src = "https://www.youtube-nocookie.com/embed/" + id + "?" + params;
       frame.title = title;
       frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
@@ -1062,19 +1077,28 @@ function YouTubeWorkVideo({ id, title, request, onTime, onDuration, onClipEnd, o
         onReady: ({ target }) => {
           if (stopped) return;
           ready = true;
+          if (preview) target.mute();
           setPlayer(target);
+        },
+        onAutoplayBlocked: () => {
+          var _a, _b;
+          if (!stopped && preview) (_b = (_a = callbacks.current).onError) == null ? void 0 : _b.call(_a);
         },
         onError: () => {
           var _a, _b;
           if (!stopped) (_b = (_a = callbacks.current).onError) == null ? void 0 : _b.call(_a);
         },
         onStateChange: ({ data }) => {
-          var _a, _b;
+          var _a, _b, _c, _d;
           if (stopped || !active.current) return;
-          if (data === YT.PlayerState.PLAYING) active.current.played = true;
+          if (data === YT.PlayerState.PLAYING) {
+            playing = true;
+            active.current.played = true;
+            (_b = (_a = callbacks.current).onPlaying) == null ? void 0 : _b.call(_a);
+          }
           if (data === YT.PlayerState.ENDED && active.current.played && !active.current.ended) {
             active.current.ended = true;
-            (_b = (_a = callbacks.current).onClipEnd) == null ? void 0 : _b.call(_a);
+            (_d = (_c = callbacks.current).onClipEnd) == null ? void 0 : _d.call(_c);
           }
         }
       } });
@@ -1099,7 +1123,7 @@ function YouTubeWorkVideo({ id, title, request, onTime, onDuration, onClipEnd, o
     });
     const readyTimeout = setTimeout(() => {
       var _a, _b;
-      if (!ready && !stopped) (_b = (_a = callbacks.current).onError) == null ? void 0 : _b.call(_a);
+      if (!stopped && (!ready || preview && !playing)) (_b = (_a = callbacks.current).onError) == null ? void 0 : _b.call(_a);
     }, 15e3);
     return () => {
       stopped = true;
@@ -1108,7 +1132,7 @@ function YouTubeWorkVideo({ id, title, request, onTime, onDuration, onClipEnd, o
       instance == null ? void 0 : instance.destroy();
       container.replaceChildren();
     };
-  }, [id, title]);
+  }, [id, title, preview]);
   useEffect(() => {
     if (!player || !request) return;
     const { start, end, play } = request;
@@ -1124,10 +1148,16 @@ function YouTubeWorkVideo({ id, title, request, onTime, onDuration, onClipEnd, o
   }, [player, request, id]);
   return /* @__PURE__ */ h("div", { ref: host, className: "aa-work-video__host" });
 }
-function FileWorkVideo({ url, poster, request, onTime, onDuration, onClipEnd, onError }) {
+function FileWorkVideo({ url, poster, request, preview = false, onTime, onDuration, onClipEnd, onError, onPlaying }) {
   const video = useRef(null);
   const [ready, setReady] = useState(false);
   const ended = useRef(false);
+  useLayoutEffect(() => {
+    const el = video.current;
+    return () => {
+      if (preview) el.pause();
+    };
+  }, [preview]);
   useLayoutEffect(() => {
     if (!ready || !request) return;
     const el = video.current;
@@ -1139,7 +1169,8 @@ function FileWorkVideo({ url, poster, request, onTime, onDuration, onClipEnd, on
       return;
     }
     el.currentTime = Math.min(request.start, el.duration || request.start);
-    if (request.play) el.play().catch(() => {
+    if (request.play) el.play().catch((error) => {
+      if (preview && error.name !== "AbortError") onError == null ? void 0 : onError();
     });
     else el.pause();
   }, [ready, request]);
@@ -1153,7 +1184,8 @@ function FileWorkVideo({ url, poster, request, onTime, onDuration, onClipEnd, on
     "video",
     {
       ref: video,
-      controls: true,
+      controls: !preview,
+      muted: preview,
       playsInline: true,
       preload: "metadata",
       poster: poster || void 0,
@@ -1181,6 +1213,7 @@ function FileWorkVideo({ url, poster, request, onTime, onDuration, onClipEnd, on
         el.currentTime = request.start;
       },
       onEnded: finish,
+      onPlaying,
       onError
     },
     videoSources(url)
@@ -1189,6 +1222,85 @@ function FileWorkVideo({ url, poster, request, onTime, onDuration, onClipEnd, on
 function WorkVideo(props) {
   const id = youtubeId(props.url);
   return id ? /* @__PURE__ */ h(YouTubeWorkVideo, { key: id, ...props, id }) : /* @__PURE__ */ h(FileWorkVideo, { key: props.url, ...props });
+}
+function workMoments(work) {
+  if (!(work == null ? void 0 : work.videoUrl) || !Array.isArray(work.highlights)) return [];
+  return work.highlights.filter((clip) => clip && Number.isFinite(clip.start) && Number.isFinite(clip.end) && clip.start >= 0 && clip.end > clip.start).sort((a, b) => a.start - b.start);
+}
+function useWorkHover() {
+  const timer = useRef(0);
+  const [id, setId] = useState(null);
+  const clear = () => {
+    clearTimeout(timer.current);
+    setId(null);
+  };
+  useEffect(() => () => clearTimeout(timer.current), []);
+  return {
+    id,
+    clear,
+    enter(event, workId) {
+      if (event.pointerType !== "mouse") return;
+      clear();
+      timer.current = setTimeout(() => setId(workId), 220);
+    }
+  };
+}
+function HoverHighlights({ work, moments }) {
+  const viewport = useRef(null);
+  const yt = Boolean(youtubeId(work.videoUrl));
+  const [visible, setVisible] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [pass, setPass] = useState(0);
+  const duration = useRef(Infinity);
+  const clip = moments[index];
+  const request = useMemo(() => ({ ...clip, play: true }), [clip, pass]);
+  useEffect(() => {
+    const frame = viewport.current;
+    if (!frame || typeof IntersectionObserver === "undefined") return;
+    let inView = false;
+    const measure = () => {
+      const shown = inView && (!yt || frame.clientWidth >= 200 && frame.clientHeight >= 200);
+      setVisible(shown);
+      if (!shown) setReady(false);
+    };
+    const visibility = new IntersectionObserver(([entry]) => {
+      inView = entry.intersectionRatio >= 0.51;
+      measure();
+    }, { threshold: [0.51] });
+    visibility.observe(frame);
+    const resize = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    resize == null ? void 0 : resize.observe(frame);
+    return () => {
+      visibility.disconnect();
+      resize == null ? void 0 : resize.disconnect();
+    };
+  }, [yt]);
+  const advance = () => {
+    let next = index + 1;
+    if (!moments[next] || moments[next].start >= duration.current) next = 0;
+    if (moments[next].start >= duration.current) setFailed(true);
+    else {
+      setIndex(next);
+      setPass((value) => value + 1);
+    }
+  };
+  return /* @__PURE__ */ h("div", { ref: viewport, className: cx("aa-hover-highlights", visible && !failed && ready && "is-playing"), "aria-hidden": "true" }, visible && !failed && /* @__PURE__ */ h(
+    WorkVideo,
+    {
+      url: work.videoUrl,
+      title: work.title,
+      request,
+      preview: true,
+      onPlaying: () => setReady(true),
+      onDuration: (value) => {
+        if (value > 0) duration.current = value;
+      },
+      onClipEnd: advance,
+      onError: () => setFailed(true)
+    }
+  ));
 }
 function MomentsTrack({ moments, duration, time, activeIndex, onPick, label }) {
   const scale = Number.isFinite(duration) && duration > 0 ? duration : Math.max(1, ...moments.map(({ end }) => end));
@@ -1205,7 +1317,7 @@ function VideoModal({ work, onClose, categoryLabel }) {
   const T = useT();
   const closeRef = useRef(null);
   const prev = useRef(null);
-  const moments = (work == null ? void 0 : work.videoUrl) && Array.isArray(work.highlights) ? work.highlights.filter((clip2) => clip2 && Number.isFinite(clip2.start) && Number.isFinite(clip2.end) && clip2.start >= 0 && clip2.end > clip2.start).sort((a, b) => a.start - b.start) : [];
+  const moments = useMemo(() => workMoments(work), [work]);
   const [index, setIndex] = useState(moments.length ? 0 : -1);
   const [replay, setReplay] = useState(0);
   const [done, setDone] = useState(false);
@@ -1294,6 +1406,7 @@ function Works({ works = {}, id = "works" }) {
   const [filter, setFilter] = useState("all");
   const [open, setOpen] = useState(null);
   const [sel, setSel] = useState(null);
+  const hover = useWorkHover();
   const secRef = useRef(null);
   const [host, setHost] = useState(null);
   const gridRef = useRef(null);
@@ -1313,8 +1426,9 @@ function Works({ works = {}, id = "works" }) {
   }, [selection, selectedCategory]);
   const cats = works.categories || [];
   const catLabel = (cid) => (cats.find((c) => c.id === cid) || {}).label || cid;
-  const shown = filter === "all" ? items : items.filter((w) => w.category === filter);
   const count = (cid) => items.filter((w) => w.category === cid).length;
+  const activeFilter = cats.some((cat) => cat.id === filter) && (ed || count(filter)) ? filter : "all";
+  const shown = activeFilter === "all" ? items : items.filter((w) => w.category === activeFilter);
   const cur = shown.find((w) => w.id === sel) || shown[0] || null;
   const slots = Math.max(INV_MIN, Math.ceil((shown.length + (ed ? 1 : 0)) / INV_COLS) * INV_COLS);
   const hoverT = useRef(0);
@@ -1323,9 +1437,19 @@ function Works({ works = {}, id = "works" }) {
     clearTimeout(hoverT.current);
     setSel(w.id);
   };
-  const hoverPick = (w) => {
+  const hoverPick = (event, w) => {
+    if (event.pointerType !== "mouse") return;
     clearTimeout(hoverT.current);
     hoverT.current = setTimeout(() => setSel(w.id), 90);
+    if (!reduced && !open) hover.enter(event, w.id);
+  };
+  const clearHover = () => {
+    clearTimeout(hoverT.current);
+    hover.clear();
+  };
+  const openVideo = (work) => {
+    clearHover();
+    setOpen(work);
   };
   const onKey = (e) => {
     if (!cur) return;
@@ -1338,7 +1462,7 @@ function Works({ works = {}, id = "works" }) {
     else if (e.key === "Enter" || e.key === " ") {
       if (!ed) {
         e.preventDefault();
-        setOpen(cur);
+        openVideo(cur);
       }
       return;
     } else return;
@@ -1354,9 +1478,10 @@ function Works({ works = {}, id = "works" }) {
       key,
       type: "button",
       role: "tab",
-      "aria-selected": filter === key,
-      className: cx("aa-inv__tab", filter === key && "is-on"),
+      "aria-selected": activeFilter === key,
+      className: cx("aa-inv__tab", activeFilter === key && "is-on"),
       onClick: () => {
+        clearHover();
         setFilter(key);
         setSel(null);
       }
@@ -1364,9 +1489,19 @@ function Works({ works = {}, id = "works" }) {
     label,
     /* @__PURE__ */ h("span", { className: "aa-inv__tabn" }, pad(n))
   );
-  return /* @__PURE__ */ h("section", { ref: secRef, className: "aa-section aa-works", id, "data-theme": "other", "data-header": "other", "aria-labelledby": id + "-h" }, edEl(ed, "section", { p: "works", kind: "works", label: "Работы и категории" }), /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-section__head aa-inv__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("h2", { className: "aa-h2", id: id + "-h" }, /* @__PURE__ */ h(E, { p: "works.title", v: works.title })))), /* @__PURE__ */ h("div", { className: "aa-inv__tabs", role: "tablist", "aria-label": T("worksCats") }, tab("all", works.allLabel || T("all"), items.length), cats.filter((c) => count(c.id) > 0).map((c) => tab(c.id, c.label, count(c.id)))), /* @__PURE__ */ h("div", { className: "aa-sr", "aria-live": "polite" }, T("worksShown"), shown.length), /* @__PURE__ */ h("div", { className: "aa-inv__body" }, /* @__PURE__ */ h("div", { className: "aa-inv__grid", ref: gridRef, role: "listbox", "aria-label": T("worksList"), "aria-activedescendant": cur ? "inv-" + cur.id : void 0, onKeyDown: onKey }, Array.from({ length: slots }, (_, k) => {
+  return /* @__PURE__ */ h("section", { ref: secRef, className: "aa-section aa-works", id, "data-theme": "other", "data-header": "other", "aria-labelledby": id + "-h" }, edEl(ed, "section", { p: "works", kind: "works", label: "Работы" }), /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-section__head aa-inv__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("h2", { className: "aa-h2", id: id + "-h" }, /* @__PURE__ */ h(E, { p: "works.title", v: works.title })))), /* @__PURE__ */ h("div", { className: "aa-inv__filters" }, /* @__PURE__ */ h("div", { className: "aa-inv__tabs", role: "tablist", "aria-label": T("worksCats") }, tab("all", works.allLabel || T("all"), items.length), cats.filter((c) => ed || count(c.id) > 0).map((c) => tab(c.id, c.label, count(c.id)))), (ed == null ? void 0 : ed.openWorkCategories) && /* @__PURE__ */ h(
+    "button",
+    {
+      type: "button",
+      className: "aa-ed-btn aa-ed-btn--sm aa-ed-work-cats-trigger",
+      "aria-haspopup": "dialog",
+      onClick: ed.openWorkCategories
+    },
+    /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "✎ "),
+    "Категории"
+  )), /* @__PURE__ */ h("div", { className: "aa-sr", "aria-live": "polite" }, T("worksShown"), shown.length), /* @__PURE__ */ h("div", { className: "aa-inv__body" }, /* @__PURE__ */ h("div", { className: "aa-inv__grid", ref: gridRef, role: "listbox", "aria-label": T("worksList"), "aria-activedescendant": cur ? "inv-" + cur.id : void 0, onKeyDown: onKey }, Array.from({ length: slots }, (_, k) => {
     const w = shown[k];
-    if (!w) return k === shown.length && ed ? /* @__PURE__ */ h("div", { key: "add", className: "aa-inv__slot aa-inv__slot--add" }, edEl(ed, "add", { list: "works.items", kind: "work", label: "+", extra: { category: filter === "all" ? void 0 : filter } })) : /* @__PURE__ */ h("div", { key: "e" + k, className: "aa-inv__slot aa-inv__slot--empty", "aria-hidden": "true" });
+    if (!w) return k === shown.length && ed ? /* @__PURE__ */ h("div", { key: "add", className: "aa-inv__slot aa-inv__slot--add" }, edEl(ed, "add", { list: "works.items", kind: "work", label: "+", extra: { category: activeFilter === "all" ? void 0 : activeFilter } })) : /* @__PURE__ */ h("div", { key: "e" + k, className: "aa-inv__slot aa-inv__slot--empty", "aria-hidden": "true" });
     const on = cur && cur.id === w.id;
     return /* @__PURE__ */ h(
       "button",
@@ -1380,13 +1515,15 @@ function Works({ works = {}, id = "works" }) {
         tabIndex: on ? 0 : -1,
         "aria-haspopup": ed ? "dialog" : void 0,
         className: cx("aa-inv__slot", on && "is-on", ed && w.published === false && "aa-ed-draft"),
-        onMouseEnter: ed ? void 0 : () => hoverPick(w),
+        onPointerEnter: ed ? void 0 : (event) => hoverPick(event, w),
+        onPointerLeave: clearHover,
+        onPointerCancel: clearHover,
         onFocus: () => pick(w),
         onClick: () => {
           if (ed) {
             pick(w);
             ed.openItem("works.items", "@" + w.id, "work");
-          } else if (on) setOpen(w);
+          } else if (on) openVideo(w);
           else pick(w);
         },
         "aria-label": `${w.title}, ${catLabel(w.category)}, ${w.year}`
@@ -1395,22 +1532,41 @@ function Works({ works = {}, id = "works" }) {
       /* @__PURE__ */ h("span", { className: "aa-inv__badge", "aria-hidden": "true" }, items.indexOf(w) + 1),
       w.format === "9:16" && /* @__PURE__ */ h("span", { className: "aa-inv__fmt", "aria-hidden": "true" }, "9:16")
     );
-  })), cur ? /* @__PURE__ */ h(InvDetail, { key: cur.id, work: cur, index: items.indexOf(cur), categoryLabel: catLabel(cur.category), reduced, onOpen: setOpen }) : /* @__PURE__ */ h("div", { className: "aa-inv__detail aa-inv__detail--empty" }, /* @__PURE__ */ h("p", { className: "aa-label" }, ed ? "Добавьте работу" : T("catEmpty"))))), open && (() => {
+  })), cur ? /* @__PURE__ */ h(
+    InvDetail,
+    {
+      key: cur.id,
+      work: cur,
+      index: items.indexOf(cur),
+      categoryLabel: catLabel(cur.category),
+      onOpen: openVideo,
+      preview: !ed && !reduced && !open && hover.id === cur.id,
+      onPreview: !ed && !reduced && !open ? (event) => hover.enter(event, cur.id) : void 0,
+      onPreviewEnd: clearHover
+    }
+  ) : /* @__PURE__ */ h("div", { className: "aa-inv__detail aa-inv__detail--empty" }, /* @__PURE__ */ h("p", { className: "aa-label" }, ed ? "Добавьте работу" : T("catEmpty"))))), open && (() => {
     const m = /* @__PURE__ */ h(VideoModal, { work: open, categoryLabel: catLabel(open.category), onClose: () => setOpen(null) });
     return host && window.ReactDOM && window.ReactDOM.createPortal ? window.ReactDOM.createPortal(m, host) : m;
   })());
 }
-function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
+function InvDetail({ work, index, categoryLabel, preview, onPreview, onPreviewEnd, onOpen }) {
   const ed = useEd();
   const T = useT();
   const vertical = work.format === "9:16";
-  const [vid, setVid] = useState(false);
-  useEffect(() => {
-    if (!work.previewVideo || reduced || ed) return;
-    const t = setTimeout(() => setVid(true), 220);
-    return () => clearTimeout(t);
-  }, [work.previewVideo, reduced, ed]);
-  return /* @__PURE__ */ h("div", { className: "aa-inv__detail" }, edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }), /* @__PURE__ */ h("div", { className: cx("aa-inv__view", vertical && "aa-inv__view--v") }, /* @__PURE__ */ h("div", { className: "aa-inv__frame", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: `${T("still")} «${work.title}»`, decoding: "async" }), vid && /* @__PURE__ */ h("video", { key: work.previewVideo, muted: true, loop: true, playsInline: true, autoPlay: true, preload: "none", "aria-hidden": "true" }, videoSources(work.previewVideo)), !work.previewImage && !vid && /* @__PURE__ */ h("span", { className: "aa-inv__ph", "aria-hidden": "true" }, /* @__PURE__ */ h(Monogram, { variant: "watermark" })))), /* @__PURE__ */ h("p", { className: "aa-inv__meta aa-micro" }, "№ ", pad(index + 1), " · ", categoryLabel, " · ", work.format, " · ", work.year), /* @__PURE__ */ h("h3", { className: "aa-inv__title" }, work.title), work.description && /* @__PURE__ */ h("p", { className: "aa-inv__desc" }, work.description), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-inv__play", onClick: () => onOpen && onOpen(work) }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "▶"), " ", T("watch")));
+  const moments = useMemo(() => workMoments(work), [work]);
+  return /* @__PURE__ */ h("div", { className: "aa-inv__detail" }, edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }), /* @__PURE__ */ h("div", { className: cx("aa-inv__view", vertical && "aa-inv__view--v") }, /* @__PURE__ */ h(
+    "div",
+    {
+      className: "aa-inv__frame",
+      style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" },
+      onPointerEnter: moments.length ? onPreview : void 0,
+      onPointerLeave: onPreviewEnd,
+      onPointerCancel: onPreviewEnd
+    },
+    work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: `${T("still")} «${work.title}»`, decoding: "async" }),
+    !work.previewImage && /* @__PURE__ */ h("span", { className: "aa-inv__ph", "aria-hidden": "true" }, /* @__PURE__ */ h(Monogram, { variant: "watermark" })),
+    preview && moments.length > 0 && /* @__PURE__ */ h(HoverHighlights, { work, moments })
+  )), /* @__PURE__ */ h("p", { className: "aa-inv__meta aa-micro" }, "№ ", pad(index + 1), " · ", categoryLabel, " · ", work.format, " · ", work.year), /* @__PURE__ */ h("h3", { className: "aa-inv__title" }, work.title), work.description && /* @__PURE__ */ h("p", { className: "aa-inv__desc" }, work.description), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-inv__play", onClick: () => onOpen && onOpen(work) }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "▶"), " ", T("watch")));
 }
 function CaseTag({ item, index = 0, p }) {
   const ed = useEd();
@@ -2205,7 +2361,7 @@ function ResourcesPage({ content = {}, lang = "ru", preview = false, onNavigateH
   return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { className: "aa-page aa-res", "data-theme": "other", id: "top" }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, T("skip")), /* @__PURE__ */ h(
     Header,
     {
-      nav: content.nav,
+      nav: headerNav(content, lang),
       monogram: mono,
       langs: onLanguageChange ? LANGS : LANGS.filter((l) => langOn(content, l)),
       onLanguageChange,
@@ -2228,6 +2384,7 @@ function ResourcesPage({ content = {}, lang = "ru", preview = false, onNavigateH
   ))), onAddItem && /* @__PURE__ */ h("li", { className: "aa-ed-resource-add" }, /* @__PURE__ */ h("button", { type: "button", "aria-haspopup": "dialog", onClick: onAddItem }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "+"), " Добавить ресурс")))))), /* @__PURE__ */ h(Footer, { footer: content.footer, monogram: mono }), !preview && /* @__PURE__ */ h(CookieNotice, { footer: content.footer }), selected && /* @__PURE__ */ h(ResourceDialog, { key: selected.id, item: selected, platforms: platformNames(selected), type: types[selected.type], T, onClose: close })));
 }
 function Landing({ content, contained = false, onSubmitLead, onNavigateResources, onLanguageChange, atmosphere = true, lang = "ru", preview = false }) {
+  var _a, _b;
   const c = content || {};
   const reduced = useReducedMotion();
   const lite = useLite();
@@ -2236,6 +2393,8 @@ function Landing({ content, contained = false, onSubmitLead, onNavigateResources
   const [active, setActive] = useState(null);
   const [solid, setSolid] = useState(false);
   const mono = c.site && c.site.monogram || "AA";
+  const hasReviews = Boolean((_b = (_a = c.reviews) == null ? void 0 : _a.items) == null ? void 0 : _b.length);
+  const menu = useMemo(() => headerNav(c, lang), [c.nav, hasReviews, lang]);
   const nav = useCallback((id) => {
     if (id === "top") {
       const sc = getScroller(rootRef.current);
@@ -2267,7 +2426,7 @@ function Landing({ content, contained = false, onSubmitLead, onNavigateResources
       pickHdr();
     }, { root: ioRoot, rootMargin: "0px 0px -95% 0px" });
     root.querySelectorAll("[data-header]").forEach((el) => ioHdr.observe(el));
-    const ids = (c.nav || []).map((n) => n.id);
+    const ids = menu.map((n) => n.id);
     const midHits = /* @__PURE__ */ new Set();
     const ioNav = new IntersectionObserver((es) => {
       es.forEach((e) => e.isIntersecting ? midHits.add(e.target.id) : midHits.delete(e.target.id));
@@ -2297,9 +2456,9 @@ function Landing({ content, contained = false, onSubmitLead, onNavigateResources
       clearTimeout(t);
       root.removeAttribute("data-scrolling");
     };
-  }, [c.nav]);
+  }, [menu]);
   const langs = onLanguageChange ? LANGS : LANGS.filter((l) => langOn(c, l));
-  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { ref: rootRef, className: cx("aa-page", contained && "aa-page--contained", lite && "aa-lite"), "data-theme": "other", lang }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, tr(lang, "skip")), /* @__PURE__ */ h(Header, { nav: c.nav, monogram: mono, theme: hdr, active, onNavigate: nav, onNavigateResources, solid, langs, onLanguageChange }), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h(Hero, { hero: c.hero, onNavigate: nav }), /* @__PURE__ */ h(About, { about: c.about }), /* @__PURE__ */ h(Services, { services: c.services }), c.rift && c.rift.enabled === true && /* @__PURE__ */ h(WorldRift, { rift: c.rift }), /* @__PURE__ */ h(Otherworld, { seam: !(c.rift && c.rift.enabled === true) }, /* @__PURE__ */ h(Works, { works: c.works }), /* @__PURE__ */ h(Reviews, { reviews: c.reviews }), /* @__PURE__ */ h(Cases, { cases: c.cases }), /* @__PURE__ */ h(Contact, { contact: c.contact, onSubmit: onSubmitLead || api.submitLead }))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono, onNavigate: nav }), atmosphere && /* @__PURE__ */ h(Atmosphere, { fixed: true, scanlines: false }), !preview && /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
+  return /* @__PURE__ */ h(LangContext.Provider, { value: lang }, /* @__PURE__ */ h("div", { ref: rootRef, className: cx("aa-page", contained && "aa-page--contained", lite && "aa-lite"), "data-theme": "other", lang }, /* @__PURE__ */ h("a", { className: "aa-sr", href: "#main" }, tr(lang, "skip")), /* @__PURE__ */ h(Header, { nav: menu, monogram: mono, theme: hdr, active, onNavigate: nav, onNavigateResources, solid, langs, onLanguageChange }), /* @__PURE__ */ h("main", { id: "main" }, /* @__PURE__ */ h(Hero, { hero: c.hero, onNavigate: nav }), /* @__PURE__ */ h(About, { about: c.about }), /* @__PURE__ */ h(Services, { services: c.services }), c.rift && c.rift.enabled === true && /* @__PURE__ */ h(WorldRift, { rift: c.rift }), /* @__PURE__ */ h(Otherworld, { seam: !(c.rift && c.rift.enabled === true) }, /* @__PURE__ */ h(Works, { works: c.works }), /* @__PURE__ */ h(Reviews, { reviews: c.reviews }), /* @__PURE__ */ h(Cases, { cases: c.cases }), /* @__PURE__ */ h(Contact, { contact: c.contact, onSubmit: onSubmitLead || api.submitLead }))), /* @__PURE__ */ h(Footer, { footer: c.footer, monogram: mono, onNavigate: nav }), atmosphere && /* @__PURE__ */ h(Atmosphere, { fixed: true, scanlines: false }), !preview && /* @__PURE__ */ h(CookieNotice, { footer: c.footer })));
 }
 const api = {
   /** Контент страницы. Сейчас - локальный объект, позже GET {endpoint}. */
