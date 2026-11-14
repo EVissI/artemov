@@ -1504,10 +1504,10 @@ function ResourceDialog({ item, platforms, type, T, onClose }) {
   </dialog>;
 }
 
-export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNavigateHome, onEditItem, selectedResource, renderFilter, renderHeroText, heroActions, onLanguageChange }) {
+export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNavigateHome, onEditItem, onAddItem, renderFilter, renderHeroText, heroActions, onLanguageChange }) {
   const resources = content.resources || {};
   const { title, intro, backgroundImage, platforms = {}, types = {} } = resources;
-  const items = (resources.items || []).filter((item) => item.published !== false || (onEditItem && item.id === selectedResource));
+  const items = (resources.items || []).filter((item) => onEditItem || item.published !== false);
   const T = (key, values) => tr(lang, key, values);
   const [filters, setFilters] = useState(() => preview ? EMPTY_RESOURCE_FILTERS : readResourceFilters());
   const mono = content.site?.monogram || 'AA';
@@ -1517,7 +1517,6 @@ export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNa
   const selected = items.find((item) => item.id === filters.resource);
   const platformNames = (item) => (item.platforms || []).map((id) => platforms[id]).filter(Boolean);
   const visible = items.filter((item) => {
-    if (onEditItem && item.id === selectedResource) return true;
     if (selectedPlatforms.length && !selectedPlatforms.some((id) => item.platforms?.includes(id))) return false;
     if (type && item.type !== type) return false;
     const fields = [item.title, item.description, item.source, item.software, ...platformNames(item), types[item.type]];
@@ -1589,14 +1588,20 @@ export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNa
             <p role="status">{T('resourceCount', { n: visible.length, m: items.length })}</p>
             {filtered && <button className="aa-res__reset" type="button" onClick={reset}>{T('resourceReset')}</button>}
           </div>
-          {visible.length ? <ul className="aa-res__grid">
-            {visible.map((item) => <li key={item.id} className="aa-res__card">
-              <button type="button" aria-haspopup={onEditItem ? undefined : 'dialog'} aria-current={item.id === selectedResource ? 'true' : undefined}
+          {!visible.length && <div className="aa-res__empty">
+            <h2>{T('resourceEmpty')}</h2>
+            {filtered && <p>{T('resourceHint')}</p>}
+          </div>}
+          {(visible.length > 0 || onAddItem) && <ul className="aa-res__grid">
+            {visible.map((item) => <li key={item.id} className={cx('aa-res__card', onEditItem && 'aa-ed-resource-card')}>
+              <button type="button" aria-haspopup="dialog" aria-label={onEditItem ? 'Редактировать: ' + item.title : undefined}
                 onClick={() => onEditItem ? onEditItem(item.id) : update({ ...filters, resource: item.id }, true)}>
                 <ResourceCover item={item} />
+                {onEditItem && <span className="aa-ed-resource-card__edit" aria-hidden="true">✎</span>}
                 <div className="aa-res__card-info">
                   <span className="aa-res__card-title">{item.title}</span>
                   <div className="aa-res__card-meta">
+                    {onEditItem && item.published === false && <span className="aa-ed-resource-draft">Черновик</span>}
                     {item.software && <span>{item.software}</span>}
                     {types[item.type] && <span className="aa-res__card-type">{types[item.type]}</span>}
                     {item.version && <span>{item.version}</span>}
@@ -1605,10 +1610,12 @@ export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNa
                 </div>
               </button>
             </li>)}
-          </ul> : <div className="aa-res__empty">
-            <h2>{T('resourceEmpty')}</h2>
-            {filtered && <p>{T('resourceHint')}</p>}
-          </div>}
+            {onAddItem && <li className="aa-ed-resource-add">
+              <button type="button" aria-haspopup="dialog" onClick={onAddItem}>
+                <span aria-hidden="true">+</span> Добавить ресурс
+              </button>
+            </li>}
+          </ul>}
         </div>
       </div>
     </main>
