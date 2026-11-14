@@ -149,25 +149,26 @@ const KINDS = {
     fields: [{ k: 'title', label: 'Название' }, { k: 'text', label: 'Описание', t: 'textarea' }, { k: 'timecode', label: 'Таймкод справа' }],
   },
   resource: {
-    title: (d) => 'Ресурс · ' + (d.title || ''),
-    make: (c) => ({
-      id: uid('res'), title: 'Новый ресурс', type: Object.keys(c.resources?.types || {})[0] || '',
+    make: () => ({
+      id: uid('res'), title: '', type: '',
       platforms: [], software: '', source: '', version: '', previewImage: '', description: '', details: '',
       links: [{ id: uid('link'), label: '', url: '' }], published: false,
     }),
     fields: [
-      { k: 'published', label: 'Показывать на сайте', t: 'bool', default: true, hint: 'Выключено - карточка остаётся в админке' },
-      { k: 'title', label: 'Название' },
+      { k: 'title', label: 'Название', required: true },
+      { k: 'type', label: 'Тип ресурса', t: 'select', half: true, options: (c, lang) => [['', 'Без типа'], ...resourceChoices(c, lang, 'types')] },
+      { k: 'software', label: 'Программа', half: true },
       { k: 'previewImage', label: 'Обложка', t: 'media', accept: 'image' },
-      { k: 'type', label: 'Тип ресурса', t: 'select', options: (c, lang) => [['', 'Без типа'], ...resourceChoices(c, lang, 'types')] },
-      { k: 'platforms', label: 'Платформы', t: 'checks', options: (c, lang) => resourceChoices(c, lang, 'platforms') },
-      { k: 'software', label: 'Программа', half: true }, { k: 'version', label: 'Версия', half: true },
-      { k: 'source', label: 'Источник' },
       { k: 'description', label: 'Краткое описание', t: 'textarea' },
-      { k: 'details', label: 'Подробности', t: 'textarea' },
+      { group: 'Платформы и ссылки' },
+      { k: 'platforms', label: 'Платформы', t: 'checks', options: (c, lang) => resourceChoices(c, lang, 'platforms') },
       { k: 'links', label: 'Ссылки', t: 'list', note: 'Первая заполненная ссылка становится главной кнопкой.',
         make: () => ({ id: uid('link'), label: '', url: '' }),
         of: [{ k: 'label', label: 'Подпись кнопки' }, { k: 'url', label: 'Адрес ссылки', t: 'url' }] },
+      { group: 'Дополнительно' },
+      { k: 'details', label: 'Подробности', t: 'textarea' },
+      { k: 'source', label: 'Источник', half: true },
+      { k: 'version', label: 'Версия', half: true },
     ],
   },
   paragraph: { make: () => '[Новый абзац]' },
@@ -184,14 +185,6 @@ const HOME_SECTIONS = [
   { kind: 'footer', id: 'footer', label: 'Подвал' },
 ];
 const SECTIONS = {
-  resources: {
-    title: 'Ресурсы',
-    fields: [{ k: 'title', label: 'Заголовок' }, { k: 'intro', label: 'Вступление', t: 'textarea' }],
-  },
-  resourceBackground: {
-    title: 'Фон страницы ресурсов',
-    fields: [{ k: 'backgroundImage', label: 'Изображение фона', t: 'media', accept: 'image', clearLabel: 'Сбросить фон' }],
-  },
   page: {
     title: 'Страница и меню',
     fields: [
@@ -429,7 +422,7 @@ function MediaField({ id, value, onChange, accept, link, openLibrary, purpose, c
   const vid = accept === 'video' || isVideoUrl(value);
   const yt = AA.youtubeId && AA.youtubeId(value);
   const busy = up.prog != null;
-  return <div className={cx('aa-ed-media', drag && 'is-drag')} onDragOver={(e) => { e.preventDefault(); setDrag(!busy); }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); if (!busy) up.start(e.dataTransfer.files[0]); }}>
+  return <div className={cx('aa-ed-media', drag && 'is-drag')} aria-busy={busy} onDragOver={(e) => { e.preventDefault(); setDrag(!busy); }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); if (!busy) up.start(e.dataTransfer.files[0]); }}>
     <div className="aa-ed-media__pv">
       {!value ? <span className="aa-ed-media__empty">{accept === 'video' ? '▶ пусто' : '◼ пусто'}</span>
         : yt ? <img src={`https://i.ytimg.com/vi/${yt}/mqdefault.jpg`} alt="" />
@@ -471,7 +464,7 @@ function Field({ f, bp, d, td, content, ed, depth = 0 }) {
   const id = 'f-' + path.replace(/[^A-Za-z0-9]/g, '_');
   const phRu = useTr && typeof v === 'string' ? v : ''; // в режиме EN подсказка в поле - русский текст
   let ctl;
-  if (t === 'text' || t === 'url') ctl = <input id={id} className="aa-ed-input" value={val == null ? '' : val} onFocus={onFocus} onChange={(e) => set(f.slug ? e.target.value.replace(/[^A-Za-z0-9_-]/g, '') : e.target.value)} type={t === 'url' ? 'url' : 'text'} placeholder={phRu || (t === 'url' ? 'https://' : '')} />;
+  if (t === 'text' || t === 'url') ctl = <input id={id} className="aa-ed-input" value={val == null ? '' : val} onFocus={onFocus} onChange={(e) => set(f.slug ? e.target.value.replace(/[^A-Za-z0-9_-]/g, '') : e.target.value)} type={t === 'url' ? 'url' : 'text'} required={f.required && !useTr} placeholder={phRu || (t === 'url' ? 'https://' : '')} />;
   else if (t === 'textarea') ctl = <textarea id={id} className="aa-ed-input" rows={3} value={val || ''} onFocus={onFocus} onChange={(e) => set(e.target.value)} placeholder={phRu} />;
   else if (t === 'number') ctl = <input id={id} className="aa-ed-input" type="number" value={v == null ? '' : v} onFocus={onFocus} onChange={(e) => ed.set(path, e.target.value === '' ? (f.nullable ? null : 0) : Number(e.target.value), { base: true })} />;
   else if (t === 'info') return <div className="aa-ed-field"><span className="aa-ed-field__l aa-label">{f.label}</span><p className="aa-ed-info">{v == null || v === '' ? '-' : String(v)}</p></div>;
@@ -558,7 +551,6 @@ const ITEM_SECTIONS = {
   works: { kind: 'work', addLabel: 'Добавить работу' },
   cases: { kind: 'case', addLabel: 'Добавить кейс' },
   services: { kind: 'service', addLabel: 'Добавить услугу' },
-  resources: { kind: 'resource', addLabel: 'Добавить ресурс' },
 };
 
 function CatalogItems({ section, items = [], ed }) {
@@ -784,6 +776,178 @@ function LibraryPanel({ accept, onPick }) {
   </div>;
 }
 
+function ResourceEditDialog({ title, onClose, children, initialFocus }) {
+  const dialog = useRef(null);
+  const [library, setLibrary] = useState(null);
+  const libraryOpener = useRef(null);
+  useLayoutEffect(() => {
+    const el = dialog.current;
+    const opener = document.activeElement;
+    el.showModal();
+    if (initialFocus) el.querySelector(initialFocus)?.focus({ preventScroll: true });
+    return () => {
+      el.close();
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (library) dialog.current.querySelector('.aa-ed-modal__back')?.focus();
+    else if (libraryOpener.current) {
+      libraryOpener.current.focus({ preventScroll: true });
+      libraryOpener.current = null;
+    }
+  }, [library]);
+  const openLibrary = (accept, pick) => {
+    libraryOpener.current = document.activeElement;
+    setLibrary({ accept, pick });
+  };
+  return <dialog ref={dialog} className="aa-ed-modal" data-theme="other" aria-labelledby="aa-ed-resource-modal-title"
+    onCancel={(e) => { e.preventDefault(); if (library) setLibrary(null); else onClose(); }}
+    onKeyDown={(e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const key = e.key.toLowerCase();
+      if (['z', 'я', 'y', 'н'].includes(key)) e.stopPropagation();
+      if (!['s', 'ы'].includes(key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!library) dialog.current.querySelector('form')?.requestSubmit();
+    }}>
+    <header className="aa-ed-modal__header">
+      {library && <button type="button" className="aa-ed-tool aa-ed-modal__back" aria-label="Назад к форме" onClick={() => setLibrary(null)}>←</button>}
+      <h2 id="aa-ed-resource-modal-title">{library ? 'Выбрать изображение' : title}</h2>
+      <button type="button" className="aa-ed-tool" aria-label="Закрыть" onClick={onClose}>✕</button>
+    </header>
+    <div className="aa-ed-modal__view" hidden={Boolean(library)}>{children(openLibrary)}</div>
+    {library && <div className="aa-ed-modal__body"><LibraryPanel accept={library.accept} onPick={(url) => {
+      library.pick(url);
+      setLibrary(null);
+    }} /></div>}
+  </dialog>;
+}
+
+function ResourceModalLanguage({ lang, setLang }) {
+  return <div className="aa-ed-seg aa-ed-seg--lang" role="group" aria-label="Язык">
+    <button type="button" aria-pressed={lang === 'ru'} onClick={() => setLang('ru')}>RU</button>
+    <button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
+  </div>;
+}
+
+function ResourceItemEditor({ content, item, lang: pageLang, onApply, onRemove, onClose }) {
+  const creating = !item;
+  const items = content.resources?.items || [];
+  const [lang, setLang] = useState(creating ? 'ru' : pageLang);
+  const [position, setPosition] = useState(() => item ? items.findIndex(({ id }) => id === item.id) : items.length);
+  const [nameError, setNameError] = useState(false);
+  const [removePrompt, setRemovePrompt] = useState(false);
+  const [form, setForm] = useState(() => ({
+    resources: { ...content.resources, items: [item || KINDS.resource.make()] },
+    en: { resources: { items: content.en?.resources?.items?.filter((row) => row?.id === item?.id && row) || [] } },
+  }));
+  const resource = form.resources.items[0];
+  const translation = form.en.resources.items[0];
+  const path = 'resources.items.@' + resource.id;
+  const submit = (e) => {
+    e.preventDefault();
+    if (e.currentTarget.querySelector('[aria-busy="true"]')) return;
+    const title = resource.title?.trim();
+    if (!title) {
+      setLang('ru');
+      setNameError(true);
+      requestAnimationFrame(() => document.getElementById('f-' + (path + '.title').replace(/[^A-Za-z0-9]/g, '_'))?.focus());
+      return;
+    }
+    const linkIds = new Set((resource.links || []).map(({ id }) => id));
+    const localized = Array.isArray(translation?.links)
+      ? { ...translation, links: translation.links.filter(({ id }) => linkIds.has(id)) }
+      : translation;
+    onApply({ ...resource, title }, localized, position);
+  };
+  return <ResourceEditDialog title={creating ? 'Новый ресурс' : 'Редактировать ресурс'} onClose={onClose} initialFocus="input[required]">
+    {(openLibrary) => {
+      const localEd = {
+        lang: () => lang,
+        snap: () => {},
+        openLibrary,
+        set(p, value, options = {}) {
+          const translated = (options.lang || lang) === 'en' && !options.base && typeof value === 'string';
+          setForm((d) => translated ? { ...d, en: setTr(d.en, d, segs(p), noDash(value)) } : setIn(d, p, noDash(value)));
+          if (p === path + '.title' && !translated) setNameError(false);
+        },
+        move(list, key, dir) {
+          setForm((d) => {
+            const rows = getIn(d, list).slice();
+            const from = idxOf(rows, key), to = from + dir;
+            if (from < 0 || to < 0 || to >= rows.length) return d;
+            [rows[from], rows[to]] = [rows[to], rows[from]];
+            return setIn(d, list, rows);
+          });
+        },
+        remove(list, key) {
+          setForm((d) => setIn(d, list, getIn(d, list).filter((row, i) => rowKey(row, i) !== key)));
+        },
+      };
+      return <form className="aa-ed-modal__form" onSubmit={submit} noValidate>
+        <div className="aa-ed-modal__body">
+          <div className="aa-ed-modal__options">
+            <ResourceModalLanguage lang={lang} setLang={setLang} />
+            <label className="aa-ed-check">
+              <input type="checkbox" checked={resource.published !== false} onChange={(e) => localEd.set(path + '.published', e.target.checked)} />
+              <span>Показывать на сайте</span>
+            </label>
+          </div>
+          {nameError && <p className="aa-ed-modal__error" role="alert">Введи название на русском.</p>}
+          <FormPanel spec={{ p: path, fields: KINDS.resource.fields }} ed={localEd} content={form} collapsible />
+          {!creating && items.length > 1 && <label className="aa-ed-modal__position">
+            <span>Позиция в каталоге</span>
+            <select className="aa-ed-input" value={position} onChange={(e) => setPosition(Number(e.target.value))}>
+              {items.map(({ id }, index) => <option key={id} value={index}>{index + 1} из {items.length}</option>)}
+            </select>
+          </label>}
+        </div>
+        <footer className="aa-ed-modal__footer">
+          {!creating && (removePrompt ? <div className="aa-ed-modal__remove">
+            <span>Удалить карточку?</span>
+            <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--danger" onClick={onRemove}>Удалить</button>
+            <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={() => setRemovePrompt(false)}>Нет</button>
+          </div> : <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost aa-ed-modal__delete" onClick={() => setRemovePrompt(true)}>Удалить карточку</button>)}
+          <div className="aa-ed-modal__buttons">
+            <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={onClose}>Отмена</button>
+            <button type="submit" className="aa-ed-btn aa-ed-btn--sm aa-ed-modal__apply">{creating ? 'Добавить' : 'Применить'}</button>
+          </div>
+        </footer>
+      </form>;
+    }}
+  </ResourceEditDialog>;
+}
+
+function ResourceBackgroundEditor({ content, lang: pageLang, onApply, onClose }) {
+  const [lang, setLang] = useState(pageLang);
+  const [images, setImages] = useState(() => ({
+    ru: content.resources?.backgroundImage || '',
+    en: content.en?.resources?.backgroundImage || '',
+  }));
+  return <ResourceEditDialog title="Фон страницы ресурсов" onClose={onClose}>
+    {(openLibrary) => <form className="aa-ed-modal__form" onSubmit={(e) => {
+      e.preventDefault();
+      if (!e.currentTarget.querySelector('[aria-busy="true"]')) onApply(images);
+    }}>
+      <div className="aa-ed-modal__body">
+        <div className="aa-ed-modal__options"><ResourceModalLanguage lang={lang} setLang={setLang} /></div>
+        <label className="aa-ed-field__l" htmlFor="aa-resource-background-image">Изображение фона</label>
+        <MediaField key={lang} id="aa-resource-background-image" value={images[lang]} accept="image" clearLabel="Сбросить фон"
+          openLibrary={openLibrary} onChange={(url) => setImages((values) => ({ ...values, [lang]: url }))} />
+        {lang === 'en' && !images.en && images.ru && <p className="aa-ed-note">Используется фон русской версии.</p>}
+      </div>
+      <footer className="aa-ed-modal__footer">
+        <div className="aa-ed-modal__buttons">
+          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={onClose}>Отмена</button>
+          <button type="submit" className="aa-ed-btn aa-ed-btn--sm aa-ed-modal__apply">Применить</button>
+        </div>
+      </footer>
+    </form>}
+  </ResourceEditDialog>;
+}
+
 /* ============ история версий ============ */
 function HistoryPanel({ onRestore }) {
   const [items, setItems] = useState(null);
@@ -823,6 +987,7 @@ function App() {
   const [editing, setEditing] = useState(true);
   const [previewPage, setPreviewPage] = useState('home');
   const [panel, setPanel] = useState(null); // { type: 'section'|'item'|'leads'|'library'|'history', ... }
+  const [resourceEditor, setResourceEditor] = useState(null);
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 900px)').matches);
   const [newLeads, setNewLeads] = useState(0);
   const [status, setStatus] = useState(null); // { text, tone }
@@ -996,7 +1161,7 @@ function App() {
       },
       openItem: (list, key, kind) => {
         const section = list.split('.')[0];
-        const back = kind === 'resource' ? { type: 'resources' } : { type: 'section', p: section, kind: section, back: { type: 'sections' } };
+        const back = { type: 'section', p: section, kind: section, back: { type: 'sections' } };
         openPanel({ type: 'item', p: list + '.' + key, kind, back });
       },
       openSection: (p, kind, group) => openPanel({ type: 'section', p, kind, group, back: { type: 'sections' } }),
@@ -1028,13 +1193,41 @@ function App() {
     scrollTarget.current = 'top';
     setPreviewPage('resources');
     setEditing(true);
-    openPanel({ type: 'resources', back: { type: 'sections' } });
-  };
-  const goToResourceArea = (id, focus) => {
-    scrollTarget.current = { id, focus };
     closePanel(false);
   };
-  const openResourceBackground = () => openPanel({ type: 'section', p: 'resources', kind: 'resourceBackground', back: { type: 'resources', back: { type: 'sections' } } });
+  const closeResourceEditor = () => setResourceEditor(null);
+  const resourceToEdit = content.resources?.items?.find(({ id }) => id === resourceEditor?.id);
+  const applyResource = (item, translation, position) => {
+    D.update((draft) => {
+      const rows = draft.resources?.items || [];
+      const index = rows.findIndex(({ id }) => id === item.id);
+      if (resourceEditor.type === 'edit' && index < 0) return draft;
+      const next = rows.filter(({ id }) => id !== item.id);
+      next.splice(position, 0, item);
+      let updated = setIn(draft, 'resources.items', next);
+      if (translation) updated = { ...updated, en: setTr(updated.en, updated, ['resources', 'items', '@' + item.id], translation) };
+      return updated;
+    }, { snapshot: true });
+    closeResourceEditor();
+  };
+  const removeResource = () => {
+    const id = resourceEditor.id;
+    D.update((draft) => {
+      const rows = draft.resources.items.filter((item) => item.id !== id);
+      const translations = draft.en?.resources?.items;
+      const next = setIn(draft, 'resources.items', rows);
+      return Array.isArray(translations) ? setIn(next, 'en.resources.items', translations.filter((item) => item?.id !== id)) : next;
+    }, { snapshot: true });
+    closeResourceEditor();
+  };
+  const applyResourceBackground = (images) => {
+    D.update((draft) => {
+      if ((draft.resources?.backgroundImage || '') === images.ru && (draft.en?.resources?.backgroundImage || '') === images.en) return draft;
+      const next = setIn(draft, 'resources.backgroundImage', images.ru);
+      return setIn(next, 'en.resources.backgroundImage', images.en);
+    }, { snapshot: true });
+    closeResourceEditor();
+  };
   const goToSection = ({ kind, id }) => {
     scrollTarget.current = { id, focus: '.aa-ed-section' };
     setPreviewPage('home');
@@ -1078,20 +1271,6 @@ function App() {
       panelBody = <FormPanel spec={{ p: panel.p, fields: spec.fields }} ed={ed} content={content}
         collapsible={panel.kind === 'work'} openGroup={panel.kind === 'work' ? 'Карточка' : undefined} />;
     }
-    else if (panel.type === 'resources') {
-      panelTitle = SECTIONS.resources.title;
-      panelBody = <>
-        <div className="aa-ed-resource-jumps">
-          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost"
-            onClick={() => goToResourceArea('resource-hero', '.aa-ed-text')}>К тексту страницы ↑</button>
-          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost" onClick={openResourceBackground}>Фон страницы</button>
-          <button type="button" className="aa-ed-btn aa-ed-btn--sm aa-ed-btn--ghost"
-            onClick={() => goToResourceArea('resource-filters', '.aa-ed-filter-rename, .aa-ed-filter-add')}>К фильтрам на странице ↓</button>
-        </div>
-        <CatalogItems section="resources" items={view.resources?.items} ed={ed} />
-        <FormPanel spec={{ p: 'resources', fields: SECTIONS.resources.fields }} ed={ed} content={content} />
-      </>;
-    }
     else if (panel.type === 'leads') { panelTitle = 'Заявки'; panelBody = <LeadsPanel onCount={setNewLeads} />; }
     else if (panel.type === 'history') { panelTitle = 'История версий'; panelBody = <HistoryPanel onRestore={(c) => { D.update(() => c, { snapshot: true }); flash('Версия в черновике. Сохрани, чтобы опубликовать.'); }} />; }
     else if (panel.type === 'library') { panelTitle = panel.pick ? 'Выбор файла' : 'Загруженные файлы'; panelBody = <LibraryPanel accept={panel.accept} onPick={panel.pick ? (url) => { panel.pick(url); if (panel.back) setPanel(panel.back); else closePanel(); } : null} />; }
@@ -1106,12 +1285,13 @@ function App() {
   </div>;
   return <div ref={appRef} className={cx('aa-ed-app', editing && 'is-editing', panel && 'has-panel')}>
     <div ref={canvasRef} className="aa-ed-canvas">{previewPage === 'resources' ? <AA.ResourcesPage key={lang} content={view} lang={lang} onLanguageChange={setLang} preview
-      selectedResource={editing && panel?.kind === 'resource' ? selectedItem : undefined}
       renderHeroText={editing ? ed.text : undefined}
-      heroActions={editing && <button type="button" className="aa-ed-section aa-ed-resource-bg aa-label" onClick={openResourceBackground}>
+      heroActions={editing && <button type="button" className="aa-ed-section aa-ed-resource-bg aa-label" aria-haspopup="dialog"
+        onClick={() => setResourceEditor({ type: 'background' })}>
         <span aria-hidden="true">✎</span> Фон
       </button>}
-      onEditItem={editing ? (id) => ed.openItem('resources.items', '@' + id, 'resource') : undefined}
+      onEditItem={editing ? (id) => setResourceEditor({ type: 'edit', id }) : undefined}
+      onAddItem={editing ? () => setResourceEditor({ type: 'add' }) : undefined}
       renderFilter={editing ? (kind, options, renderOption) => <ResourceFilterEditor content={content} ed={ed} kind={kind} options={options} renderOption={renderOption} /> : undefined}
       onNavigateHome={(id) => {
       scrollTarget.current = id;
@@ -1123,6 +1303,12 @@ function App() {
             if (editing) openResources(); else { scrollTarget.current = 'top'; setPreviewPage('resources'); }
           }} onSubmitLead={editing ? () => Promise.reject(new Error('preview')) : () => new Promise((r) => setTimeout(r, 600))} />
         </AA.EditContext.Provider>}</div>
+
+    {resourceEditor?.type === 'background' && <ResourceBackgroundEditor content={content} lang={lang}
+      onClose={closeResourceEditor} onApply={applyResourceBackground} />}
+    {(resourceEditor?.type === 'add' || resourceToEdit) && <ResourceItemEditor content={content}
+      item={resourceToEdit} lang={lang}
+      onClose={closeResourceEditor} onApply={applyResource} onRemove={removeResource} />}
 
     {panel && <aside id="aa-editor-panel" className="aa-ed-panel" data-theme="other" aria-labelledby="aa-editor-title" ref={panelRef} tabIndex={-1}>
       <header className="aa-ed-panel__h">
