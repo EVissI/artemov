@@ -528,7 +528,7 @@
 .aa-poster__frame::before { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
 .aa-poster__frame::after { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
 .aa-poster__media { position: absolute; inset: 0; }
-.aa-poster__media img, .aa-poster__media video { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.35) brightness(.9); }
+.aa-poster__media img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.35) brightness(.9); }
 .aa-poster__media::after { content: ""; position: absolute; inset: 0; background: var(--ash); mix-blend-mode: multiply; }
 .aa-poster__ph { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden;
   background:
@@ -565,6 +565,10 @@
 .aa-modal__desc { margin-top: var(--space-4); color: var(--ink-muted); max-width: 70ch; }
 .aa-modal__close { background: none; border: 1px solid var(--ash); color: var(--ash); min-height: 40px; padding: 0 14px; cursor: pointer; }
 .aa-work-video__host { position: absolute; inset: 0; }
+.aa-hover-highlights { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.aa-hover-highlights video, .aa-hover-highlights iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.aa-hover-highlights video { object-fit: cover; }
+.aa-hover-highlights:not(.is-playing) :is(video, iframe) { visibility: hidden; }
 .aa-moments-modes { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
 .aa-moments-modes button, .aa-moments__caption button {
   background: transparent; border: 1px solid #6c5146; color: #eee4dc;
@@ -913,7 +917,8 @@
 @container (max-width: 900px) { .aa-inv-bg { --inv-lx: 50%; } }
 .aa-inv__head { margin-bottom: var(--space-5); align-items: flex-end; }
 .aa-inv__intro { max-width: 40ch; color: var(--ui-text); font-family: var(--font-serif); font-size: 18px; line-height: 1.5; }
-.aa-inv__tabs { display: flex; flex-wrap: wrap; gap: 6px 34px; margin-bottom: var(--space-6); padding-bottom: 6px; }
+.aa-inv__filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 18px; margin-bottom: var(--space-6); }
+.aa-inv__tabs { display: flex; flex-wrap: wrap; gap: 6px 34px; padding-bottom: 6px; }
 .aa-inv__tab { position: relative; background: none; border: 0; padding: 8px 0 14px; cursor: pointer; color: #8c8c8c;
   font-family: var(--font-serif); font-size: 19px; letter-spacing: .12em; text-transform: uppercase; }
 .aa-inv__tab:hover { color: var(--ui-hi); }
