@@ -79,6 +79,9 @@ const UI = {
     allPlatforms: 'Все платформы', allTypes: 'Все типы', resourceCount: 'Найдено: {n} из {m}', resourceEmpty: 'Ресурсы не найдены', resourceHint: 'Попробуй другой запрос или сбрось фильтры.', resourceReset: 'Сбросить', resourceSoftware: 'Программа', resourceSource: 'Источник',
     intro: 'Вступление', watch: 'Смотреть', worksCats: 'Категории работ', worksShown: 'Показано работ: ', worksList: 'Работы', all: 'Все',
     catEmpty: 'В этой категории пока пусто', still: 'Кадр из работы', closeX: 'Закрыть ✕', noSignal: 'Сигнал отсутствует', openYt: 'Открыть на YouTube ↗',
+    highlights: 'Лучшие моменты', fullVideo: 'Весь ролик', highlightNumber: 'Момент {number} из {total}',
+    replayHighlights: 'Смотреть моменты снова', highlightError: 'Не удалось воспроизвести отрезки. Попробуй открыть весь ролик.',
+    previousHighlight: 'Предыдущий момент', nextHighlight: 'Следующий момент',
     protocol: 'Протокол №', task: 'Задача', done: 'Сделано', result: 'Результат', before: 'было', after: 'стало', watchWork: 'смотреть работу →',
     journal: 'журнал', casesAt: 'Кейсы: запись {n} из {m}', record: 'запись {n} из {m}', prevPage: 'Предыдущая страница', nextPage: 'Следующая страница',
     errName: 'Назови себя - хотя бы две буквы', errContactEmpty: 'Оставь @username или email', errContact: 'Нужен @username в Telegram или email',
@@ -99,6 +102,9 @@ const UI = {
     allPlatforms: 'All platforms', allTypes: 'All types', resourceCount: 'Showing {n} of {m}', resourceEmpty: 'No resources found', resourceHint: 'Try a different search or reset the filters.', resourceReset: 'Reset', resourceSoftware: 'Software', resourceSource: 'Source',
     intro: 'Intro', watch: 'Watch', worksCats: 'Work categories', worksShown: 'Works shown: ', worksList: 'Works', all: 'All',
     catEmpty: 'Nothing in this category yet', still: 'Still from', closeX: 'Close ✕', noSignal: 'No signal', openYt: 'Open on YouTube ↗',
+    highlights: 'Highlights', fullVideo: 'Full video', highlightNumber: 'Highlight {number} of {total}',
+    replayHighlights: 'Replay highlights', highlightError: 'Could not play highlights. Try opening the full video.',
+    previousHighlight: 'Previous highlight', nextHighlight: 'Next highlight',
     protocol: 'Record No.', task: 'Task', done: 'Done', result: 'Result', before: 'before', after: 'after', watchWork: 'watch the work →',
     journal: 'journal', casesAt: 'Cases: record {n} of {m}', record: 'record {n} of {m}', prevPage: 'Previous page', nextPage: 'Next page',
     errName: 'Your name - at least two letters', errContactEmpty: 'Leave a @username or an email', errContact: 'Need a Telegram @username or an email',
@@ -135,7 +141,18 @@ function overlay(base, t) {
 export function localize(content, lang) {
   if (!content || lang !== 'en') return content;
   const { en, ...base } = content;
-  return { ...overlay(base, en || {}), en };
+  const localized = overlay(base, en || {});
+  if (en?.works?.items?.length && localized.works?.items) {
+    const originals = new Map(base.works.items.map((item) => [item.id, item]));
+    const translations = new Map(en.works.items.filter(Boolean).map((item) => [item.id, item]));
+    localized.works.items = localized.works.items.map((item) => {
+      const original = originals.get(item.id);
+      const translated = workVideoKey(item.videoUrl) !== workVideoKey(original?.videoUrl);
+      const highlights = translated ? translations.get(item.id)?.highlights : original?.highlights;
+      return { ...item, highlights };
+    });
+  }
+  return { ...localized, en };
 }
 /** Включён ли язык на сайте (русский - всегда). */
 export const langOn = (content, lang) => lang === 'ru' || !!(content && content.i18n && content.i18n[lang] && content.i18n[lang].enabled);
@@ -782,8 +799,210 @@ export function youtubeId(url) {
   return m ? m[1] : null;
 }
 
+export function workVideoKey(url) {
+  const id = youtubeId(url);
+  return id ? 'youtube:' + id : url?.trim() || '';
+}
+
+export function videoTime(seconds) {
+  const elapsed = Math.floor(seconds || 0);
+  const minutes = Math.floor(elapsed / 60);
+  return minutes + ':' + pad(elapsed % 60);
+}
+
+let youtubeApi;
+function loadYouTubeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (youtubeApi) return youtubeApi;
+  youtubeApi = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    const previous = window.onYouTubeIframeAPIReady;
+    const finish = (error) => {
+      clearTimeout(timeout);
+      window.onYouTubeIframeAPIReady = previous;
+      if (error) { script.remove(); reject(error); }
+      else resolve(window.YT);
+    };
+    const timeout = setTimeout(() => finish(new Error('YouTube API timeout')), 12000);
+    window.onYouTubeIframeAPIReady = () => { finish(); previous?.(); };
+    script.src = 'https://www.youtube.com/iframe_api';
+    script.onerror = () => finish(new Error('YouTube API unavailable'));
+    document.head.appendChild(script);
+  }).catch((error) => { youtubeApi = null; throw error; });
+  return youtubeApi;
+}
+
+function YouTubeWorkVideo({ id, title, request, onTime, onDuration, onClipEnd, onError }) {
+  const host = useRef(null);
+  const active = useRef(null);
+  const [player, setPlayer] = useState(null);
+  const callbacks = useRef(null);
+  callbacks.current = { onTime, onDuration, onClipEnd, onError };
+  useEffect(() => {
+    const container = host.current;
+    let instance;
+    let timer;
+    let stopped = false;
+    let ready = false;
+    loadYouTubeApi().then((YT) => {
+      if (stopped) return;
+      const frame = document.createElement('iframe');
+      const params = new URLSearchParams({ enablejsapi: '1', origin: location.origin, rel: '0', playsinline: '1' });
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?' + params;
+      frame.title = title;
+      frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+      frame.allowFullscreen = true;
+      container.appendChild(frame);
+      instance = new YT.Player(frame, { events: {
+        onReady: ({ target }) => {
+          if (stopped) return;
+          ready = true;
+          setPlayer(target);
+        },
+        onError: () => { if (!stopped) callbacks.current.onError?.(); },
+        onStateChange: ({ data }) => {
+          if (stopped || !active.current) return;
+          if (data === YT.PlayerState.PLAYING) active.current.played = true;
+          if (data === YT.PlayerState.ENDED && active.current.played && !active.current.ended) {
+            active.current.ended = true;
+            callbacks.current.onClipEnd?.();
+          }
+        },
+      } });
+      timer = setInterval(() => {
+        if (!ready) return;
+        const duration = instance.getDuration();
+        const position = instance.getCurrentTime();
+        if (duration > 0) callbacks.current.onDuration?.(duration);
+        if (Number.isFinite(position)) callbacks.current.onTime?.(position);
+        const clip = active.current;
+        if (!clip || clip.ended) return;
+        if ((duration > 0 && clip.start >= duration) || (clip.played && position >= clip.end)) {
+          clip.ended = true;
+          instance.pauseVideo();
+          callbacks.current.onClipEnd?.();
+        }
+      }, 200);
+    }).catch(() => { if (!stopped) callbacks.current.onError?.(); });
+    const readyTimeout = setTimeout(() => {
+      if (!ready && !stopped) callbacks.current.onError?.();
+    }, 15000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      clearTimeout(readyTimeout);
+      instance?.destroy();
+      container.replaceChildren();
+    };
+  }, [id, title]);
+  useEffect(() => {
+    if (!player || !request) return;
+    const { start, end, play } = request;
+    active.current = end == null ? null : { start, end, played: false, ended: false };
+    if (play) {
+      const video = { videoId: id, startSeconds: start };
+      if (end != null) video.endSeconds = end;
+      player.loadVideoById(video);
+    } else {
+      player.pauseVideo();
+      player.seekTo(start, true);
+    }
+  }, [player, request, id]);
+  return <div ref={host} className="aa-work-video__host" />;
+}
+
+function FileWorkVideo({ url, poster, request, onTime, onDuration, onClipEnd, onError }) {
+  const video = useRef(null);
+  const [ready, setReady] = useState(false);
+  const ended = useRef(false);
+  useLayoutEffect(() => {
+    if (!ready || !request) return;
+    const el = video.current;
+    ended.current = false;
+    if (request.end != null && request.start >= el.duration) {
+      ended.current = true;
+      el.pause();
+      onClipEnd?.();
+      return;
+    }
+    el.currentTime = Math.min(request.start, el.duration || request.start);
+    if (request.play) el.play().catch(() => {});
+    else el.pause();
+  }, [ready, request]);
+  const finish = () => {
+    if (request?.end == null || ended.current) return;
+    ended.current = true;
+    video.current.pause();
+    onClipEnd?.();
+  };
+  return <video ref={video} controls playsInline preload="metadata" poster={poster || undefined}
+    onLoadedMetadata={(e) => { onDuration?.(e.currentTarget.duration); setReady(true); }}
+    onTimeUpdate={(e) => {
+      const { currentTime } = e.currentTarget;
+      onTime?.(currentTime);
+      if (currentTime >= request?.end) finish();
+    }}
+    onSeeking={(e) => {
+      const el = e.currentTarget;
+      if (!ended.current && request?.end != null && el.currentTime < request.start) el.currentTime = request.start;
+    }}
+    onPlay={(e) => {
+      const el = e.currentTarget;
+      if (!ended.current || request?.end == null) return;
+      if (request.start >= el.duration) { el.pause(); return; }
+      ended.current = false;
+      el.currentTime = request.start;
+    }}
+    onEnded={finish}
+    onError={onError}>{videoSources(url)}</video>;
+}
+
+export function WorkVideo(props) {
+  const id = youtubeId(props.url);
+  return id ? <YouTubeWorkVideo key={id} {...props} id={id} /> : <FileWorkVideo key={props.url} {...props} />;
+}
+
+export function MomentsTrack({ moments, duration, time, activeIndex, onPick, label }) {
+  const scale = Number.isFinite(duration) && duration > 0
+    ? duration
+    : Math.max(1, ...moments.map(({ end }) => end));
+  return <div className="aa-moments-track" role="group" aria-label={label}>
+    {moments.map(({ start, end }, index) => {
+      const left = Math.min(start / scale, 1);
+      const width = Math.max(0, Math.min(end / scale, 1) - left);
+      if (!width) return null;
+      const time = videoTime(start) + ' - ' + videoTime(end);
+      const style = { left: left * 100 + '%', width: width * 100 + '%' };
+      return onPick
+        ? <button key={index} type="button" aria-label={time} title={time} aria-pressed={activeIndex === index} style={style} onClick={() => onPick(index)} />
+        : <span key={index} title={time} style={style} />;
+    })}
+    {Number.isFinite(time) && <i className="aa-moments-track__position" aria-hidden="true" style={{ left: clamp(time / scale) * 100 + '%' }} />}
+  </div>;
+}
+
 export function VideoModal({ work, onClose, categoryLabel }) {
   const T = useT(); const closeRef = useRef(null); const prev = useRef(null);
+  const moments = work?.videoUrl && Array.isArray(work.highlights) ? work.highlights
+    .filter((clip) => clip && Number.isFinite(clip.start) && Number.isFinite(clip.end) && clip.start >= 0 && clip.end > clip.start)
+    .sort((a, b) => a.start - b.start) : [];
+  const [index, setIndex] = useState(moments.length ? 0 : -1);
+  const [replay, setReplay] = useState(0);
+  const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [time, setTime] = useState(null);
+  const clip = moments[index];
+  const request = useMemo(() => ({ start: clip?.start ?? 0, end: clip?.end, play: true }), [clip?.start, clip?.end, replay]);
+  const pick = (next) => {
+    setIndex(next);
+    setDone(false);
+    setReplay((value) => value + 1);
+  };
+  const advance = () => {
+    if (index + 1 < moments.length) pick(index + 1);
+    else setDone(true);
+  };
   useEffect(() => {
     prev.current = document.activeElement; closeRef.current && closeRef.current.focus();
     const onKey = (e) => { if (e.key === 'Escape') onClose && onClose(); };
@@ -799,11 +1018,30 @@ export function VideoModal({ work, onClose, categoryLabel }) {
         <div><span className="aa-micro aa-muted">{categoryLabel || work.category} · {work.year} · {work.format}</span><h2 className="aa-h3" id="aa-modal-t" style={{ marginTop: 6 }}>{work.title}</h2></div>
         <button type="button" ref={closeRef} className="aa-modal__close aa-label" onClick={onClose}>{T('closeX')}</button>
       </div>
+      {moments.length > 0 && <div className="aa-moments-modes" role="group" aria-label={T('highlights')}>
+        <button type="button" aria-pressed={index >= 0} disabled={failed}
+          onClick={() => { if (index < 0 || done) pick(0); }}>{T('highlights')}</button>
+        <button type="button" aria-pressed={index < 0} onClick={() => { if (index >= 0) pick(-1); }}>{T('fullVideo')}</button>
+      </div>}
       <div className="aa-modal__player" style={{ aspectRatio: vertical ? '9 / 16' : '16 / 9' }}>
-        {yt ? <iframe src={`https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&rel=0`} title={work.title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen loading="lazy"></iframe>
+        {moments.length > 0 && !failed ? <WorkVideo url={work.videoUrl} title={work.title} poster={work.previewImage} request={request}
+          onDuration={setDuration} onTime={setTime} onClipEnd={advance} onError={() => { setFailed(true); }} />
+          : yt ? <iframe src={`https://www.youtube-nocookie.com/embed/${yt}?autoplay=${index < 0 || !failed ? 1 : 0}&rel=0&playsinline=1`} title={work.title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen loading="lazy"></iframe>
           : work.videoUrl ? <video key={work.videoUrl} controls autoPlay playsInline poster={work.previewImage || undefined}>{videoSources(work.videoUrl)}</video>
             : <div className="aa-modal__nosignal"><div><Monogram variant="mark" /><p className="aa-label" style={{ marginTop: 12 }}>{T('noSignal')}</p><p className="aa-micro aa-muted" style={{ marginTop: 8 }}>Слот под видео: videoUrl (YouTube или файл)</p></div></div>}
       </div>
+      {moments.length > 0 && !failed && <div className="aa-moments">
+        <MomentsTrack moments={moments} duration={duration} time={time} activeIndex={index} onPick={pick} label={T('highlights')} />
+        {clip && <div className="aa-moments__caption">
+          <span aria-live="polite">{T('highlightNumber', { number: index + 1, total: moments.length })} · {videoTime(clip.start)} - {videoTime(clip.end)}</span>
+          {done && <button type="button" onClick={() => pick(0)}>{T('replayHighlights')}</button>}
+          {moments.length > 1 && <div className="aa-moments__arrows">
+            <button type="button" aria-label={T('previousHighlight')} disabled={index === 0} onClick={() => pick(index - 1)}>←</button>
+            <button type="button" aria-label={T('nextHighlight')} disabled={index === moments.length - 1} onClick={() => pick(index + 1)}>→</button>
+          </div>}
+        </div>}
+      </div>}
+      {failed && index >= 0 && <p className="aa-moments__caption" role="status">{T('highlightError')}</p>}
       {yt && <p className="aa-label" style={{ marginTop: 12 }}><a href={`https://www.youtube.com/watch?v=${yt}`} target="_blank" rel="noopener">{T('openYt')}</a></p>}
       {work.description && <p className="aa-modal__desc">{work.description}</p>}
     </div>
@@ -815,7 +1053,7 @@ export function VideoModal({ work, onClose, categoryLabel }) {
    справа «осмотр» выбранной: крупное превью (видео-превью само включается у выбранной через 220 мс),
    название, категория/формат/год, описание, кнопка «Смотреть» -> прежний плеер VideoModal.
    Наведение или тап выбирает ячейку (во время прокрутки main не ловит мышь - перерисовок на скролле нет),
-   стрелки двигают выбор по сетке, Enter/клик по выбранной открывает плеер. В админке на осмотре - слоты медиа. */
+   стрелки двигают выбор по сетке, Enter/клик по выбранной открывает плеер или форму редактирования. */
 const INV_COLS = 4, INV_MIN = 12;
 export function Works({ works = {}, id = 'works' }) {
   const ed = useEd(); const reduced = useReducedMotion(); const T = useT();
@@ -824,13 +1062,13 @@ export function Works({ works = {}, id = 'works' }) {
   useEffect(() => { setHost((secRef.current && secRef.current.closest('.aa-page')) || null); }, []);
   // в админке видны и черновики (published: false), они помечены
   const items = useMemo(() => (works.items || []).filter((w) => ed || w.published !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [works.items, ed]);
-  const selectedWork = ed?.selectedWork;
-  const selectedCategory = items.find((work) => work.id === selectedWork)?.category;
+  const selection = ed?.workSelection;
+  const selectedCategory = items.find((work) => work.id === selection?.id)?.category;
   useEffect(() => {
-    if (!selectedWork) return;
+    if (!selection || selectedCategory === undefined) return;
     setFilter((current) => current === selectedCategory ? current : 'all');
-    setSel(selectedWork);
-  }, [selectedWork, selectedCategory]);
+    setSel(selection.id);
+  }, [selection, selectedCategory]);
   const cats = works.categories || [];
   const catLabel = (cid) => (cats.find((c) => c.id === cid) || {}).label || cid;
   const shown = filter === 'all' ? items : items.filter((w) => w.category === filter);
@@ -870,8 +1108,10 @@ export function Works({ works = {}, id = 'works' }) {
               : <div key={'e' + k} className="aa-inv__slot aa-inv__slot--empty" aria-hidden="true"></div>;
             const on = cur && cur.id === w.id;
             return <button key={w.id} id={'inv-' + w.id} data-id={w.id} type="button" role="option" aria-selected={on} tabIndex={on ? 0 : -1}
+              aria-haspopup={ed ? 'dialog' : undefined}
               className={cx('aa-inv__slot', on && 'is-on', ed && w.published === false && 'aa-ed-draft')}
-              onMouseEnter={ed ? undefined : () => hoverPick(w)} onFocus={() => pick(w)} onClick={() => { if (ed) ed.openItem('works.items', '@' + w.id, 'work'); else if (on) setOpen(w); else pick(w); }}
+              onMouseEnter={ed ? undefined : () => hoverPick(w)} onFocus={() => pick(w)}
+              onClick={() => { if (ed) { pick(w); ed.openItem('works.items', '@' + w.id, 'work'); } else if (on) setOpen(w); else pick(w); }}
               aria-label={`${w.title}, ${catLabel(w.category)}, ${w.year}`}>
               {w.previewImage ? <img src={w.previewImage} alt="" loading="lazy" decoding="async" /> : <span className="aa-inv__ph" aria-hidden="true"><Monogram variant="mark" /></span>}
               <span className="aa-inv__badge" aria-hidden="true">{items.indexOf(w) + 1}</span>
@@ -887,9 +1127,9 @@ export function Works({ works = {}, id = 'works' }) {
   </section>;
 }
 
-// «осмотр» выбранной работы: крупное превью, подписи, кнопка в плеер; в админке - слоты медиа и редактируемый текст
+// «осмотр» выбранной работы: крупное превью, подписи и кнопка в плеер
 function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
-  const ed = useEd(); const T = useT(); const p = 'works.items.@' + work.id; const vertical = work.format === '9:16';
+  const ed = useEd(); const T = useT(); const vertical = work.format === '9:16';
   const [vid, setVid] = useState(false);
   useEffect(() => { if (!work.previewVideo || reduced || ed) return; const t = setTimeout(() => setVid(true), 220); return () => clearTimeout(t); }, [work.previewVideo, reduced, ed]);
   return <div className="aa-inv__detail">
@@ -899,14 +1139,11 @@ function InvDetail({ work, index, categoryLabel, reduced, onOpen }) {
         {work.previewImage && <img src={work.previewImage} alt={`${T('still')} «${work.title}»`} decoding="async" />}
         {vid && <video key={work.previewVideo} muted loop playsInline autoPlay preload="none" aria-hidden="true">{videoSources(work.previewVideo)}</video>}
         {!work.previewImage && !vid && <span className="aa-inv__ph" aria-hidden="true"><Monogram variant="watermark" /></span>}
-        {edEl(ed, 'slot', { p: p + '.previewImage', v: work.previewImage, accept: 'image', label: 'Превью ' + work.format })}
       </div>
     </div>
-    {edEl(ed, 'slot', { p: p + '.previewVideo', v: work.previewVideo, accept: 'video', label: 'Видео-превью (у выбранной)', compact: true })}
-    {edEl(ed, 'slot', { p: p + '.videoUrl', v: work.videoUrl, accept: 'video', label: 'Ролик в плеере', compact: true, link: true })}
     <p className="aa-inv__meta aa-micro">№ {pad(index + 1)} · {categoryLabel} · {work.format} · {work.year}</p>
-    <h3 className="aa-inv__title"><E p={p + '.title'} v={work.title} ph="Название" /></h3>
-    {(work.description || ed) && <p className="aa-inv__desc"><E p={p + '.description'} v={work.description} ph="Описание" /></p>}
+    <h3 className="aa-inv__title">{work.title}</h3>
+    {work.description && <p className="aa-inv__desc">{work.description}</p>}
     {!ed && <button type="button" className="aa-inv__play" onClick={() => onOpen && onOpen(work)}><span aria-hidden="true">▶</span> {T('watch')}</button>}
   </div>;
 }

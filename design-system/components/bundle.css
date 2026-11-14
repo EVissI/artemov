@@ -564,6 +564,40 @@
   background: repeating-linear-gradient(to bottom, rgba(227,165,150,.07) 0 2px, transparent 2px 4px), #0d0908; }
 .aa-modal__desc { margin-top: var(--space-4); color: var(--ink-muted); max-width: 70ch; }
 .aa-modal__close { background: none; border: 1px solid var(--ash); color: var(--ash); min-height: 40px; padding: 0 14px; cursor: pointer; }
+.aa-work-video__host { position: absolute; inset: 0; }
+.aa-moments-modes { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.aa-moments-modes button, .aa-moments__caption button {
+  background: transparent; border: 1px solid #6c5146; color: #eee4dc;
+  padding: 7px 10px; min-height: 38px; font: 15px/1.2 var(--font-serif); cursor: pointer;
+}
+.aa-moments-modes button[aria-pressed="true"] { background: #70322b; border-color: #ad6659; }
+.aa-moments-modes button:disabled { opacity: .55; cursor: default; }
+.aa-moments :is(button):focus-visible, .aa-moments-modes button:focus-visible { outline: 2px solid #f0c5ad; outline-offset: 2px; }
+.aa-moments { margin-block: 8px 12px; }
+.aa-moments-track {
+  position: relative; height: 28px;
+  background: linear-gradient(#594139, #594139) left center / 100% 2px no-repeat;
+}
+.aa-moments-track > :is(button, span) {
+  position: absolute; top: 0; height: 100%; padding: 0; border: 0; background: transparent;
+}
+.aa-moments-track > button { cursor: pointer; }
+.aa-moments-track > :is(button, span)::before {
+  content: ""; position: absolute; left: 0; right: 1px; top: 9px; bottom: 9px;
+  border-radius: 1px; background: #b76152;
+}
+.aa-moments-track > button:is([aria-pressed="true"], :hover)::before { background: #ffd0ad; }
+.aa-moments-track > button:focus-visible { outline: 2px solid #f0c5ad; outline-offset: 1px; z-index: 1; }
+.aa-moments-track__position {
+  position: absolute; top: 5px; bottom: 5px; width: 2px; background: #f5e6d6; pointer-events: none;
+}
+.aa-moments__caption {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  color: #d2b8aa; font: 14px/1.35 var(--font-serif);
+}
+.aa-moments__arrows { display: flex; gap: 4px; margin-left: auto; }
+.aa-moments__arrows button { min-width: 40px; }
+.aa-moments__arrows button:disabled { opacity: .45; cursor: default; }
 
 /* ---------- КЕЙСЫ: бирки / протоколы ---------- */
 .aa-cases { background-color: var(--void); }
