@@ -129,9 +129,8 @@ const UI = {
     all: "Все",
     catEmpty: "В этой категории пока пусто",
     still: "Кадр из работы",
-    closeX: "Закрыть ✕",
-    noSignal: "Сигнал отсутствует",
-    openYt: "Открыть на YouTube ↗",
+    videoUnavailable: "Видео недоступно",
+    openYt: "На YouTube",
     highlights: "Лучшие моменты",
     fullVideo: "Весь ролик",
     highlightNumber: "Момент {number} из {total}",
@@ -139,6 +138,7 @@ const UI = {
     highlightError: "Не удалось воспроизвести отрезки. Попробуй открыть весь ролик.",
     previousHighlight: "Предыдущий момент",
     nextHighlight: "Следующий момент",
+    playbackMode: "Режим просмотра",
     protocol: "Протокол №",
     task: "Задача",
     done: "Сделано",
@@ -219,9 +219,8 @@ const UI = {
     all: "All",
     catEmpty: "Nothing in this category yet",
     still: "Still from",
-    closeX: "Close ✕",
-    noSignal: "No signal",
-    openYt: "Open on YouTube ↗",
+    videoUnavailable: "Video unavailable",
+    openYt: "On YouTube",
     highlights: "Highlights",
     fullVideo: "Full video",
     highlightNumber: "Highlight {number} of {total}",
@@ -229,6 +228,7 @@ const UI = {
     highlightError: "Could not play highlights. Try opening the full video.",
     previousHighlight: "Previous highlight",
     nextHighlight: "Next highlight",
+    playbackMode: "Playback mode",
     protocol: "Record No.",
     task: "Task",
     done: "Done",
@@ -1315,8 +1315,11 @@ function MomentsTrack({ moments, duration, time, activeIndex, onPick, label }) {
 }
 function VideoModal({ work, onClose, categoryLabel }) {
   const T = useT();
+  const dialogRef = useRef(null);
   const closeRef = useRef(null);
-  const prev = useRef(null);
+  const backdropPress = useRef(false);
+  const titleId = React.useId();
+  const hasWork = Boolean(work);
   const moments = useMemo(() => workMoments(work), [work]);
   const [index, setIndex] = useState(moments.length ? 0 : -1);
   const [replay, setReplay] = useState(0);
@@ -1338,64 +1341,70 @@ function VideoModal({ work, onClose, categoryLabel }) {
     if (index + 1 < moments.length) pick(index + 1);
     else setDone(true);
   };
-  useEffect(() => {
-    prev.current = document.activeElement;
-    closeRef.current && closeRef.current.focus();
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose && onClose();
-    };
-    document.addEventListener("keydown", onKey);
+  useLayoutEffect(() => {
+    var _a;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const opener = document.activeElement;
+    dialog.showModal();
+    (_a = closeRef.current) == null ? void 0 : _a.focus({ preventScroll: true });
     return () => {
-      document.removeEventListener("keydown", onKey);
-      prev.current && prev.current.focus && prev.current.focus();
+      dialog.close();
+      if (opener == null ? void 0 : opener.isConnected) opener.focus({ preventScroll: true });
     };
-  }, []);
+  }, [hasWork]);
   if (!work) return null;
   const yt = youtubeId(work.videoUrl);
   const vertical = work.format === "9:16";
-  const trap = (e) => {
-    if (e.key !== "Tab") return;
-    const f = e.currentTarget.querySelectorAll('button, [href], iframe, video, [tabindex]:not([tabindex="-1"])');
-    if (!f.length) return;
-    const a = f[0], z = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === a) {
-      e.preventDefault();
-      z.focus();
-    } else if (!e.shiftKey && document.activeElement === z) {
-      e.preventDefault();
-      a.focus();
-    }
-  };
-  return /* @__PURE__ */ h("div", { className: "aa-modal", "data-theme": "other", role: "dialog", "aria-modal": "true", "aria-labelledby": "aa-modal-t", onMouseDown: (e) => {
-    if (e.target === e.currentTarget) onClose && onClose();
-  }, onKeyDown: trap }, /* @__PURE__ */ h("div", { className: cx("aa-modal__box", vertical && "aa-modal__box--v") }, /* @__PURE__ */ h("div", { className: "aa-modal__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("span", { className: "aa-micro aa-muted" }, categoryLabel || work.category, " · ", work.year, " · ", work.format), /* @__PURE__ */ h("h2", { className: "aa-h3", id: "aa-modal-t", style: { marginTop: 6 } }, work.title)), /* @__PURE__ */ h("button", { type: "button", ref: closeRef, className: "aa-modal__close aa-label", onClick: onClose }, T("closeX"))), moments.length > 0 && /* @__PURE__ */ h("div", { className: "aa-moments-modes", role: "group", "aria-label": T("highlights") }, /* @__PURE__ */ h(
-    "button",
+  const metadata = [categoryLabel || work.category, work.year, work.format].filter(Boolean).join(" · ");
+  return /* @__PURE__ */ h(
+    "dialog",
     {
-      type: "button",
-      "aria-pressed": index >= 0,
-      disabled: failed,
-      onClick: () => {
-        if (index < 0 || done) pick(0);
+      ref: dialogRef,
+      className: "aa-modal",
+      "data-theme": "other",
+      "aria-labelledby": titleId,
+      onCancel: (event) => {
+        event.preventDefault();
+        onClose == null ? void 0 : onClose();
+      },
+      onPointerDown: (event) => {
+        backdropPress.current = event.target === event.currentTarget;
+      },
+      onClick: (event) => {
+        if (backdropPress.current && event.target === event.currentTarget) onClose == null ? void 0 : onClose();
       }
     },
-    T("highlights")
-  ), /* @__PURE__ */ h("button", { type: "button", "aria-pressed": index < 0, onClick: () => {
-    if (index >= 0) pick(-1);
-  } }, T("fullVideo"))), /* @__PURE__ */ h("div", { className: "aa-modal__player", style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, moments.length > 0 && !failed ? /* @__PURE__ */ h(
-    WorkVideo,
-    {
-      url: work.videoUrl,
-      title: work.title,
-      poster: work.previewImage,
-      request,
-      onDuration: setDuration,
-      onTime: setTime,
-      onClipEnd: advance,
-      onError: () => {
-        setFailed(true);
+    /* @__PURE__ */ h("div", { className: "aa-modal__smoke", "aria-hidden": "true" }),
+    /* @__PURE__ */ h("div", { className: cx("aa-modal__box", vertical && "aa-modal__box--v") }, /* @__PURE__ */ h("header", { className: "aa-modal__head" }, /* @__PURE__ */ h("div", null, metadata && /* @__PURE__ */ h("p", { className: "aa-modal__meta" }, metadata), /* @__PURE__ */ h("h2", { id: titleId }, work.title)), /* @__PURE__ */ h("button", { type: "button", ref: closeRef, className: "aa-modal__close", "aria-label": T("close"), onClick: onClose }, "×")), /* @__PURE__ */ h("div", { className: cx("aa-modal__player", yt && "aa-modal__player--youtube") }, moments.length > 0 && !failed ? /* @__PURE__ */ h(
+      WorkVideo,
+      {
+        url: work.videoUrl,
+        title: work.title,
+        poster: work.previewImage,
+        request,
+        onDuration: setDuration,
+        onTime: setTime,
+        onClipEnd: advance,
+        onError: () => {
+          setFailed(true);
+        }
       }
-    }
-  ) : yt ? /* @__PURE__ */ h("iframe", { src: `https://www.youtube-nocookie.com/embed/${yt}?autoplay=${index < 0 || !failed ? 1 : 0}&rel=0&playsinline=1`, title: work.title, allow: "autoplay; encrypted-media; picture-in-picture; fullscreen", allowFullScreen: true, loading: "lazy" }) : work.videoUrl ? /* @__PURE__ */ h("video", { key: work.videoUrl, controls: true, autoPlay: true, playsInline: true, poster: work.previewImage || void 0 }, videoSources(work.videoUrl)) : /* @__PURE__ */ h("div", { className: "aa-modal__nosignal" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h(Monogram, { variant: "mark" }), /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, T("noSignal")), /* @__PURE__ */ h("p", { className: "aa-micro aa-muted", style: { marginTop: 8 } }, "Слот под видео: videoUrl (YouTube или файл)")))), moments.length > 0 && !failed && /* @__PURE__ */ h("div", { className: "aa-moments" }, /* @__PURE__ */ h(MomentsTrack, { moments, duration, time, activeIndex: index, onPick: pick, label: T("highlights") }), clip && /* @__PURE__ */ h("div", { className: "aa-moments__caption" }, /* @__PURE__ */ h("span", { "aria-live": "polite" }, T("highlightNumber", { number: index + 1, total: moments.length }), " · ", videoTime(clip.start), " - ", videoTime(clip.end)), done && /* @__PURE__ */ h("button", { type: "button", onClick: () => pick(0) }, T("replayHighlights")), moments.length > 1 && /* @__PURE__ */ h("div", { className: "aa-moments__arrows" }, /* @__PURE__ */ h("button", { type: "button", "aria-label": T("previousHighlight"), disabled: index === 0, onClick: () => pick(index - 1) }, "←"), /* @__PURE__ */ h("button", { type: "button", "aria-label": T("nextHighlight"), disabled: index === moments.length - 1, onClick: () => pick(index + 1) }, "→")))), failed && index >= 0 && /* @__PURE__ */ h("p", { className: "aa-moments__caption", role: "status" }, T("highlightError")), yt && /* @__PURE__ */ h("p", { className: "aa-label", style: { marginTop: 12 } }, /* @__PURE__ */ h("a", { href: `https://www.youtube.com/watch?v=${yt}`, target: "_blank", rel: "noopener" }, T("openYt"))), work.description && /* @__PURE__ */ h("p", { className: "aa-modal__desc" }, work.description)));
+    ) : yt ? /* @__PURE__ */ h("iframe", { src: `https://www.youtube-nocookie.com/embed/${yt}?autoplay=${index < 0 || !failed ? 1 : 0}&rel=0&playsinline=1`, title: work.title, allow: "autoplay; encrypted-media; picture-in-picture; fullscreen", allowFullScreen: true, loading: "lazy" }) : work.videoUrl ? /* @__PURE__ */ h("video", { key: work.videoUrl, controls: true, autoPlay: true, playsInline: true, poster: work.previewImage || void 0 }, videoSources(work.videoUrl)) : /* @__PURE__ */ h("div", { className: "aa-modal__nosignal" }, work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: "" }), /* @__PURE__ */ h("span", null, T("videoUnavailable")))), (moments.length > 0 || yt) && /* @__PURE__ */ h("div", { className: "aa-modal__tools" }, moments.length > 0 && /* @__PURE__ */ h("div", { className: "aa-moments-modes", role: "group", "aria-label": T("playbackMode") }, /* @__PURE__ */ h(
+      "button",
+      {
+        type: "button",
+        "aria-pressed": index >= 0,
+        disabled: failed,
+        onClick: () => {
+          if (index < 0 || done) pick(0);
+        }
+      },
+      T("highlights")
+    ), /* @__PURE__ */ h("button", { type: "button", "aria-pressed": index < 0, onClick: () => {
+      if (index >= 0) pick(-1);
+    } }, T("fullVideo"))), yt && /* @__PURE__ */ h("a", { className: "aa-modal__source", href: `https://www.youtube.com/watch?v=${yt}`, target: "_blank", rel: "noopener" }, T("openYt"), " ", /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "↗"))), moments.length > 0 && !failed && /* @__PURE__ */ h("div", { className: "aa-moments" }, /* @__PURE__ */ h(MomentsTrack, { moments, duration, time, activeIndex: index, onPick: pick, label: T("highlights") }), clip && /* @__PURE__ */ h("div", { className: "aa-moments__caption" }, /* @__PURE__ */ h("div", { className: "aa-moments__current", "aria-live": "polite" }, /* @__PURE__ */ h("span", null, T("highlightNumber", { number: index + 1, total: moments.length })), /* @__PURE__ */ h("span", { className: "aa-moments__time" }, videoTime(clip.start), " - ", videoTime(clip.end))), done && /* @__PURE__ */ h("button", { type: "button", onClick: () => pick(0) }, T("replayHighlights")), moments.length > 1 && /* @__PURE__ */ h("div", { className: "aa-moments__arrows" }, /* @__PURE__ */ h("button", { type: "button", "aria-label": T("previousHighlight"), disabled: index === 0, onClick: () => pick(index - 1) }, "←"), /* @__PURE__ */ h("button", { type: "button", "aria-label": T("nextHighlight"), disabled: index === moments.length - 1, onClick: () => pick(index + 1) }, "→")))), failed && index >= 0 && /* @__PURE__ */ h("p", { className: "aa-modal__status", role: "status" }, T("highlightError")), work.description && /* @__PURE__ */ h("p", { className: "aa-modal__desc" }, work.description))
+  );
 }
 const INV_COLS = 4, INV_MIN = 12;
 function Works({ works = {}, id = "works" }) {
@@ -1407,12 +1416,7 @@ function Works({ works = {}, id = "works" }) {
   const [open, setOpen] = useState(null);
   const [sel, setSel] = useState(null);
   const hover = useWorkHover();
-  const secRef = useRef(null);
-  const [host, setHost] = useState(null);
   const gridRef = useRef(null);
-  useEffect(() => {
-    setHost(secRef.current && secRef.current.closest(".aa-page") || null);
-  }, []);
   const items = useMemo(() => (works.items || []).filter((w) => ed || w.published !== false).sort((a, b) => {
     var _a2, _b;
     return ((_a2 = a.order) != null ? _a2 : 0) - ((_b = b.order) != null ? _b : 0);
@@ -1489,7 +1493,7 @@ function Works({ works = {}, id = "works" }) {
     label,
     /* @__PURE__ */ h("span", { className: "aa-inv__tabn" }, pad(n))
   );
-  return /* @__PURE__ */ h("section", { ref: secRef, className: "aa-section aa-works", id, "data-theme": "other", "data-header": "other", "aria-labelledby": id + "-h" }, edEl(ed, "section", { p: "works", kind: "works", label: "Работы" }), /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-section__head aa-inv__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("h2", { className: "aa-h2", id: id + "-h" }, /* @__PURE__ */ h(E, { p: "works.title", v: works.title })))), /* @__PURE__ */ h("div", { className: "aa-inv__filters" }, /* @__PURE__ */ h("div", { className: "aa-inv__tabs", role: "tablist", "aria-label": T("worksCats") }, tab("all", works.allLabel || T("all"), items.length), cats.filter((c) => ed || count(c.id) > 0).map((c) => tab(c.id, c.label, count(c.id)))), (ed == null ? void 0 : ed.openWorkCategories) && /* @__PURE__ */ h(
+  return /* @__PURE__ */ h("section", { className: "aa-section aa-works", id, "data-theme": "other", "data-header": "other", "aria-labelledby": id + "-h" }, edEl(ed, "section", { p: "works", kind: "works", label: "Работы" }), /* @__PURE__ */ h("div", { className: "aa-wrap" }, /* @__PURE__ */ h("div", { className: "aa-section__head aa-inv__head" }, /* @__PURE__ */ h("div", null, /* @__PURE__ */ h("h2", { className: "aa-h2", id: id + "-h" }, /* @__PURE__ */ h(E, { p: "works.title", v: works.title })))), /* @__PURE__ */ h("div", { className: "aa-inv__filters" }, /* @__PURE__ */ h("div", { className: "aa-inv__tabs", role: "tablist", "aria-label": T("worksCats") }, tab("all", works.allLabel || T("all"), items.length), cats.filter((c) => ed || count(c.id) > 0).map((c) => tab(c.id, c.label, count(c.id)))), (ed == null ? void 0 : ed.openWorkCategories) && /* @__PURE__ */ h(
     "button",
     {
       type: "button",
@@ -1544,10 +1548,7 @@ function Works({ works = {}, id = "works" }) {
       onPreview: !ed && !reduced && !open ? (event) => hover.enter(event, cur.id) : void 0,
       onPreviewEnd: clearHover
     }
-  ) : /* @__PURE__ */ h("div", { className: "aa-inv__detail aa-inv__detail--empty" }, /* @__PURE__ */ h("p", { className: "aa-label" }, ed ? "Добавьте работу" : T("catEmpty"))))), open && (() => {
-    const m = /* @__PURE__ */ h(VideoModal, { work: open, categoryLabel: catLabel(open.category), onClose: () => setOpen(null) });
-    return host && window.ReactDOM && window.ReactDOM.createPortal ? window.ReactDOM.createPortal(m, host) : m;
-  })());
+  ) : /* @__PURE__ */ h("div", { className: "aa-inv__detail aa-inv__detail--empty" }, /* @__PURE__ */ h("p", { className: "aa-label" }, ed ? "Добавьте работу" : T("catEmpty"))))), open && /* @__PURE__ */ h(VideoModal, { work: open, categoryLabel: catLabel(open.category), onClose: () => setOpen(null) }));
 }
 function InvDetail({ work, index, categoryLabel, preview, onPreview, onPreviewEnd, onOpen }) {
   const ed = useEd();
