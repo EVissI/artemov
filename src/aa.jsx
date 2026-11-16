@@ -78,10 +78,10 @@ const UI = {
     resources: 'Ресурсы', resourceSearch: 'Поиск ресурсов', resourcePlaceholder: 'Название, программа или тема', platform: 'Платформа', resourceType: 'Тип ресурса',
     allPlatforms: 'Все платформы', allTypes: 'Все типы', resourceCount: 'Найдено: {n} из {m}', resourceEmpty: 'Ресурсы не найдены', resourceHint: 'Попробуй другой запрос или сбрось фильтры.', resourceReset: 'Сбросить', resourceSoftware: 'Программа', resourceSource: 'Источник',
     intro: 'Вступление', watch: 'Смотреть', worksCats: 'Категории работ', worksShown: 'Показано работ: ', worksList: 'Работы', all: 'Все',
-    catEmpty: 'В этой категории пока пусто', still: 'Кадр из работы', closeX: 'Закрыть ✕', noSignal: 'Сигнал отсутствует', openYt: 'Открыть на YouTube ↗',
+    catEmpty: 'В этой категории пока пусто', still: 'Кадр из работы', videoUnavailable: 'Видео недоступно', openYt: 'На YouTube',
     highlights: 'Лучшие моменты', fullVideo: 'Весь ролик', highlightNumber: 'Момент {number} из {total}',
     replayHighlights: 'Смотреть моменты снова', highlightError: 'Не удалось воспроизвести отрезки. Попробуй открыть весь ролик.',
-    previousHighlight: 'Предыдущий момент', nextHighlight: 'Следующий момент',
+    previousHighlight: 'Предыдущий момент', nextHighlight: 'Следующий момент', playbackMode: 'Режим просмотра',
     protocol: 'Протокол №', task: 'Задача', done: 'Сделано', result: 'Результат', before: 'было', after: 'стало', watchWork: 'смотреть работу →',
     journal: 'журнал', casesAt: 'Кейсы: запись {n} из {m}', record: 'запись {n} из {m}', prevPage: 'Предыдущая страница', nextPage: 'Следующая страница',
     errName: 'Назови себя - хотя бы две буквы', errContactEmpty: 'Оставь @username или email', errContact: 'Нужен @username в Telegram или email',
@@ -101,10 +101,10 @@ const UI = {
     resources: 'Resources', resourceSearch: 'Search resources', resourcePlaceholder: 'Name, software or topic', platform: 'Platform', resourceType: 'Resource type',
     allPlatforms: 'All platforms', allTypes: 'All types', resourceCount: 'Showing {n} of {m}', resourceEmpty: 'No resources found', resourceHint: 'Try a different search or reset the filters.', resourceReset: 'Reset', resourceSoftware: 'Software', resourceSource: 'Source',
     intro: 'Intro', watch: 'Watch', worksCats: 'Work categories', worksShown: 'Works shown: ', worksList: 'Works', all: 'All',
-    catEmpty: 'Nothing in this category yet', still: 'Still from', closeX: 'Close ✕', noSignal: 'No signal', openYt: 'Open on YouTube ↗',
+    catEmpty: 'Nothing in this category yet', still: 'Still from', videoUnavailable: 'Video unavailable', openYt: 'On YouTube',
     highlights: 'Highlights', fullVideo: 'Full video', highlightNumber: 'Highlight {number} of {total}',
     replayHighlights: 'Replay highlights', highlightError: 'Could not play highlights. Try opening the full video.',
-    previousHighlight: 'Previous highlight', nextHighlight: 'Next highlight',
+    previousHighlight: 'Previous highlight', nextHighlight: 'Next highlight', playbackMode: 'Playback mode',
     protocol: 'Record No.', task: 'Task', done: 'Done', result: 'Result', before: 'before', after: 'after', watchWork: 'watch the work →',
     journal: 'journal', casesAt: 'Cases: record {n} of {m}', record: 'record {n} of {m}', prevPage: 'Previous page', nextPage: 'Next page',
     errName: 'Your name - at least two letters', errContactEmpty: 'Leave a @username or an email', errContact: 'Need a Telegram @username or an email',
@@ -1073,7 +1073,12 @@ export function MomentsTrack({ moments, duration, time, activeIndex, onPick, lab
 }
 
 export function VideoModal({ work, onClose, categoryLabel }) {
-  const T = useT(); const closeRef = useRef(null); const prev = useRef(null);
+  const T = useT();
+  const dialogRef = useRef(null);
+  const closeRef = useRef(null);
+  const backdropPress = useRef(false);
+  const titleId = React.useId();
+  const hasWork = Boolean(work);
   const moments = useMemo(() => workMoments(work), [work]);
   const [index, setIndex] = useState(moments.length ? 0 : -1);
   const [replay, setReplay] = useState(0);
@@ -1092,37 +1097,59 @@ export function VideoModal({ work, onClose, categoryLabel }) {
     if (index + 1 < moments.length) pick(index + 1);
     else setDone(true);
   };
-  useEffect(() => {
-    prev.current = document.activeElement; closeRef.current && closeRef.current.focus();
-    const onKey = (e) => { if (e.key === 'Escape') onClose && onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('keydown', onKey); prev.current && prev.current.focus && prev.current.focus(); };
-  }, []);
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const opener = document.activeElement;
+    dialog.showModal();
+    closeRef.current?.focus({ preventScroll: true });
+    return () => {
+      dialog.close();
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [hasWork]);
   if (!work) return null;
-  const yt = youtubeId(work.videoUrl); const vertical = work.format === '9:16';
-  const trap = (e) => { if (e.key !== 'Tab') return; const f = e.currentTarget.querySelectorAll('button, [href], iframe, video, [tabindex]:not([tabindex="-1"])'); if (!f.length) return; const a = f[0], z = f[f.length - 1]; if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); } };
-  return <div className="aa-modal" data-theme="other" role="dialog" aria-modal="true" aria-labelledby="aa-modal-t" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }} onKeyDown={trap}>
+  const yt = youtubeId(work.videoUrl);
+  const vertical = work.format === '9:16';
+  const metadata = [categoryLabel || work.category, work.year, work.format].filter(Boolean).join(' · ');
+  return <dialog ref={dialogRef} className="aa-modal" data-theme="other" aria-labelledby={titleId}
+    onCancel={(event) => { event.preventDefault(); onClose?.(); }}
+    onPointerDown={(event) => { backdropPress.current = event.target === event.currentTarget; }}
+    onClick={(event) => { if (backdropPress.current && event.target === event.currentTarget) onClose?.(); }}>
+    <div className="aa-modal__smoke" aria-hidden="true" />
     <div className={cx('aa-modal__box', vertical && 'aa-modal__box--v')}>
-      <div className="aa-modal__head">
-        <div><span className="aa-micro aa-muted">{categoryLabel || work.category} · {work.year} · {work.format}</span><h2 className="aa-h3" id="aa-modal-t" style={{ marginTop: 6 }}>{work.title}</h2></div>
-        <button type="button" ref={closeRef} className="aa-modal__close aa-label" onClick={onClose}>{T('closeX')}</button>
-      </div>
-      {moments.length > 0 && <div className="aa-moments-modes" role="group" aria-label={T('highlights')}>
-        <button type="button" aria-pressed={index >= 0} disabled={failed}
-          onClick={() => { if (index < 0 || done) pick(0); }}>{T('highlights')}</button>
-        <button type="button" aria-pressed={index < 0} onClick={() => { if (index >= 0) pick(-1); }}>{T('fullVideo')}</button>
-      </div>}
-      <div className="aa-modal__player" style={{ aspectRatio: vertical ? '9 / 16' : '16 / 9' }}>
+      <header className="aa-modal__head">
+        <div>
+          {metadata && <p className="aa-modal__meta">{metadata}</p>}
+          <h2 id={titleId}>{work.title}</h2>
+        </div>
+        <button type="button" ref={closeRef} className="aa-modal__close" aria-label={T('close')} onClick={onClose}>×</button>
+      </header>
+      <div className={cx('aa-modal__player', yt && 'aa-modal__player--youtube')}>
         {moments.length > 0 && !failed ? <WorkVideo url={work.videoUrl} title={work.title} poster={work.previewImage} request={request}
           onDuration={setDuration} onTime={setTime} onClipEnd={advance} onError={() => { setFailed(true); }} />
           : yt ? <iframe src={`https://www.youtube-nocookie.com/embed/${yt}?autoplay=${index < 0 || !failed ? 1 : 0}&rel=0&playsinline=1`} title={work.title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen loading="lazy"></iframe>
           : work.videoUrl ? <video key={work.videoUrl} controls autoPlay playsInline poster={work.previewImage || undefined}>{videoSources(work.videoUrl)}</video>
-            : <div className="aa-modal__nosignal"><div><Monogram variant="mark" /><p className="aa-label" style={{ marginTop: 12 }}>{T('noSignal')}</p><p className="aa-micro aa-muted" style={{ marginTop: 8 }}>Слот под видео: videoUrl (YouTube или файл)</p></div></div>}
+            : <div className="aa-modal__nosignal">
+              {work.previewImage && <img src={work.previewImage} alt="" />}
+              <span>{T('videoUnavailable')}</span>
+            </div>}
       </div>
+      {(moments.length > 0 || yt) && <div className="aa-modal__tools">
+        {moments.length > 0 && <div className="aa-moments-modes" role="group" aria-label={T('playbackMode')}>
+          <button type="button" aria-pressed={index >= 0} disabled={failed}
+            onClick={() => { if (index < 0 || done) pick(0); }}>{T('highlights')}</button>
+          <button type="button" aria-pressed={index < 0} onClick={() => { if (index >= 0) pick(-1); }}>{T('fullVideo')}</button>
+        </div>}
+        {yt && <a className="aa-modal__source" href={`https://www.youtube.com/watch?v=${yt}`} target="_blank" rel="noopener">{T('openYt')} <span aria-hidden="true">↗</span></a>}
+      </div>}
       {moments.length > 0 && !failed && <div className="aa-moments">
         <MomentsTrack moments={moments} duration={duration} time={time} activeIndex={index} onPick={pick} label={T('highlights')} />
         {clip && <div className="aa-moments__caption">
-          <span aria-live="polite">{T('highlightNumber', { number: index + 1, total: moments.length })} · {videoTime(clip.start)} - {videoTime(clip.end)}</span>
+          <div className="aa-moments__current" aria-live="polite">
+            <span>{T('highlightNumber', { number: index + 1, total: moments.length })}</span>
+            <span className="aa-moments__time">{videoTime(clip.start)} - {videoTime(clip.end)}</span>
+          </div>
           {done && <button type="button" onClick={() => pick(0)}>{T('replayHighlights')}</button>}
           {moments.length > 1 && <div className="aa-moments__arrows">
             <button type="button" aria-label={T('previousHighlight')} disabled={index === 0} onClick={() => pick(index - 1)}>←</button>
@@ -1130,11 +1157,10 @@ export function VideoModal({ work, onClose, categoryLabel }) {
           </div>}
         </div>}
       </div>}
-      {failed && index >= 0 && <p className="aa-moments__caption" role="status">{T('highlightError')}</p>}
-      {yt && <p className="aa-label" style={{ marginTop: 12 }}><a href={`https://www.youtube.com/watch?v=${yt}`} target="_blank" rel="noopener">{T('openYt')}</a></p>}
+      {failed && index >= 0 && <p className="aa-modal__status" role="status">{T('highlightError')}</p>}
       {work.description && <p className="aa-modal__desc">{work.description}</p>}
     </div>
-  </div>;
+  </dialog>;
 }
 
 /* ============ РАБОТЫ: инвентарь в духе Silent Hill ============
@@ -1148,8 +1174,7 @@ export function Works({ works = {}, id = 'works' }) {
   const ed = useEd(); const reduced = useReducedMotion(); const T = useT();
   const [filter, setFilter] = useState('all'); const [open, setOpen] = useState(null); const [sel, setSel] = useState(null);
   const hover = useWorkHover();
-  const secRef = useRef(null); const [host, setHost] = useState(null); const gridRef = useRef(null);
-  useEffect(() => { setHost((secRef.current && secRef.current.closest('.aa-page')) || null); }, []);
+  const gridRef = useRef(null);
   // в админке видны и черновики (published: false), они помечены
   const items = useMemo(() => (works.items || []).filter((w) => ed || w.published !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [works.items, ed]);
   const selection = ed?.workSelection;
@@ -1187,7 +1212,7 @@ export function Works({ works = {}, id = 'works' }) {
   };
   const tab = (key, label, n) => <button key={key} type="button" role="tab" aria-selected={activeFilter === key} className={cx('aa-inv__tab', activeFilter === key && 'is-on')}
     onClick={() => { clearHover(); setFilter(key); setSel(null); }}>{label}<span className="aa-inv__tabn">{pad(n)}</span></button>;
-  return <section ref={secRef} className="aa-section aa-works" id={id} data-theme="other" data-header="other" aria-labelledby={id + '-h'}>
+  return <section className="aa-section aa-works" id={id} data-theme="other" data-header="other" aria-labelledby={id + '-h'}>
     {edEl(ed, 'section', { p: 'works', kind: 'works', label: 'Работы' })}
     <div className="aa-wrap">
       <div className="aa-section__head aa-inv__head">
@@ -1228,7 +1253,7 @@ export function Works({ works = {}, id = 'works' }) {
           : <div className="aa-inv__detail aa-inv__detail--empty"><p className="aa-label">{ed ? 'Добавьте работу' : T('catEmpty')}</p></div>}
       </div>
     </div>
-    {open && (() => { const m = <VideoModal work={open} categoryLabel={catLabel(open.category)} onClose={() => setOpen(null)} />; return host && window.ReactDOM && window.ReactDOM.createPortal ? window.ReactDOM.createPortal(m, host) : m; })()}
+    {open && <VideoModal work={open} categoryLabel={catLabel(open.category)} onClose={() => setOpen(null)} />}
   </section>;
 }
 
