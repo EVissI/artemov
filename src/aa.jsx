@@ -789,7 +789,7 @@ export function PosterCard({ work, index = 0, categoryLabel, onOpen, p }) {
       </div>}
       <div className="aa-poster__vhs" aria-hidden="true"></div>
       <Rec className="aa-poster__rec" label="PLAY" />
-      {preview && <HoverHighlights work={work} moments={moments} />}
+      {preview && <HoverHighlights key={work.id} work={work} moments={moments} />}
       {edEl(ed, 'slot', { p: p + '.previewImage', v: work.previewImage, accept: 'image', label: 'Превью ' + work.format })}
     </div>
     {edEl(ed, 'slot', { p: p + '.videoUrl', v: work.videoUrl, accept: 'video', label: 'Ролик в плеере', compact: true, link: true })}
@@ -1247,7 +1247,7 @@ export function Works({ works = {}, id = 'works' }) {
             </button>;
           })}
         </div>
-        {cur ? <InvDetail key={cur.id} work={cur} index={items.indexOf(cur)} categoryLabel={catLabel(cur.category)} onOpen={openVideo}
+        {cur ? <InvDetail work={cur} items={items} categoryLabel={catLabel} onOpen={openVideo}
           preview={!ed && !reduced && !open && hover.id === cur.id}
           onPreview={!ed && !reduced && !open ? (event) => hover.enter(event, cur.id) : undefined} onPreviewEnd={clearHover} />
           : <div className="aa-inv__detail aa-inv__detail--empty"><p className="aa-label">{ed ? 'Добавьте работу' : T('catEmpty')}</p></div>}
@@ -1258,7 +1258,7 @@ export function Works({ works = {}, id = 'works' }) {
 }
 
 // «осмотр» выбранной работы: крупное превью, подписи и кнопка в плеер
-function InvDetail({ work, index, categoryLabel, preview, onPreview, onPreviewEnd, onOpen }) {
+function InvDetail({ work, items, categoryLabel, preview, onPreview, onPreviewEnd, onOpen }) {
   const ed = useEd(); const T = useT(); const vertical = work.format === '9:16';
   const moments = useMemo(() => workMoments(work), [work]);
   return <div className="aa-inv__detail">
@@ -1268,12 +1268,16 @@ function InvDetail({ work, index, categoryLabel, preview, onPreview, onPreviewEn
         onPointerEnter={moments.length ? onPreview : undefined} onPointerLeave={onPreviewEnd} onPointerCancel={onPreviewEnd}>
         {work.previewImage && <img src={work.previewImage} alt={`${T('still')} «${work.title}»`} decoding="async" />}
         {!work.previewImage && <span className="aa-inv__ph" aria-hidden="true"><Monogram variant="watermark" /></span>}
-        {preview && moments.length > 0 && <HoverHighlights work={work} moments={moments} />}
+        {preview && moments.length > 0 && <HoverHighlights key={work.id} work={work} moments={moments} />}
       </div>
     </div>
-    <p className="aa-inv__meta aa-micro">№ {pad(index + 1)} · {categoryLabel} · {work.format} · {work.year}</p>
-    <h3 className="aa-inv__title">{work.title}</h3>
-    {work.description && <p className="aa-inv__desc">{work.description}</p>}
+    <div className="aa-inv__captions">
+      {items.map((item, index) => <div key={item.id} aria-hidden={item.id !== work.id || undefined}>
+        <p className="aa-inv__meta aa-micro">№ {pad(index + 1)} · {categoryLabel(item.category)} · {item.format} · {item.year}</p>
+        <h3 className="aa-inv__title">{item.title}</h3>
+        {item.description && <p className="aa-inv__desc">{item.description}</p>}
+      </div>)}
+    </div>
     {!ed && <button type="button" className="aa-inv__play" onClick={() => onOpen && onOpen(work)}><span aria-hidden="true">▶</span> {T('watch')}</button>}
   </div>;
 }

@@ -1029,9 +1029,12 @@ html:has(.aa-modal[open]) { scrollbar-gutter: stable; }
 .aa-inv__fmt { position: absolute; left: 6px; bottom: 5px; font-family: var(--font-serif); font-size: 11px; letter-spacing: .08em; color: #9a9a9a; text-shadow: 0 1px 2px #000; }
 .aa-inv__detail { position: relative; min-width: 0; }
 .aa-inv__detail--empty { display: grid; place-items: center; min-height: 260px; color: var(--ui-dim); }
-.aa-inv__view { display: flex; justify-content: flex-start; }
+.aa-inv__captions { display: grid; }
+.aa-inv__captions > div { grid-area: 1 / 1; min-width: 0; overflow-wrap: anywhere; }
+.aa-inv__captions > [aria-hidden="true"] { visibility: hidden; }
+.aa-inv__view { display: flex; width: min(100%, 720px); aspect-ratio: 16 / 9; }
 .aa-inv__frame { position: relative; width: min(100%, 720px); overflow: hidden; background: #0d0c0b; box-shadow: 0 30px 60px -20px rgba(0,0,0,.9); }
-.aa-inv__view--v .aa-inv__frame { width: auto; height: min(62vh, 560px); }
+.aa-inv__view--v .aa-inv__frame { width: auto; height: 100%; }
 .aa-inv__frame img, .aa-inv__frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .aa-inv__frame::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 90px rgba(0,0,0,.85); }
 .aa-inv__frame .aa-inv__ph { color: #2c2826; }
@@ -1550,7 +1553,8 @@ html:has(.aa-res__dialog[open]) { overflow: hidden; }
   gap: clamp(32px, 7vw, 110px); padding-block: clamp(24px, 4vw, 56px);
   border-block: 1px solid var(--ui-rim); color: var(--ui-hi); font-family: var(--font-serif);
 }
-.aa-directory h2 { margin: 0; font-size: clamp(38px, 5vw, 78px); line-height: 1; overflow-wrap: anywhere; }
+.aa-directory header { container-type: inline-size; }
+.aa-directory h2 { margin: 0; font-size: clamp(26px, 14cqi, 78px); line-height: 1; overflow-wrap: break-word; }
 .aa-directory h2::after { content: ""; display: block; width: 3em; height: 8px; margin-top: 16px; background: url("tex/line.webp") left center / 100% 100% no-repeat; }
 .aa-directory header p { margin: 20px 0 0; max-width: 34ch; color: var(--ui-text); font-size: 18px; line-height: 1.5; }
 .aa-directory h3 { margin: 0 0 14px; color: var(--ui-text); font: 400 13px/1.4 var(--font-serif); letter-spacing: .14em; text-transform: uppercase; }
