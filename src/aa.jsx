@@ -1692,21 +1692,36 @@ export function Transmitter({ contact = {}, onSubmit, initialState = 'idle' }) {
     </form>}
   </div>;
 }
-export function Contact({ contact = {}, onSubmit, id = 'contact' }) {
-  const ed = useEd(); const T = useT();
-  return <section className="aa-section aa-contact" id={id} data-theme="other" data-header="other" aria-labelledby="contact-h">
-    {edEl(ed, 'section', { p: 'contact', kind: 'contact', label: 'Связь и форма' })}
+export function Contact({ contact = {}, id = 'contact' }) {
+  const ed = useEd();
+  const T = useT();
+  const titleId = React.useId();
+  return <section className="aa-section aa-contact" id={id} data-theme="other" data-header="other" aria-labelledby={titleId}>
+    {edEl(ed, 'section', { p: 'contact', kind: 'contact', label: 'Контакты' })}
     <div className="aa-wrap">
-      <div className="aa-contact__grid">
-        <Transmitter contact={contact} onSubmit={onSubmit} />
-        <aside className="aa-contact__aside" aria-label={T('channels')}>
-          <p className="aa-label" style={{ marginBottom: 12 }}><E p="contact.channelsTitle" v={contact.channelsTitle || (ed ? '' : T('channelsTitle'))} ph="Прямые частоты" /></p>
-          <ul className="aa-channels">
-            {(contact.channels || []).map((c, i) => <li key={c.id}>{c.url ? <a href={c.url} target="_blank" rel="noopener"><span className="aa-channels__n aa-micro">{pad(i + 1)}</span><span><span className="aa-micro aa-muted" style={{ display: 'block' }}><E p={'contact.channels.@' + c.id + '.label'} v={c.label} /></span><span className="aa-channels__v"><E p={'contact.channels.@' + c.id + '.value'} v={c.value} /></span></span><span aria-hidden="true">↗</span></a>
-              : <a aria-disabled="true" role="link"><span className="aa-channels__n aa-micro">{pad(i + 1)}</span><span><span className="aa-micro aa-muted" style={{ display: 'block' }}><E p={'contact.channels.@' + c.id + '.label'} v={c.label} /></span><span className="aa-channels__v"><E p={'contact.channels.@' + c.id + '.value'} v={c.value} /></span></span><span></span></a>}</li>)}
+      <div className="aa-directory">
+        <header>
+          <h2 className="aa-display" id={titleId}><E p="contact.title" v={contact.title || T('channels')} /></h2>
+          {(contact.lead || ed) && <p><E p="contact.lead" v={contact.lead} ph="Как с вами связаться" /></p>}
+        </header>
+        <div>
+          <h3><E p="contact.channelsTitle" v={contact.channelsTitle || T('channelsTitle')} /></h3>
+          <ul>
+            {(contact.channels || []).map(channel => {
+              const linked = channel.url && !ed;
+              const Row = linked ? 'a' : 'div';
+              const path = 'contact.channels.@' + channel.id;
+              return <li key={channel.id}>
+                <Row className="aa-directory__row" {...(linked ? { href: channel.url, target: '_blank', rel: 'noopener' } : {})}>
+                  <span><E p={path + '.label'} v={channel.label} /></span>
+                  <small><E p={path + '.value'} v={channel.value} /></small>
+                  {linked && <span aria-hidden="true" className="aa-directory__arrow">↗</span>}
+                </Row>
+              </li>;
+            })}
           </ul>
-          {(contact.asideNote || ed) && <span className="aa-micro"><E p="contact.asideNote" v={contact.asideNote} ph="Подпись" /></span>}
-        </aside>
+          {(contact.asideNote || ed) && <p className="aa-directory__note"><E p="contact.asideNote" v={contact.asideNote} ph="Подпись" /></p>}
+        </div>
       </div>
     </div>
   </section>;
@@ -2049,6 +2064,23 @@ export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNa
     const haystack = fields.join(' ').toLocaleLowerCase(lang);
     return search.every((word) => haystack.includes(word));
   });
+  const [limit, setLimit] = useState(12);
+  const moreRef = useRef(null);
+  const more = !preview && visible.length > limit;
+  useEffect(() => {
+    setLimit(12);
+  }, [filters.q, filters.platform, filters.type]);
+  useEffect(() => {
+    if (!more || !moreRef.current || !window.IntersectionObserver) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        observer.disconnect();
+        setLimit(count => count + 12);
+      }
+    }, { rootMargin: '240px' });
+    observer.observe(moreRef.current);
+    return () => observer.disconnect();
+  }, [more, limit]);
   const update = (next, open = false) => {
     if (!preview) {
       const url = new URL(window.location.href);
@@ -2119,7 +2151,7 @@ export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNa
             {filtered && <p>{T('resourceHint')}</p>}
           </div>}
           {(visible.length > 0 || onAddItem) && <ul className="aa-res__grid">
-            {visible.map((item) => <li key={item.id} className={cx('aa-res__card', onEditItem && 'aa-ed-resource-card')}>
+            {(preview ? visible : visible.slice(0, limit)).map((item) => <li key={item.id} className={cx('aa-res__card', onEditItem && 'aa-ed-resource-card')}>
               <button type="button" aria-haspopup="dialog" aria-label={onEditItem ? 'Редактировать: ' + item.title : undefined}
                 onClick={() => onEditItem ? onEditItem(item.id) : update({ ...filters, resource: item.id }, true)}>
                 <ResourceCover item={item} />
@@ -2142,6 +2174,9 @@ export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNa
               </button>
             </li>}
           </ul>}
+          {more && <button type="button" className="aa-res__reset" ref={moreRef} onClick={() => setLimit(count => count + 12)}>
+            {lang === 'en' ? 'Show more' : 'Показать ещё'}
+          </button>}
         </div>
       </div>
     </main>
@@ -2152,7 +2187,7 @@ export function ResourcesPage({ content = {}, lang = 'ru', preview = false, onNa
 }
 
 /* ============ ЛЕНДИНГ ============ */
-export function Landing({ content, contained = false, onSubmitLead, onNavigateResources, onLanguageChange, atmosphere = true, lang = 'ru', preview = false }) {
+export function Landing({ content, contained = false, onNavigateResources, onLanguageChange, atmosphere = true, lang = 'ru', preview = false }) {
   const c = content || {}; const reduced = useReducedMotion(); const lite = useLite();
   const rootRef = useRef(null);
   const [hdr, setHdr] = useState('other'); const [active, setActive] = useState(null); const [solid, setSolid] = useState(false);
@@ -2199,7 +2234,7 @@ export function Landing({ content, contained = false, onSubmitLead, onNavigateRe
         <Works works={c.works} />
         <Reviews reviews={c.reviews} />
         <Cases cases={c.cases} />
-        <Contact contact={c.contact} onSubmit={onSubmitLead || api.submitLead} />
+        <Contact contact={c.contact} />
       </Otherworld>
     </main>
     <Footer footer={c.footer} monogram={mono} onNavigate={nav} />

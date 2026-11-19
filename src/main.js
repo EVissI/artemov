@@ -70,8 +70,7 @@
       root.render(React.createElement(window.AA.LegalPage, { content: content, kind: doc, lang: lang }));
       return;
     }
-    var lead = function (v) { return window.AA.api.submitLead(v, { endpoint: cfg.leadEndpoint }); };
-    var draw = function () { root.render(React.createElement(window.AA.Landing, { content: content, lang: lang, onSubmitLead: lead })); };
+    var draw = function () { root.render(React.createElement(window.AA.Landing, { content: content, lang: lang })); };
     draw();
     // смена языка на месте (переключатель RU / EN, туман - в aa.jsx): без перезагрузки, адрес - через history
     var apply = function (l) {
