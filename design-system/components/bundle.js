@@ -992,7 +992,7 @@ function PosterCard({ work, index = 0, categoryLabel, onOpen, p }) {
     },
     edEl(ed, "tools", { list: "works.items", id: work.id, kind: "work", axis: "x" }),
     /* @__PURE__ */ h("div", { className: "aa-poster__top aa-micro", "aria-hidden": "true" }, /* @__PURE__ */ h("span", null, "№ ", pad(index + 1)), /* @__PURE__ */ h(Monogram, { variant: "mark" }), /* @__PURE__ */ h("span", null, work.year)),
-    /* @__PURE__ */ h("div", { className: cx("aa-poster__frame", vertical && "aa-poster__frame--v"), style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage ? /* @__PURE__ */ h("div", { className: "aa-poster__media" }, /* @__PURE__ */ h("img", { src: work.previewImage, alt: `Кадр из работы «${work.title}»`, loading: "lazy", decoding: "async" })) : /* @__PURE__ */ h("div", { className: "aa-poster__ph", role: "img", "aria-label": `Слот под превью ${work.format}` }, /* @__PURE__ */ h(Monogram, { variant: "watermark" }), /* @__PURE__ */ h("span", { className: "aa-micro" }, "Слот · превью ", work.format)), /* @__PURE__ */ h("div", { className: "aa-poster__vhs", "aria-hidden": "true" }), /* @__PURE__ */ h(Rec, { className: "aa-poster__rec", label: "PLAY" }), preview && /* @__PURE__ */ h(HoverHighlights, { work, moments }), edEl(ed, "slot", { p: p + ".previewImage", v: work.previewImage, accept: "image", label: "Превью " + work.format })),
+    /* @__PURE__ */ h("div", { className: cx("aa-poster__frame", vertical && "aa-poster__frame--v"), style: { aspectRatio: vertical ? "9 / 16" : "16 / 9" } }, work.previewImage ? /* @__PURE__ */ h("div", { className: "aa-poster__media" }, /* @__PURE__ */ h("img", { src: work.previewImage, alt: `Кадр из работы «${work.title}»`, loading: "lazy", decoding: "async" })) : /* @__PURE__ */ h("div", { className: "aa-poster__ph", role: "img", "aria-label": `Слот под превью ${work.format}` }, /* @__PURE__ */ h(Monogram, { variant: "watermark" }), /* @__PURE__ */ h("span", { className: "aa-micro" }, "Слот · превью ", work.format)), /* @__PURE__ */ h("div", { className: "aa-poster__vhs", "aria-hidden": "true" }), /* @__PURE__ */ h(Rec, { className: "aa-poster__rec", label: "PLAY" }), preview && /* @__PURE__ */ h(HoverHighlights, { key: work.id, work, moments }), edEl(ed, "slot", { p: p + ".previewImage", v: work.previewImage, accept: "image", label: "Превью " + work.format })),
     edEl(ed, "slot", { p: p + ".videoUrl", v: work.videoUrl, accept: "video", label: "Ролик в плеере", compact: true, link: true }),
     /* @__PURE__ */ h("h3", { className: "aa-h3 aa-poster__title" }, /* @__PURE__ */ h(E, { p: p + ".title", v: work.title, ph: "Название" })),
     /* @__PURE__ */ h("div", { className: "aa-poster__row" }, /* @__PURE__ */ h("span", { className: "aa-micro" }, categoryLabel || work.category, " · ", work.format), /* @__PURE__ */ h(Barcode, { seed: work.id, className: "aa-poster__code" })),
@@ -1539,10 +1539,9 @@ function Works({ works = {}, id = "works" }) {
   })), cur ? /* @__PURE__ */ h(
     InvDetail,
     {
-      key: cur.id,
       work: cur,
-      index: items.indexOf(cur),
-      categoryLabel: catLabel(cur.category),
+      items,
+      categoryLabel: catLabel,
       onOpen: openVideo,
       preview: !ed && !reduced && !open && hover.id === cur.id,
       onPreview: !ed && !reduced && !open ? (event) => hover.enter(event, cur.id) : void 0,
@@ -1550,7 +1549,7 @@ function Works({ works = {}, id = "works" }) {
     }
   ) : /* @__PURE__ */ h("div", { className: "aa-inv__detail aa-inv__detail--empty" }, /* @__PURE__ */ h("p", { className: "aa-label" }, ed ? "Добавьте работу" : T("catEmpty"))))), open && /* @__PURE__ */ h(VideoModal, { work: open, categoryLabel: catLabel(open.category), onClose: () => setOpen(null) }));
 }
-function InvDetail({ work, index, categoryLabel, preview, onPreview, onPreviewEnd, onOpen }) {
+function InvDetail({ work, items, categoryLabel, preview, onPreview, onPreviewEnd, onOpen }) {
   const ed = useEd();
   const T = useT();
   const vertical = work.format === "9:16";
@@ -1566,8 +1565,8 @@ function InvDetail({ work, index, categoryLabel, preview, onPreview, onPreviewEn
     },
     work.previewImage && /* @__PURE__ */ h("img", { src: work.previewImage, alt: `${T("still")} «${work.title}»`, decoding: "async" }),
     !work.previewImage && /* @__PURE__ */ h("span", { className: "aa-inv__ph", "aria-hidden": "true" }, /* @__PURE__ */ h(Monogram, { variant: "watermark" })),
-    preview && moments.length > 0 && /* @__PURE__ */ h(HoverHighlights, { work, moments })
-  )), /* @__PURE__ */ h("p", { className: "aa-inv__meta aa-micro" }, "№ ", pad(index + 1), " · ", categoryLabel, " · ", work.format, " · ", work.year), /* @__PURE__ */ h("h3", { className: "aa-inv__title" }, work.title), work.description && /* @__PURE__ */ h("p", { className: "aa-inv__desc" }, work.description), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-inv__play", onClick: () => onOpen && onOpen(work) }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "▶"), " ", T("watch")));
+    preview && moments.length > 0 && /* @__PURE__ */ h(HoverHighlights, { key: work.id, work, moments })
+  )), /* @__PURE__ */ h("div", { className: "aa-inv__captions" }, items.map((item, index) => /* @__PURE__ */ h("div", { key: item.id, "aria-hidden": item.id !== work.id || void 0 }, /* @__PURE__ */ h("p", { className: "aa-inv__meta aa-micro" }, "№ ", pad(index + 1), " · ", categoryLabel(item.category), " · ", item.format, " · ", item.year), /* @__PURE__ */ h("h3", { className: "aa-inv__title" }, item.title), item.description && /* @__PURE__ */ h("p", { className: "aa-inv__desc" }, item.description)))), !ed && /* @__PURE__ */ h("button", { type: "button", className: "aa-inv__play", onClick: () => onOpen && onOpen(work) }, /* @__PURE__ */ h("span", { "aria-hidden": "true" }, "▶"), " ", T("watch")));
 }
 function CaseTag({ item, index = 0, p }) {
   const ed = useEd();
