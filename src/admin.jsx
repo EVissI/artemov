@@ -234,24 +234,13 @@ const SECTIONS = {
   },
   cases: { title: 'Кейсы', fields: [{ k: 'title', label: 'Заголовок' }] },
   contact: {
-    title: 'Связь и форма',
+    title: 'Контакты',
     fields: [
-      { group: 'Вступление' },
-      { k: 'title', label: 'Заголовок формы' }, { k: 'lead', label: 'Текст над формой', t: 'textarea' }, { k: 'frequency', label: 'Строка на дисплее' },
-      { group: 'Поля формы' },
-      { k: 'fields.name.label', label: 'Имя: метка', half: true }, { k: 'fields.name.placeholder', label: 'подсказка', half: true },
-      { k: 'fields.contact.label', label: 'Контакт: метка', half: true }, { k: 'fields.contact.placeholder', label: 'подсказка', half: true },
-      { k: 'fields.message.label', label: 'Сообщение: метка', half: true }, { k: 'fields.message.placeholder', label: 'подсказка', half: true },
-      { k: 'submitLabel', label: 'Кнопка', half: true }, { k: 'sendingLabel', label: 'Во время отправки', half: true },
-      { group: 'Ответы формы' },
-      { k: 'successTitle', label: 'Успех: заголовок' }, { k: 'successText', label: 'Успех: текст', t: 'textarea' }, { k: 'successAgain', label: 'Кнопка «ещё»' }, { k: 'errorText', label: 'Текст ошибки', t: 'textarea' },
+      { k: 'title', label: 'Заголовок' }, { k: 'lead', label: 'Вступление', t: 'textarea' },
       { group: 'Каналы связи' },
       { k: 'channelsTitle', label: 'Заголовок колонки' },
       { k: 'channels', label: 'Каналы', t: 'list', make: () => ({ id: uid('ch'), label: '[Канал]', value: '[значение]', url: '' }), of: [{ k: 'label', label: 'Название', half: true }, { k: 'value', label: 'Что показать', half: true }, { k: 'url', label: 'Ссылка (пусто - без ссылки)', t: 'url' }] },
       { k: 'asideNote', label: 'Подпись под каналами' },
-      { group: 'Согласие у формы (152-ФЗ)' },
-      { k: 'consentText', label: 'Подпись у галочки: {consent:слово} - ссылка на согласие, {privacy:слово} - на политику', t: 'textarea' },
-      { k: 'consentError', label: 'Ошибка без галочки' },
     ],
   },
   legal: {
@@ -1757,7 +1746,7 @@ function App() {
       : <AA.EditContext.Provider value={editing ? editContext : null}>
           <AA.Landing key={lang} content={view} lang={lang} onLanguageChange={setLang} preview onNavigateResources={() => {
             if (editing) openResources(); else { scrollTarget.current = 'top'; setPreviewPage('resources'); }
-          }} onSubmitLead={editing ? () => Promise.reject(new Error('preview')) : () => new Promise((r) => setTimeout(r, 600))} />
+          }} />
         </AA.EditContext.Provider>}</div>
 
     {workEditor && (!workEditor.id || workToEdit) && <WorkEditor content={content} item={workToEdit}

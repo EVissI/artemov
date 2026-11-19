@@ -11,13 +11,26 @@
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/aa.css">
 <style>html,body{margin:0;background:#0c0a09}html{scroll-behavior:smooth;scrollbar-gutter:stable}/* место под полосу прокрутки занято всегда: когда прелоадер/туман снимает блокировку прокрутки, ширина страницы не меняется и она не перерисовывается целиком посреди анимации */@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}</style>
-<script>document.documentElement.classList.add('aa-js','aa-preloading');try{if(sessionStorage.getItem('aa-fog')==='1'){sessionStorage.removeItem('aa-fog');document.documentElement.classList.add('aa-fogin');}}catch(e){}</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var resources = /^(?:\/en)?\/resources\/?$/.test(location.pathname);
+  root.classList.add('aa-js', resources ? 'aa-resource-route' : 'aa-preloading');
+  try {
+    if (sessionStorage.getItem('aa-fog') === '1') {
+      sessionStorage.removeItem('aa-fog');
+      if (!resources) root.classList.add('aa-fogin');
+    }
+  } catch (e) {}
+})();
+</script>
 <style>
 /* ПРЕЛОАДЕР в духе экрана загрузки SH2: темнота, плывущий туман, мерцающая монограмма, рваная красная полоса прогресса.
    Ждёт всю страницу (load, шрифты, видео и логотип hero) и только тогда пускает на сайт. Только opacity/transform.
    Без JS не показывается (класс aa-js). Логика - скрипт сразу после разметки в <body>. */
 .aa-pre{display:none}
 .aa-js .aa-pre{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#0a0908;overflow:hidden;transition:opacity .9s ease,visibility 0s linear .9s}
+.aa-resource-route #aa-pre{display:none}
 .aa-preloading,.aa-preloading body{overflow:hidden}
 .aa-pre.is-done{opacity:0;visibility:hidden;pointer-events:none}
 .aa-pre__fog{position:absolute;inset:-30%;pointer-events:none;opacity:.55;
@@ -76,6 +89,7 @@
    Страховка: не дольше 15 секунд. Счётчик через rAF пишет в DOM напрямую. */
 (function () {
   var el = document.getElementById('aa-pre'); if (!el) return;
+  if (document.documentElement.classList.contains('aa-resource-route')) { el.remove(); return; }
   var root = document.documentElement, en = root.lang === 'en', fog = root.classList.contains('aa-fogin'); // fog - пришли сменой языка
   var lbl = el.querySelector('.aa-pre__lbl'), num = el.querySelector('.aa-pre__n'), bar = el.querySelector('.aa-pre__bar i');
   if (en) { lbl.textContent = 'Loading'; el.setAttribute('aria-label', 'Loading'); }
